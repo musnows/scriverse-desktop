@@ -25,7 +25,7 @@
         <div>
           <span class="eyebrow">工作区</span>
           <h1 id="selector-title">选择工作区</h1>
-          <p>在本机独立创作，或连接你信任的 Scriverse Server。每个 Server 的登录态与离线数据相互隔离。</p>
+          <p>选择本地工作区，或连接 Scriverse Server。</p>
         </div>
         <button id="add-profile-button" class="primary-button" type="button" aria-haspopup="dialog" aria-controls="profile-dialog">
           <span aria-hidden="true">＋</span> 新增 Server
@@ -47,7 +47,7 @@
       </section>
 
       <footer class="app-footer">
-        <span>本地数据与独立部署 Server 完全隔离</span>
+        <span>本地与远端工作区</span>
         <span id="runtime-meta" class="runtime-meta">Desktop v—</span>
       </footer>
     </main>
@@ -67,10 +67,10 @@
             <input id="profile-name" name="name" type="text" minlength="1" maxlength="80" autocomplete="off" required placeholder="例如：创作主站">
           </label>
           <label>
-            <span>Server URL</span>
+            <span>Server 地址</span>
             <input id="profile-origin" class="mono" name="origin" type="url" maxlength="2048" inputmode="url" autocomplete="url" required placeholder="https://example.com">
           </label>
-          <p id="origin-preview" class="field-note" aria-live="polite">只填写 HTTP(S) origin，不要包含路径、查询参数、用户名或密码。</p>
+          <p id="origin-preview" class="field-note" aria-live="polite">例如 https://example.com；不要附加页面路径。</p>
           <p id="profile-form-error" class="form-error" role="alert" hidden></p>
         </div>
         <div class="dialog-actions">
@@ -126,7 +126,6 @@
           <button class="dialog-close" type="button" data-local-setup-close aria-label="关闭">×</button>
         </div>
         <div class="dialog-fields">
-          <p class="setup-safety-note">创建这台设备上的首位管理员。凭据只通过 Desktop 安全进程通道提交，本机不会保存明文密码。</p>
           <label>
             <span>管理员用户名</span>
             <input id="local-username" name="username" type="text" minlength="3" maxlength="40" autocomplete="username" required placeholder="3–40 个文字、数字或 . _ -">
@@ -158,7 +157,6 @@
           <button class="dialog-close" type="button" data-local-login-close aria-label="关闭">×</button>
         </div>
         <div class="dialog-fields">
-          <p class="setup-safety-note">Desktop 直接调用本机服务登录并保存 Bearer 会话，不使用浏览器 Cookie。</p>
           <label>
             <span>用户名</span>
             <input id="local-login-username" name="username" type="text" maxlength="100" autocomplete="username" required>
@@ -190,7 +188,7 @@
             <span>首选端口</span>
             <input id="local-server-port" class="mono" name="localServerPort" type="number" min="20001" max="65516" step="1" inputmode="numeric" required>
           </label>
-          <p class="field-note">本地工作区仅绑定 127.0.0.1。若首选端口被占用，Desktop 会从该端口开始依次尝试最多 20 个端口。</p>
+          <p class="field-note">若首选端口被占用，Desktop 会自动选择可用端口。</p>
           <p id="system-settings-error" class="form-error" role="alert" hidden></p>
         </div>
         <div class="dialog-actions">
@@ -211,7 +209,7 @@
         </div>
         <div class="dialog-fields">
           <p id="delete-message" class="confirm-copy"></p>
-          <p class="field-note">本地工作区不会受影响。待上传、冲突或只读修改会先阻止删除；再次确认才会清除该 Server 的登录、IndexedDB、缓存和本机副本。</p>
+          <p class="field-note">本地工作区不会受影响。存在未同步修改时会先阻止删除；确认删除后，该 Server 的登录状态和本机副本将一并清除。</p>
           <p id="delete-error" class="form-error" role="alert" hidden></p>
         </div>
         <div class="dialog-actions">

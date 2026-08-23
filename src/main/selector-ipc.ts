@@ -106,10 +106,10 @@ function assertRemoteCanOpen(capabilities: RemoteCapabilitySnapshot): void {
   if (capabilities.compatibility === "compatible" || capabilities.compatibility === "online-only") return;
   const error = new Error(
     capabilities.compatibility === "legacy-online-only"
-      ? "该 Server 版本尚不支持 Desktop 软件内直登；为避免使用浏览器 Cookie，请先升级 Server"
+      ? "该 Server 版本过旧，请升级后再使用 Desktop"
       : capabilities.compatibility === "desktop-upgrade-required"
         ? `当前 Desktop 版本过低，Server 要求至少 ${capabilities.minimumDesktopVersion ?? "更高版本"}`
-        : "该 Server 的 shellProtocol 与当前 Desktop 不兼容"
+        : "该 Server 版本与当前 Desktop 不兼容"
   ) as Error & { code: string };
   error.code = capabilities.compatibility === "legacy-online-only"
     ? "REMOTE_SERVER_DESKTOP_AUTH_REQUIRED"

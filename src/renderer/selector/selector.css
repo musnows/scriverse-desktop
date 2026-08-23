@@ -234,7 +234,6 @@ button:disabled { cursor: wait; opacity: .56; transform: none !important; }
 .captcha-row .ghost-button { min-height: 34px; flex: 0 0 auto; padding: 6px 9px; font-size: 10px; }
 .mono { font-family: var(--font-mono); }
 .field-note, .confirm-copy { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.65; overflow-wrap: anywhere; }
-.setup-safety-note { margin: 0; padding: 10px 12px; border-left: 3px solid var(--accent); background: var(--accent-soft); color: var(--accent-dark); font-size: 10px; line-height: 1.65; }
 .field-note.valid { color: var(--green); }
 .field-note.invalid { color: var(--accent-dark); }
 .confirm-copy { color: var(--ink); font-size: 13px; }

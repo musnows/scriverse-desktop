@@ -22,10 +22,16 @@ describe("Desktop Selector UI", () => {
     expect(html).toContain("id=\"local-login-dialog\"");
     expect(html).toContain("id=\"remote-login-dialog\"");
     expect(html).toContain("autocomplete=\"current-password\"");
-    expect(html).toContain("不使用浏览器 Cookie");
+    expect(html).not.toContain("Bearer");
+    expect(html).not.toContain("浏览器 Cookie");
+    expect(html).not.toContain("安全进程通道");
+    expect(html).not.toContain("127.0.0.1");
+    expect(html).not.toContain("最多 20 个端口");
+    expect(script).not.toContain("独立浏览器分区");
+    expect(script).not.toContain("Desktop 安全桥接");
     expect(html).toContain("autocomplete=\"new-password\"");
     expect(html).toContain("id=\"delete-dialog\"");
-    expect(html).toContain("再次确认才会清除该 Server 的登录、IndexedDB、缓存和本机副本");
+    expect(html).toContain("该 Server 的登录状态和本机副本将一并清除");
     expect(html).toContain("aria-live=\"polite\"");
     expect(script).toContain('error.code === "PROFILE_UNSYNCED_DATA"');
     expect(script).toContain("永久删除本机离线数据");

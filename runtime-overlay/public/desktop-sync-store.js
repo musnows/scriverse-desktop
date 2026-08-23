@@ -28,15 +28,15 @@ function assertEntityType(value) {
 function requestValue(request) {
   return new Promise((resolve, reject) => {
     request.addEventListener("success", () => resolve(request.result), { once: true });
-    request.addEventListener("error", () => reject(request.error ?? new Error("IndexedDB request failed")), { once: true });
+    request.addEventListener("error", () => reject(request.error ?? new Error("离线数据读取失败")), { once: true });
   });
 }
 
 function transactionDone(transaction) {
   return new Promise((resolve, reject) => {
     transaction.addEventListener("complete", () => resolve(), { once: true });
-    transaction.addEventListener("abort", () => reject(transaction.error ?? new Error("IndexedDB transaction aborted")), { once: true });
-    transaction.addEventListener("error", () => reject(transaction.error ?? new Error("IndexedDB transaction failed")), { once: true });
+    transaction.addEventListener("abort", () => reject(transaction.error ?? new Error("离线数据保存已取消")), { once: true });
+    transaction.addEventListener("error", () => reject(transaction.error ?? new Error("离线数据保存失败")), { once: true });
   });
 }
 
@@ -110,7 +110,7 @@ function openDatabase(indexedDBImpl, name) {
       }
     });
     request.addEventListener("success", () => resolve(request.result), { once: true });
-    request.addEventListener("error", () => reject(request.error ?? new Error("IndexedDB open failed")), { once: true });
+    request.addEventListener("error", () => reject(request.error ?? new Error("离线数据无法打开")), { once: true });
     request.addEventListener("blocked", () => reject(new DesktopSyncStoreError("SYNC_DATABASE_BLOCKED", "离线数据库升级被其他窗口阻止")), { once: true });
   });
 }
@@ -133,7 +133,7 @@ export class DesktopSyncStore {
   constructor({ profileId, userId, indexedDBImpl = globalThis.indexedDB, cryptoImpl = globalThis.crypto }) {
     this.profileId = assertUuid(profileId, "profile id");
     this.userId = assertUuid(userId, "user id");
-    if (!indexedDBImpl) throw new DesktopSyncStoreError("SYNC_DATABASE_UNAVAILABLE", "当前环境不支持 IndexedDB");
+    if (!indexedDBImpl) throw new DesktopSyncStoreError("SYNC_DATABASE_UNAVAILABLE", "当前环境无法使用离线功能");
     this.indexedDB = indexedDBImpl;
     this.crypto = cryptoImpl;
     this.databasePromise = null;
@@ -152,7 +152,7 @@ export class DesktopSyncStore {
             || existing.schemaVersion !== SCHEMA_VERSION
           )) {
             transaction.abort();
-            throw new DesktopSyncStoreError("SYNC_DATABASE_IDENTITY_MISMATCH", "离线数据库与当前 profile 或用户不匹配");
+            throw new DesktopSyncStoreError("SYNC_DATABASE_IDENTITY_MISMATCH", "本机副本与当前工作区不匹配");
           }
           if (!existing) {
             store.put({

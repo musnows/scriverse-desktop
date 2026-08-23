@@ -27,13 +27,13 @@ function bridgeData(result) {
   if (result?.ok === true) return result.data;
   throw new DesktopSyncClientError(
     result?.error?.code ?? "DESKTOP_BRIDGE_FAILED",
-    result?.error?.message ?? "Desktop bridge 操作失败"
+    result?.error?.message ?? "操作失败，请重试"
   );
 }
 
 function responseError(payload, response) {
   const code = typeof payload?.error?.code === "string" ? payload.error.code : `SYNC_HTTP_${response.status}`;
-  const message = typeof payload?.error?.message === "string" ? payload.error.message : `同步请求失败（HTTP ${response.status}）`;
+  const message = typeof payload?.error?.message === "string" ? payload.error.message : "同步请求失败，请稍后重试";
   const retryAfter = Number(response.headers.get("retry-after"));
   return new DesktopSyncClientError(code, message, {
     status: response.status,
@@ -47,11 +47,11 @@ async function jsonResponse(response) {
   try {
     payload = await response.json();
   } catch {
-    if (response.ok) throw new DesktopSyncClientError("SYNC_RESPONSE_INVALID", "Server 返回了无效 JSON");
+    if (response.ok) throw new DesktopSyncClientError("SYNC_RESPONSE_INVALID", "Server 返回的内容无法识别");
   }
   if (!response.ok) throw responseError(payload, response);
   if (!payload || typeof payload !== "object" || !("data" in payload)) {
-    throw new DesktopSyncClientError("SYNC_RESPONSE_INVALID", "Server 同步响应格式无效");
+    throw new DesktopSyncClientError("SYNC_RESPONSE_INVALID", "Server 返回的内容无法识别");
   }
   return payload.data;
 }
@@ -150,7 +150,7 @@ export class DesktopSyncClient {
         items.push(...page.items);
         if (!page.hasMore) break;
         if (!Number.isInteger(page.nextAfter) || page.nextAfter <= after) {
-          throw new DesktopSyncClientError("SYNC_SNAPSHOT_INVALID", "Server 快照分页游标无效");
+          throw new DesktopSyncClientError("SYNC_SNAPSHOT_INVALID", "Server 返回的离线数据不完整");
         }
         after = page.nextAfter;
       }
@@ -198,7 +198,7 @@ export class DesktopSyncClient {
       }
       const health = await this.request("/api/health");
       if (!rangesOverlap(health.syncProtocol, SYNC_PROTOCOL)) {
-        throw new DesktopSyncClientError("SYNC_PROTOCOL_INCOMPATIBLE", "Server syncProtocol 与当前 Desktop 不兼容");
+        throw new DesktopSyncClientError("SYNC_PROTOCOL_INCOMPATIBLE", "当前 Server 版本不支持离线同步，请升级后重试");
       }
       const work = await this.request(`/api/works/${encodeURIComponent(workId)}`);
       if (work.offlineAccessEnabled !== true) throw new DesktopSyncClientError("OFFLINE_ACCESS_DISABLED", "作品已关闭离线访问");

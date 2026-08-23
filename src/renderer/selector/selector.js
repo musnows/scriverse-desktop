@@ -112,7 +112,7 @@ function requireElement(element, label) {
 
 function unwrap(result) {
   if (!result || result.ok !== true) {
-    const error = new Error(result?.error?.message || "Desktop 操作失败，请重试");
+    const error = new Error(result?.error?.message || "操作失败，请重试");
     error.code = result?.error?.code || "DESKTOP_BRIDGE_ERROR";
     throw error;
   }
@@ -154,11 +154,11 @@ function profileStatus(profile) {
     if (state.localStatus.phase === "failed") return { label: "启动失败", className: "failed" };
     return { label: "本地", className: "local" };
   }
-  if (profile.capabilities?.compatibility === "compatible") return { label: "在线兼容", className: "compatible" };
-  if (profile.capabilities?.compatibility === "online-only") return { label: "仅在线", className: "warning" };
-  if (profile.capabilities?.compatibility === "legacy-online-only") return { label: "旧版需升级", className: "warning" };
+  if (profile.capabilities?.compatibility === "compatible") return { label: "可用", className: "compatible" };
+  if (profile.capabilities?.compatibility === "online-only") return { label: "仅在线使用", className: "warning" };
+  if (profile.capabilities?.compatibility === "legacy-online-only") return { label: "Server 需升级", className: "warning" };
   if (profile.capabilities?.compatibility === "desktop-upgrade-required") return { label: "Desktop 需升级", className: "failed" };
-  if (profile.capabilities?.compatibility === "shell-incompatible") return { label: "协议不兼容", className: "failed" };
+  if (profile.capabilities?.compatibility === "shell-incompatible") return { label: "版本不兼容", className: "failed" };
   return { label: "未检测", className: "" };
 }
 
@@ -202,9 +202,9 @@ function renderProfile(profile) {
   const details = element("dl", "card-details");
   details.append(
     detail("最近使用", formatLastUsed(profile.lastUsedAt)),
-    detail("数据范围", profile.kind === "local" ? "Desktop 专属" : "独立浏览器分区"),
+    detail("数据位置", profile.kind === "local" ? "这台设备" : "Server 与这台设备"),
     ...(profile.kind === "local" && state.desktopSettings
-      ? [detail("本地端口", `127.0.0.1:${state.desktopSettings.localServerPort}`)]
+      ? [detail("本地端口", String(state.desktopSettings.localServerPort))]
       : []),
     ...(profile.kind === "remote" ? [detail("离线状态", offlineStatusLabel(profile))] : [])
   );
@@ -292,10 +292,10 @@ function updateOriginPreview() {
   originPreview.classList.toggle("valid", Boolean(normalized));
   originPreview.classList.toggle("invalid", profileOrigin.value.trim() !== "" && !normalized);
   originPreview.textContent = normalized
-    ? `将保存为 ${normalized}`
+    ? `将连接 ${normalized}`
     : profileOrigin.value.trim()
-      ? "URL 必须是完整的 HTTP(S) origin，且不能包含路径、凭据、查询参数或片段。"
-      : "只填写 HTTP(S) origin，不要包含路径、查询参数、用户名或密码。";
+      ? "Server 地址格式不正确，请填写完整地址且不要附加页面路径。"
+      : "例如 https://example.com；不要附加页面路径。";
 }
 
 function openProfileDialog(profile = null) {
@@ -576,7 +576,7 @@ workspaceList.addEventListener("click", async (event) => {
     setBusy(button, true);
     try {
       const checked = unwrap(await bridge.profiles.probe(profile.id));
-      showToast(checked.capabilities?.compatibility === "compatible" ? "Server 在线且协议兼容" : "Server 检测完成，请查看状态");
+      showToast(checked.capabilities?.compatibility === "compatible" ? "Server 可正常连接" : "Server 检测完成，请查看状态");
       await loadProfiles();
     } catch (error) {
       showToast(error.message, true);
@@ -663,8 +663,8 @@ document.addEventListener("keydown", (event) => {
 
 async function initialize() {
   if (!bridge?.profiles || !bridge?.local || !bridge?.remote || !bridge?.settings || !bridge?.app) {
-    workspaceList.replaceChildren(element("p", "empty-state", "Desktop 安全桥接未加载，无法读取工作区。"));
-    profileSummary.textContent = "Desktop 初始化失败";
+    workspaceList.replaceChildren(element("p", "empty-state", "Desktop 初始化失败，请重新打开应用。"));
+    profileSummary.textContent = "工作区暂时不可用";
     workspaceList.setAttribute("aria-busy", "false");
     return;
   }

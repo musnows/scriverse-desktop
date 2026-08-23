@@ -4,7 +4,7 @@ import { mergeEntitySnapshots } from "./three-way-merge.js?v=20260823-desktop-co
 
 function unwrapBridge(result) {
   if (result?.ok === true) return result.data;
-  const error = new Error(result?.error?.message ?? "Desktop bridge 操作失败");
+  const error = new Error(result?.error?.message ?? "操作失败，请重试");
   error.code = result?.error?.code ?? "DESKTOP_BRIDGE_FAILED";
   throw error;
 }
@@ -271,12 +271,12 @@ export class DesktopWorkspaceController {
         if (summary.pending + summary.syncing + summary.conflicts + summary.rejected > 0) {
           const rescue = element("button", "ghost-button", "导出救援包");
           rescue.type = "button";
-          rescue.title = "导出包含本机修改明文的 JSON，请妥善保管";
+          rescue.title = "导出可用于恢复作品的救援包";
           rescue.addEventListener("click", async () => {
             rescue.disabled = true;
             try {
               downloadRescueBundle(await this.store.createRescueBundle(workId));
-              toast("救援包已开始下载；文件包含作品明文，请妥善保管");
+              toast("救援包已开始下载");
             } catch (error) {
               toast(error.message, "error");
             } finally {
@@ -290,7 +290,7 @@ export class DesktopWorkspaceController {
           const update = element("button", "ghost-button", "重新下载副本");
           update.type = "button";
           update.disabled = !clean;
-          update.title = clean ? "用一致快照更新本机副本" : "请先处理待同步、冲突或只读项目";
+          update.title = clean ? "重新下载最新内容" : "请先处理待同步、冲突或只读项目";
           update.addEventListener("click", async () => {
             update.disabled = true;
             try {
@@ -344,7 +344,7 @@ export class DesktopWorkspaceController {
       resolve.disabled = true;
       try {
         const snapshot = JSON.parse(final.value);
-        if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) throw new Error("最终内容必须是 JSON 对象");
+        if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) throw new Error("最终内容格式不正确");
         await this.store.saveMergeDraft(conflict.mutationId, snapshot, 0);
         await this.store.resolveConflict(conflict.mutationId, snapshot);
         dialog.close();
@@ -352,7 +352,7 @@ export class DesktopWorkspaceController {
         if (navigator.onLine !== false) await this.client.syncWork(conflict.workId).catch(() => undefined);
         await this.renderSyncCenter(toast);
       } catch (error) {
-        toast(error instanceof SyntaxError ? "最终内容不是有效 JSON" : error.message, "error");
+        toast(error instanceof SyntaxError ? "无法识别最终内容" : error.message, "error");
       } finally {
         resolve.disabled = false;
       }
@@ -371,18 +371,18 @@ export async function createDesktopWorkspaceController({
   const profile = unwrapBridge(await bridge.shell.getCapabilities());
   const authenticatedUser = user ?? profile.user;
   if (!authenticatedUser?.userId) {
-    const error = new Error("没有可用于离线工作的 Desktop 登录");
+    const error = new Error("请先在 Desktop 中登录");
     error.code = "REMOTE_LOGIN_REQUIRED";
     throw error;
   }
   if (profile.user?.userId && profile.user.userId !== authenticatedUser.userId) {
-    const error = new Error("页面用户与 Desktop 登录不一致");
+    const error = new Error("登录用户已变化，请重新进入工作区");
     error.code = "OFFLINE_USER_MISMATCH";
     throw error;
   }
   const client = await createDesktopSyncClient({ user: authenticatedUser, bridge, fetchImpl });
   if (!client) {
-    const error = new Error("当前 Server 不支持此版本的 Desktop 离线同步");
+    const error = new Error("当前 Server 版本不支持离线同步，请升级后重试");
     error.code = "SYNC_PROTOCOL_INCOMPATIBLE";
     throw error;
   }

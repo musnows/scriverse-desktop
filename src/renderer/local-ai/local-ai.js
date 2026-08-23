@@ -46,7 +46,7 @@ function requireElement(value, label) {
 
 function unwrap(result) {
   if (result?.ok === true) return result.data;
-  const error = new Error(result?.error?.message ?? "Desktop 本地 AI 操作失败");
+  const error = new Error(result?.error?.message ?? "本地 AI 操作失败，请重试");
   error.code = result?.error?.code ?? "DESKTOP_BRIDGE_FAILED";
   throw error;
 }
@@ -113,7 +113,7 @@ function providerFields(provider = null) {
     + field("baseUrl", "API 基础地址", "url", provider?.baseUrl ?? "http://127.0.0.1:11434/v1", {
       required: true,
       maxlength: 2048,
-      hint: "允许回环与局域网地址；不要包含凭据、query 或 hash。"
+      hint: "例如 http://127.0.0.1:11434/v1"
     })
     + field("apiKey", provider ? "替换 API 密钥（留空则不变）" : "API 密钥（本地服务可留空）", "password", "", { maxlength: 8192 })
     + field("useMaxCompletionTokens", "使用 max_completion_tokens", "checkbox", provider?.maxTokensParameter === "max_completion_tokens")
@@ -145,7 +145,7 @@ function openProviderDialog(provider = null) {
   openDialog({
     title: provider ? "编辑 AI 供应商" : "新建 AI 供应商",
     eyebrow: provider ? "本地配置" : "本地供应商",
-    meta: "协议、限流与凭据",
+    meta: "供应商设置",
     fields: providerFields(provider),
     dangerLabel: provider ? "删除供应商" : "",
     onSubmit: async (formData) => {
@@ -315,7 +315,7 @@ document.querySelector("#local-ai-save-system-prompt").addEventListener("click",
 });
 
 if (!bridge) {
-  providerList.innerHTML = '<div class="empty-state"><b>Desktop 安全桥接未加载</b>无法读取本地 AI 配置。</div>';
+  providerList.innerHTML = '<div class="empty-state"><b>本地 AI 暂时不可用</b>请重新打开 Desktop。</div>';
 } else {
   refreshConfiguration().catch((error) => {
     providerList.innerHTML = `<div class="empty-state"><b>本地 AI 配置读取失败</b>${esc(error.message)}</div>`;

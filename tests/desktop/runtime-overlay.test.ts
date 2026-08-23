@@ -60,6 +60,20 @@ describe("Desktop Web runtime overlay", () => {
     expect(syncStore).not.toContain("subtle.decrypt");
   });
 
+  it("keeps implementation details out of user-facing Desktop copy", () => {
+    const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
+    const addedLines = overlayPatch
+      .split("\n")
+      .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
+      .join("\n");
+
+    expect(addedLines).not.toContain("30 RPM");
+    expect(addedLines).not.toContain("并发 3");
+    expect(addedLines).not.toContain("最终 JSON");
+    expect(addedLines).not.toContain("浏览器 Cookie");
+    expect(addedLines).not.toContain("Bearer 会话");
+  });
+
   it("hides the online presence banner until more than one distinct user is present", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 

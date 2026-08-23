@@ -208,7 +208,7 @@ index 03b2f488..58c76e8d 100644
 +    let bootstrap = await controller.store.getInitialOfflineDownloadState();
 +    if (!bootstrap) {
 +      const accepted = await confirmToast(
-+        "是否立即在本机保存此 Server 的全部可离线作品？只下载作品快照，不下载远端 AI 设置；下载严格限制为 30 RPM、并发 3。",
++        "是否立即将此 Server 的全部可离线作品保存到本机？远端 AI 设置不会下载。",
 +        { title: "首次连接 Server", confirmLabel: "立即离线全部", cancelLabel: "暂不离线" }
 +      );
 +      bootstrap = await controller.store.setInitialOfflineDownloadState({
@@ -221,7 +221,7 @@ index 03b2f488..58c76e8d 100644
 +      }
 +    }
 +    if (bootstrap.decision !== "accepted" || bootstrap.completed) return bootstrap;
-+    const dismiss = persistentToast("正在下载全部可离线作品；本地限速 30 RPM，并发 3");
++    const dismiss = persistentToast("正在保存全部可离线作品");
 +    try {
 +      const works = await apiAllPages("/api/works", 100);
 +      const result = await controller.downloadAllWorks(works);
@@ -1590,7 +1590,7 @@ index be0fea35..78e661ed 100644
 +        <section><h3>本机修改</h3><pre id="desktop-conflict-local"></pre></section>
 +        <section><h3>线上版本</h3><pre id="desktop-conflict-server"></pre></section>
 +      </div>
-+      <section class="desktop-conflict-final"><header><div><h3>最终内容</h3><p>最终内容可编辑；确认后会基于最新 Server 版本生成新的待同步变更。</p></div><div><button id="desktop-conflict-use-local" class="ghost-button" type="button">使用本机</button><button id="desktop-conflict-use-server" class="ghost-button" type="button">使用线上</button><button id="desktop-conflict-use-merged" class="ghost-button" type="button">使用自动合并</button></div></header><textarea id="desktop-conflict-final" aria-label="冲突合并后的最终 JSON" spellcheck="false"></textarea></section>
++      <section class="desktop-conflict-final"><header><div><h3>最终内容</h3><p>最终内容可编辑；保存后会继续同步。</p></div><div><button id="desktop-conflict-use-local" class="ghost-button" type="button">使用本机</button><button id="desktop-conflict-use-server" class="ghost-button" type="button">使用线上</button><button id="desktop-conflict-use-merged" class="ghost-button" type="button">使用自动合并</button></div></header><textarea id="desktop-conflict-final" aria-label="冲突合并后的最终内容" spellcheck="false"></textarea></section>
 +      <div class="dialog-actions"><button id="desktop-conflict-cancel" class="ghost-button" type="button">稍后处理</button><button id="desktop-conflict-resolve" class="primary-button" type="button">保存最终内容</button></div>
 +    </dialog>
 +

@@ -31,7 +31,7 @@ function esc(value) {
 }
 
 function emptyProviderConfiguration() {
-  return '<div class="empty-state"><b>尚未配置 AI 供应商</b>添加供应商协议、接口地址和凭据，测试成功后再添加模型。</div>';
+  return '<div class="empty-state"><b>尚未配置 AI 供应商</b>添加供应商后，再配置要使用的模型。</div>';
 }
 
 function modelThinkingEffortLabel(model) {

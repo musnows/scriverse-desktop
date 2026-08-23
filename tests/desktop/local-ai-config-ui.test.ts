@@ -23,7 +23,10 @@ describe("Desktop 本地 AI 配置界面", () => {
   });
 
   it("本地配置允许局域网地址并只通过具名 Desktop bridge 写入", () => {
-    expect(html).toContain("回环和局域网 Base URL");
+    expect(html).toContain("这里的配置只在当前设备使用");
+    expect(script).toContain("http://127.0.0.1:11434/v1");
+    expect(script).not.toContain("query 或 hash");
+    expect(script).not.toContain("安全桥接");
     expect(script).toContain("bridge.createProvider");
     expect(script).toContain("bridge.createModel");
     expect(script).toContain("bridge.updateSystemPrompt");

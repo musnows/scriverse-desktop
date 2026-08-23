@@ -18,6 +18,7 @@ describe("Desktop Forge configuration", () => {
       "@electron-forge/maker-rpm"
     ]));
     expect(config.plugins).toHaveLength(2);
+    expect(config.packagerConfig?.ignore?.some((pattern) => pattern.test("/runtime-overlay/web.patch"))).toBe(true);
   });
 
   it("mutates only the packaged manifest entry point", async () => {

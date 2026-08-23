@@ -93,6 +93,7 @@ const config: ForgeConfig = {
       /^\/.github(?:\/|$)/u,
       /^\/coverage(?:\/|$)/u,
       /^\/assets(?:\/|$)/u,
+      /^\/runtime-overlay(?:\/|$)/u,
       /^\/scripts(?:\/|$)/u,
       /^\/src(?:\/|$)/u,
       /^\/tests(?:\/|$)/u,

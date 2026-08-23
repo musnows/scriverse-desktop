@@ -27,6 +27,7 @@ function providerInput(apiKey = "local-secret-key"): LocalAiProviderInput {
     thinkingType: "enabled",
     concurrencyLimit: 10,
     rpmLimit: 10,
+    analysisTimeoutSeconds: 300,
     note: "本机模型",
     status: "enabled"
   };
@@ -60,7 +61,7 @@ describe("Desktop 本地 AI 供应商存储", () => {
     store.updateSystemPrompt({ systemPrompt: "仅使用简体中文" });
     expect(store.configuration()).toMatchObject({
       systemPrompt: "仅使用简体中文",
-      providers: [{ id: provider.id, scope: "local", hasApiKey: true }],
+      providers: [{ id: provider.id, scope: "local", hasApiKey: true, analysisTimeoutSeconds: 300 }],
       models: [{ id: model.id, providerId: provider.id, scope: "local" }]
     });
     const credential: LocalAiModelCredential = store.credential(model.id);

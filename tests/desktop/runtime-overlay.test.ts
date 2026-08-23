@@ -21,6 +21,8 @@ describe("Desktop Web runtime overlay", () => {
 
     expect(overlayPatch).toContain("loadDesktopLocalAiCatalog()");
     expect(overlayPatch).toContain("...localCatalog.models.filter");
+    expect(overlayPatch).toContain("+      modelId: model.id,\n+      taskType,\n+      remoteSystemPrompt: prepared.remoteSystemPrompt,");
+    expect(overlayPatch).toContain("+      modelId: model.id,\n+      taskType,\n+      remoteSystemPrompt: desktopOfflineLocalAiSystemPrompt(context),");
     expect(overlayPatch).toContain("function aiModelLocalIconMarkup()");
     expect(overlayPatch).toContain('icon.setAttribute("aria-label", "Desktop 本地模型")');
     expect(overlayPatch).toContain("ai-model-option-image is-local");
@@ -43,7 +45,7 @@ describe("Desktop Web runtime overlay", () => {
   it("preserves the upstream system administrator account identity UI", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 
-    expect(overlayPatch).toContain("feature=admin-account-identity-v2&feature=desktop-same-workspace-v1");
+    expect(overlayPatch).toContain("feature=admin-account-identity-v2&feature=ai-provider-analysis-timeout-v1&feature=desktop-same-workspace-v1");
     expect(overlayPatch).not.toContain('-          <button id="account-button"');
     expect(overlayPatch).not.toContain("-  const isSystemAdmin = session.user.isSystemAdmin === true;");
   });

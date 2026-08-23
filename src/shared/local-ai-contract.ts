@@ -1,4 +1,7 @@
 export const LOCAL_AI_PROTOCOL = "openai-chat-completions" as const;
+export const LOCAL_AI_DEFAULT_ANALYSIS_TIMEOUT_SECONDS = 300;
+export const LOCAL_AI_MIN_ANALYSIS_TIMEOUT_SECONDS = 30;
+export const LOCAL_AI_MAX_ANALYSIS_TIMEOUT_SECONDS = 3_600;
 export const LOCAL_AI_MAX_TOKENS_PARAMETERS = ["max_tokens", "max_completion_tokens"] as const;
 export const LOCAL_AI_THINKING_TYPES = ["enabled", "adaptive"] as const;
 export const LOCAL_AI_THINKING_EFFORTS = ["default", "auto", "low", "medium", "high", "xhigh", "max"] as const;
@@ -22,6 +25,7 @@ export type LocalAiProviderInput = {
   thinkingType: typeof LOCAL_AI_THINKING_TYPES[number];
   concurrencyLimit: number;
   rpmLimit: number;
+  analysisTimeoutSeconds: number;
   note: string;
   status: "enabled" | "disabled";
 };
@@ -94,6 +98,7 @@ export type LocalAiMessage = {
 
 export type LocalAiCompletionInput = {
   modelId: string;
+  taskType?: typeof LOCAL_AI_MODEL_PURPOSES[number];
   remoteSystemPrompt: string;
   messages: LocalAiMessage[];
 };
@@ -108,6 +113,10 @@ export type LocalAiCompletionResult = {
   content: string;
   scope: "local";
 };
+
+export function isLocalAiLongRunningAnalysisTaskType(taskType: string | undefined): boolean {
+  return taskType === "book-analysis" || taskType === "relationship-analysis";
+}
 
 export class LocalAiContractError extends Error {
   constructor(readonly code: string, message: string) {
@@ -207,6 +216,7 @@ export function parseCreateLocalAiProviderInput(value: unknown): LocalAiProvider
     "thinkingType",
     "concurrencyLimit",
     "rpmLimit",
+    "analysisTimeoutSeconds",
     "note",
     "status"
   ], "新增本地 AI 供应商请求");
@@ -234,6 +244,13 @@ export function parseCreateLocalAiProviderInput(value: unknown): LocalAiProvider
     thinkingType: thinkingType as LocalAiProviderInput["thinkingType"],
     concurrencyLimit: boundedInteger(value.concurrencyLimit ?? 10, 1, 100, "LOCAL_AI_CONCURRENCY_INVALID", "本地 AI 最大并发请求数"),
     rpmLimit: boundedInteger(value.rpmLimit ?? 10, 1, 10_000, "LOCAL_AI_RPM_INVALID", "本地 AI 每分钟请求上限"),
+    analysisTimeoutSeconds: boundedInteger(
+      value.analysisTimeoutSeconds ?? LOCAL_AI_DEFAULT_ANALYSIS_TIMEOUT_SECONDS,
+      LOCAL_AI_MIN_ANALYSIS_TIMEOUT_SECONDS,
+      LOCAL_AI_MAX_ANALYSIS_TIMEOUT_SECONDS,
+      "LOCAL_AI_ANALYSIS_TIMEOUT_INVALID",
+      "本地 AI 分析请求超时"
+    ),
     note: optionalString(value.note ?? "", 10_000, "LOCAL_AI_NOTE_INVALID", "本地 AI 供应商用途备注"),
     status
   };
@@ -252,6 +269,7 @@ export function parseUpdateLocalAiProviderInput(value: unknown): LocalAiProvider
     "thinkingType",
     "concurrencyLimit",
     "rpmLimit",
+    "analysisTimeoutSeconds",
     "note",
     "status"
   ], "修改本地 AI 供应商请求");
@@ -268,6 +286,7 @@ export function parseUpdateLocalAiProviderInput(value: unknown): LocalAiProvider
       thinkingType: value.thinkingType,
       concurrencyLimit: value.concurrencyLimit,
       rpmLimit: value.rpmLimit,
+      analysisTimeoutSeconds: value.analysisTimeoutSeconds,
       note: value.note,
       status: value.status
     })
@@ -381,7 +400,11 @@ export function parseLocalAiSystemPromptInput(value: unknown): { systemPrompt: s
 
 export function parseLocalAiCompletionInput(value: unknown): LocalAiCompletionInput {
   if (!isRecord(value)) throw new LocalAiContractError("LOCAL_AI_INPUT_INVALID", "本地 AI 请求无效");
-  assertExactKeys(value, ["modelId", "remoteSystemPrompt", "messages"], "本地 AI 请求");
+  assertExactKeys(value, ["modelId", "taskType", "remoteSystemPrompt", "messages"], "本地 AI 请求");
+  if (
+    value.taskType !== undefined
+    && !LOCAL_AI_MODEL_PURPOSES.includes(value.taskType as typeof LOCAL_AI_MODEL_PURPOSES[number])
+  ) throw new LocalAiContractError("LOCAL_AI_TASK_TYPE_INVALID", "本地 AI 任务类型无效");
   if (!Array.isArray(value.messages) || value.messages.length === 0 || value.messages.length > 256) {
     throw new LocalAiContractError("LOCAL_AI_MESSAGES_INVALID", "本地 AI 消息数量必须在 1 到 256 条之间");
   }
@@ -405,16 +428,22 @@ export function parseLocalAiCompletionInput(value: unknown): LocalAiCompletionIn
   if (totalCharacters > 4_000_000) {
     throw new LocalAiContractError("LOCAL_AI_MESSAGES_INVALID", "本地 AI 消息总长度不能超过 4000000 个字符");
   }
-  return { modelId: parseLocalAiModelId(value.modelId), remoteSystemPrompt, messages };
+  return {
+    modelId: parseLocalAiModelId(value.modelId),
+    ...(value.taskType === undefined ? {} : { taskType: value.taskType as LocalAiCompletionInput["taskType"] }),
+    remoteSystemPrompt,
+    messages
+  };
 }
 
 export function parseLocalAiCompletionRequestInput(value: unknown): LocalAiCompletionRequestInput {
   if (!isRecord(value)) throw new LocalAiContractError("LOCAL_AI_INPUT_INVALID", "本地 AI 调用请求无效");
-  assertExactKeys(value, ["requestId", "modelId", "remoteSystemPrompt", "messages"], "本地 AI 调用请求");
+  assertExactKeys(value, ["requestId", "modelId", "taskType", "remoteSystemPrompt", "messages"], "本地 AI 调用请求");
   return {
     requestId: parseLocalAiRequestId(value.requestId),
     ...parseLocalAiCompletionInput({
       modelId: value.modelId,
+      taskType: value.taskType,
       remoteSystemPrompt: value.remoteSystemPrompt,
       messages: value.messages
     })

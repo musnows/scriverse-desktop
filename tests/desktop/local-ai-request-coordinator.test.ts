@@ -24,6 +24,7 @@ function configuredStore(): { store: LocalAiProviderStore; modelId: string } {
     thinkingType: "enabled",
     concurrencyLimit: 1,
     rpmLimit: 10,
+    analysisTimeoutSeconds: 300,
     note: "",
     status: "enabled"
   });
@@ -69,6 +70,7 @@ describe("Desktop 本地 AI 请求协调器", () => {
     const input = {
       requestId,
       modelId,
+      taskType: "book-analysis" as const,
       remoteSystemPrompt: "远端规则",
       messages: [{ role: "user" as const, content: "继续" }]
     };

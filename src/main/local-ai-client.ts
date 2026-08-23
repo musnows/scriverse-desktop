@@ -1,4 +1,5 @@
 import {
+  isLocalAiLongRunningAnalysisTaskType,
   mergeRemoteAndLocalAiPrompt,
   parseLocalAiCompletionInput,
   type LocalAiCompletionInput,
@@ -79,6 +80,9 @@ export class LocalAiClient {
       throw new LocalAiClientError("LOCAL_AI_MODEL_DISABLED", "本地 AI 供应商或模型已停用");
     }
     const maxTokensParameter = credential.provider.maxTokensParameter;
+    const requestTimeoutMs = isLocalAiLongRunningAnalysisTaskType(input.taskType)
+      ? credential.provider.analysisTimeoutSeconds * 1_000
+      : LOCAL_AI_REQUEST_TIMEOUT_MS;
     const thinkingEffort = credential.model.thinkingEffort;
     const thinkingParameters = {
       thinking: {
@@ -108,15 +112,15 @@ export class LocalAiClient {
         redirect: "error",
         cache: "no-store",
         signal: signal
-          ? AbortSignal.any([signal, AbortSignal.timeout(LOCAL_AI_REQUEST_TIMEOUT_MS)])
-          : AbortSignal.timeout(LOCAL_AI_REQUEST_TIMEOUT_MS)
+          ? AbortSignal.any([signal, AbortSignal.timeout(requestTimeoutMs)])
+          : AbortSignal.timeout(requestTimeoutMs)
       });
     } catch (error) {
       if (signal?.aborted) {
         throw new LocalAiClientError("LOCAL_AI_CANCELLED", "本地 AI 请求已取消");
       }
       if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
-        throw new LocalAiClientError("LOCAL_AI_TIMEOUT", "本地 AI 响应超时");
+        throw new LocalAiClientError("LOCAL_AI_TIMEOUT", `本地 AI 响应超时（${Math.round(requestTimeoutMs / 1_000)} 秒）`);
       }
       throw new LocalAiClientError("LOCAL_AI_NETWORK_ERROR", "无法连接本地 AI Base URL");
     }

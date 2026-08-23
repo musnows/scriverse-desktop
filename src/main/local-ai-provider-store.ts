@@ -119,6 +119,7 @@ function providerSummary(provider: StoredLocalAiProvider): LocalAiProviderSummar
     thinkingType: provider.thinkingType,
     concurrencyLimit: provider.concurrencyLimit,
     rpmLimit: provider.rpmLimit,
+    analysisTimeoutSeconds: provider.analysisTimeoutSeconds,
     note: provider.note,
     status: provider.status,
     connectionStatus: provider.connectionStatus,
@@ -198,6 +199,7 @@ export class LocalAiProviderStore {
       thinkingType: input.thinkingType,
       concurrencyLimit: input.concurrencyLimit,
       rpmLimit: input.rpmLimit,
+      analysisTimeoutSeconds: input.analysisTimeoutSeconds,
       note: input.note,
       status: input.status,
       apiKeyCiphertext: input.apiKey === "" ? null : this.encryptApiKey(input.apiKey),
@@ -229,6 +231,7 @@ export class LocalAiProviderStore {
     provider.thinkingType = input.thinkingType;
     provider.concurrencyLimit = input.concurrencyLimit;
     provider.rpmLimit = input.rpmLimit;
+    provider.analysisTimeoutSeconds = input.analysisTimeoutSeconds;
     provider.note = input.note;
     provider.status = input.status;
     if (input.replaceApiKey) provider.apiKeyCiphertext = input.apiKey === "" ? null : this.encryptApiKey(input.apiKey);
@@ -405,6 +408,7 @@ export class LocalAiProviderStore {
       "thinkingType",
       "concurrencyLimit",
       "rpmLimit",
+      "analysisTimeoutSeconds",
       "note",
       "status",
       "apiKeyCiphertext",
@@ -423,6 +427,7 @@ export class LocalAiProviderStore {
       thinkingType: value.thinkingType,
       concurrencyLimit: value.concurrencyLimit,
       rpmLimit: value.rpmLimit,
+      analysisTimeoutSeconds: value.analysisTimeoutSeconds,
       note: value.note,
       status: value.status
     });

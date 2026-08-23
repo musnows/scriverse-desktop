@@ -1,6 +1,10 @@
 import { renderAiProviderConfigurationCards } from "./ai-provider-config-view.js";
 import { MODEL_PURPOSE_OPTIONS, MODEL_THINKING_EFFORT_OPTIONS, modelFormValues } from "./model-config.js";
 
+const DEFAULT_AI_ANALYSIS_TIMEOUT_SECONDS = 300;
+const MIN_AI_ANALYSIS_TIMEOUT_SECONDS = 30;
+const MAX_AI_ANALYSIS_TIMEOUT_SECONDS = 3_600;
+
 document.documentElement.dataset.theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 
 const bridge = window.scriverseDesktop?.localAi;
@@ -120,12 +124,25 @@ function providerFields(provider = null) {
     + field("useAdaptiveThinking", "思考开启时使用 adaptive", "checkbox", provider?.thinkingType === "adaptive")
     + field("concurrencyLimit", "最大并发请求数", "number", provider?.concurrencyLimit ?? 10, { min: 1, max: 100, step: 1, required: true })
     + field("rpmLimit", "每分钟请求上限", "number", provider?.rpmLimit ?? 10, { min: 1, max: 10000, step: 1, required: true })
+    + field("analysisTimeoutSeconds", "分析请求超时（秒）", "number", provider?.analysisTimeoutSeconds ?? DEFAULT_AI_ANALYSIS_TIMEOUT_SECONDS, {
+      min: MIN_AI_ANALYSIS_TIMEOUT_SECONDS,
+      max: MAX_AI_ANALYSIS_TIMEOUT_SECONDS,
+      step: 1,
+      required: true,
+      hint: "用于全书分析和关系分析的单次请求"
+    })
     + field("note", "用途备注", "textarea", provider?.note ?? "", { maxlength: 10000 })
     + field("enabled", provider ? "启用供应商" : "立即启用", "checkbox", provider ? provider.status === "enabled" : true);
 }
 
 function providerPayload(formData, provider = null) {
   const apiKey = String(formData.get("apiKey") ?? "");
+  const analysisTimeoutSeconds = Number(formData.get("analysisTimeoutSeconds"));
+  if (
+    !Number.isInteger(analysisTimeoutSeconds)
+    || analysisTimeoutSeconds < MIN_AI_ANALYSIS_TIMEOUT_SECONDS
+    || analysisTimeoutSeconds > MAX_AI_ANALYSIS_TIMEOUT_SECONDS
+  ) throw new Error("分析请求超时必须设置为 30–3600 秒的整数");
   return {
     ...(provider ? { providerId: provider.id, replaceApiKey: apiKey.trim().length > 0 } : {}),
     name: formData.get("name"),
@@ -136,6 +153,7 @@ function providerPayload(formData, provider = null) {
     thinkingType: formData.get("useAdaptiveThinking") === "on" ? "adaptive" : "enabled",
     concurrencyLimit: Number(formData.get("concurrencyLimit")),
     rpmLimit: Number(formData.get("rpmLimit")),
+    analysisTimeoutSeconds,
     note: formData.get("note"),
     status: formData.get("enabled") === "on" ? "enabled" : "disabled"
   };

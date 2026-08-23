@@ -16,6 +16,7 @@ const credential: LocalAiModelCredential = {
     thinkingType: "enabled",
     concurrencyLimit: 10,
     rpmLimit: 10,
+    analysisTimeoutSeconds: 45,
     note: "",
     status: "enabled",
     connectionStatus: "success",
@@ -95,6 +96,21 @@ describe("Desktop 本地 AI 调用", () => {
     const completion = new LocalAiClient(fetchImpl).complete(credential, input, controller.signal);
     controller.abort();
     await expect(completion).rejects.toMatchObject({ code: "LOCAL_AI_CANCELLED" });
+  });
+
+  it("长分析使用供应商超时且普通请求保留交互超时", async () => {
+    const timeoutSignal = new AbortController().signal;
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValue(timeoutSignal);
+    const fetchImpl = vi.fn<typeof fetch>().mockImplementation(async () => new Response(JSON.stringify({
+      choices: [{ message: { content: "完成" } }]
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    const client = new LocalAiClient(fetchImpl);
+
+    await client.complete(credential, { ...input, taskType: "book-analysis" });
+    expect(timeout).toHaveBeenLastCalledWith(45_000);
+    await client.complete(credential, { ...input, taskType: "chat" });
+    expect(timeout).toHaveBeenLastCalledWith(180_000);
+    timeout.mockRestore();
   });
 
   it("拒绝超大响应并把连接失败转换为安全错误", async () => {

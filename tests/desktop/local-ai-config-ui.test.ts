@@ -28,6 +28,9 @@ describe("Desktop 本地 AI 配置界面", () => {
     expect(script).not.toContain("query 或 hash");
     expect(script).not.toContain("安全桥接");
     expect(script).toContain("bridge.createProvider");
+    expect(script).toContain('field("analysisTimeoutSeconds", "分析请求超时（秒）"');
+    expect(script).toContain("analysisTimeoutSeconds,");
+    expect(sharedView).toContain("分析请求超时：${Number(provider.analysisTimeoutSeconds) || 300} 秒");
     expect(script).toContain("bridge.createModel");
     expect(script).toContain("bridge.updateSystemPrompt");
     expect(script).not.toContain("fetch(");

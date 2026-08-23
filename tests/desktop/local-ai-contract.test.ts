@@ -31,17 +31,30 @@ describe("Desktop 本地 AI 输入契约", () => {
     })).toThrowError(/未知/u);
   });
 
+  it("供应商分析超时默认 300 秒并限制在 30–3600 秒", () => {
+    const base = {
+      name: "Ollama",
+      baseUrl: "http://127.0.0.1:11434/v1",
+      apiKey: ""
+    };
+    expect(parseCreateLocalAiProviderInput(base).analysisTimeoutSeconds).toBe(300);
+    expect(() => parseCreateLocalAiProviderInput({ ...base, analysisTimeoutSeconds: 29 })).toThrowError(/分析请求超时/u);
+    expect(parseCreateLocalAiProviderInput({ ...base, analysisTimeoutSeconds: 3_600 }).analysisTimeoutSeconds).toBe(3_600);
+  });
+
   it("本地推理请求只能引用已保存的 model id", () => {
     const input = parseLocalAiCompletionInput({
       modelId: "11111111-1111-4111-8111-111111111111",
+      taskType: "book-analysis",
       remoteSystemPrompt: "远端规则",
       messages: [{ role: "user", content: "继续这一段" }]
     });
-    expect(input).toMatchObject({ remoteSystemPrompt: "远端规则" });
+    expect(input).toMatchObject({ taskType: "book-analysis", remoteSystemPrompt: "远端规则" });
     expect(() => parseLocalAiCompletionInput({
       ...input,
       baseUrl: "http://127.0.0.1:11434/v1"
     })).toThrowError(/未知/u);
+    expect(() => parseLocalAiCompletionInput({ ...input, taskType: "unsupported" })).toThrowError(/任务类型/u);
     expect(parseLocalAiCompletionRequestInput({
       requestId: "22222222-2222-4222-8222-222222222222",
       ...input

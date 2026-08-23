@@ -5,3 +5,7 @@ const target = new URL("../build/renderer/", import.meta.url);
 
 mkdirSync(target, { recursive: true });
 cpSync(source, target, { recursive: true });
+
+const assetTarget = new URL("../build/assets/", import.meta.url);
+mkdirSync(assetTarget, { recursive: true });
+cpSync(new URL("../assets/icon-32.png", import.meta.url), new URL("icon-32.png", assetTarget));

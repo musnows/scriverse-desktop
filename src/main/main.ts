@@ -32,6 +32,7 @@ import { DesktopUpdater } from "./desktop-updater.js";
 import { handleSquirrelStartup } from "./squirrel-startup.js";
 import { applyWindowPlacement, captureWindowPlacement } from "./window-placement.js";
 import { DesktopSettingsStore } from "./desktop-settings-store.js";
+import { BackgroundTray } from "./background-tray.js";
 import { LOCAL_PROFILE_ID, type RemoteWorkspaceProfile } from "../shared/contracts.js";
 import { parseRemoteSessionResponse, type RemoteAuthUser } from "../shared/remote-auth-contract.js";
 import type { WorkspaceLeaveState } from "../shared/workspace-contract.js";
@@ -71,7 +72,9 @@ let localAiProviderStore: LocalAiProviderStore | null = null;
 let localAiClient: LocalAiClient | null = null;
 let localAiRequestCoordinator: LocalAiRequestCoordinator | null = null;
 let desktopUpdater: DesktopUpdater | null = null;
+let backgroundTray: BackgroundTray | null = null;
 let quitAfterLocalShutdown = false;
+let allowWorkspaceWindowClose = false;
 let localWorkspaceOpenPromise: Promise<void> | null = null;
 let remoteWorkspaceOpenPromise: Promise<void> | null = null;
 let activeWorkspaceKind: "local" | "remote" | null = null;
@@ -268,14 +271,38 @@ function showSelectorFromWorkspace(window: BrowserWindow): void {
   const selector = mainWindow;
   if (!selector || selector.isDestroyed() || window.isDestroyed()) return;
   applyWindowPlacement(selector, captureWindowPlacement(window));
+  if (process.platform === "darwin" && app.dock) void app.dock.show();
   selector.show();
   selector.focus();
   window.hide();
 }
 
+function updateBackgroundTrayStatus(): void {
+  backgroundTray?.update({ localServerRunning: localServerManager?.getStatus().phase === "running" });
+}
+
+function showDesktopWindow(): void {
+  if (process.platform === "darwin" && app.dock) void app.dock.show();
+  const target = workspaceWindow && !workspaceWindow.isDestroyed() ? workspaceWindow : mainWindow;
+  if (!target || target.isDestroyed()) return;
+  if (target.isMinimized()) target.restore();
+  target.show();
+  target.focus();
+  if (target === workspaceWindow) mainWindow?.hide();
+}
+
+function hideDesktopToBackground(): void {
+  if (workspaceWindow && !workspaceWindow.isDestroyed()) workspaceWindow.hide();
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.hide();
+  if (process.platform === "darwin" && app.dock) app.dock.hide();
+  updateBackgroundTrayStatus();
+}
+
 function bindWorkspaceReplacement(window: BrowserWindow): void {
-  window.on("close", () => {
-    if (!quitAfterLocalShutdown) showSelectorFromWorkspace(window);
+  window.on("close", (event) => {
+    if (quitAfterLocalShutdown || allowWorkspaceWindowClose) return;
+    event.preventDefault();
+    hideDesktopToBackground();
   });
 }
 
@@ -492,12 +519,17 @@ async function requestWorkspaceSwitch(): Promise<void> {
     return;
   }
   const restoreWorkspace = (): void => {
+    allowWorkspaceWindowClose = false;
     if (window.isDestroyed()) return;
     mainWindow?.hide();
     window.show();
     window.focus();
   };
   window.webContents.once("will-prevent-unload", restoreWorkspace);
+  window.once("closed", () => {
+    allowWorkspaceWindowClose = false;
+  });
+  allowWorkspaceWindowClose = true;
   showSelectorFromWorkspace(window);
   window.close();
 }
@@ -589,6 +621,18 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
   remoteAuthCoordinator = remoteAuth;
   const remoteProbe = new RemoteServerProbe();
   mainWindow = createSelectorWindow(desktopRoot);
+  mainWindow.on("close", (event) => {
+    if (quitAfterLocalShutdown) return;
+    event.preventDefault();
+    hideDesktopToBackground();
+  });
+  if (!backgroundTray) {
+    backgroundTray = new BackgroundTray(join(desktopRoot, "assets", "icon-32.png"), {
+      show: showDesktopWindow,
+      quit: () => app.quit()
+    });
+  }
+  updateBackgroundTrayStatus();
   app.setAboutPanelOptions({
     applicationName: "Scriverse Desktop",
     applicationVersion: desktopVersion,
@@ -639,11 +683,13 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
     updateDesktopSettings: (input) => desktopSettingsStore!.update(input),
     openLocal: async () => {
       const ready = await manager.start();
+      updateBackgroundTrayStatus();
       if (ready.setupRequired) return { status: "setup-required" as const };
       return openStoredLocalWorkspace(ready.url);
     },
     setupLocal: async (input) => {
       const result = await manager.provision(input);
+      updateBackgroundTrayStatus();
       localAuthStore!.save(result);
       localSessionPolicy!.authorize(result.url, result.token);
       await openLocalWorkspace(result.url);
@@ -651,6 +697,7 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
     },
     loginLocal: async (input) => {
       const result = await manager.login(input);
+      updateBackgroundTrayStatus();
       localAuthStore!.save(result);
       localSessionPolicy!.authorize(result.url, result.token);
       await openLocalWorkspace(result.url);
@@ -698,11 +745,7 @@ if (handleSquirrelStartup()) {
     }
   }
   app.on("second-instance", () => {
-    const target = workspaceWindow && !workspaceWindow.isDestroyed() ? workspaceWindow : mainWindow;
-    if (!target) return;
-    if (target.isMinimized()) target.restore();
-    target.show();
-    target.focus();
+    showDesktopWindow();
   });
   app.whenReady().then(async () => {
     if (runtimeGateRequested) {
@@ -724,20 +767,16 @@ if (handleSquirrelStartup()) {
     app.exit(1);
   });
   app.on("activate", () => {
-    if (
-      !runtimeGateRequested
-      && !localServerGateRequested
-      && desktopEnvironment
-      && localServerManager
-      && BrowserWindow.getAllWindows().length === 0
-    ) createWindow(desktopEnvironment, localServerManager);
+    if (runtimeGateRequested || localServerGateRequested || !desktopEnvironment || !localServerManager) return;
+    if (BrowserWindow.getAllWindows().length === 0) createWindow(desktopEnvironment, localServerManager);
+    else showDesktopWindow();
   });
   app.on("before-quit", (event) => {
-    if (runtimeGateRequested || localServerGateRequested || quitAfterLocalShutdown || !localServerManager) return;
+    if (runtimeGateRequested || localServerGateRequested || !localServerManager || quitAfterLocalShutdown) return;
+    quitAfterLocalShutdown = true;
     const phase = localServerManager.getStatus().phase;
     if (phase === "stopped") return;
     event.preventDefault();
-    quitAfterLocalShutdown = true;
     void closeWorkspaceBeforeQuit().then(async (closed) => {
       if (!closed) {
         quitAfterLocalShutdown = false;
@@ -747,8 +786,12 @@ if (handleSquirrelStartup()) {
       app.quit();
     });
   });
-  app.on("will-quit", () => desktopUpdater?.dispose());
+  app.on("will-quit", () => {
+    desktopUpdater?.dispose();
+    backgroundTray?.dispose();
+    backgroundTray = null;
+  });
   app.on("window-all-closed", () => {
-    if (process.platform !== "darwin") app.quit();
+    // 后台模式由菜单栏或系统托盘继续承载，不因窗口关闭而退出。
   });
 }

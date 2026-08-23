@@ -53,7 +53,7 @@ describe("Desktop 本地 AI 请求协调器", () => {
     const { store, modelId } = configuredStore();
     const coordinator = new LocalAiRequestCoordinator(store, new LocalAiClient());
     expect(coordinator.catalog()).toEqual({
-      models: [expect.objectContaining({ id: modelId, scope: "local", providerName: "本机模型" })],
+      models: [expect.objectContaining({ id: modelId, scope: "local", providerName: "local/本机模型" })],
       updatedAt: expect.any(String)
     });
     expect(coordinator.catalog()).not.toHaveProperty("systemPrompt");

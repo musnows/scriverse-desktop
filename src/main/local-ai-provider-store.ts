@@ -3,6 +3,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import {
   LOCAL_AI_PROTOCOL,
+  localAiProviderDisplayName,
   parseCreateLocalAiModelInput,
   parseCreateLocalAiProviderInput,
   parseLocalAiModelId,
@@ -125,7 +126,7 @@ function providerSummary(provider: StoredLocalAiProvider): LocalAiProviderSummar
   return {
     id: provider.id,
     scope: "local",
-    name: provider.name,
+    name: localAiProviderDisplayName(provider.name),
     baseUrl: provider.baseUrl,
     protocol: LOCAL_AI_PROTOCOL,
     maxTokensParameter: provider.maxTokensParameter,
@@ -149,7 +150,7 @@ function modelSummary(model: StoredLocalAiModel, provider: StoredLocalAiProvider
   return {
     ...structuredClone(model),
     scope: "local",
-    providerName: provider.name,
+    providerName: localAiProviderDisplayName(provider.name),
     providerStatus: provider.status,
     providerConnectionStatus: provider.connectionStatus
   };

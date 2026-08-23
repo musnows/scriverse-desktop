@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  localAiProviderDisplayName,
+  localAiProviderStoredName,
   localAiPromptXml,
   mergeRemoteAndLocalAiPrompt,
   normalizeLocalAiBaseUrl,
@@ -40,6 +42,22 @@ describe("Desktop 本地 AI 输入契约", () => {
     expect(parseCreateLocalAiProviderInput(base).analysisTimeoutSeconds).toBe(300);
     expect(() => parseCreateLocalAiProviderInput({ ...base, analysisTimeoutSeconds: 29 })).toThrowError(/分析请求超时/u);
     expect(parseCreateLocalAiProviderInput({ ...base, analysisTimeoutSeconds: 3_600 }).analysisTimeoutSeconds).toBe(3_600);
+  });
+
+  it("固定使用 local 前缀展示供应商且保存时不会重复前缀", () => {
+    expect(localAiProviderStoredName("local/LM-Studio")).toBe("LM-Studio");
+    expect(localAiProviderDisplayName("LM-Studio")).toBe("local/LM-Studio");
+    expect(localAiProviderDisplayName("LOCAL/LM-Studio")).toBe("local/LM-Studio");
+    expect(parseCreateLocalAiProviderInput({
+      name: "local/LM-Studio",
+      baseUrl: "http://127.0.0.1:12345/v1",
+      apiKey: ""
+    }).name).toBe("LM-Studio");
+    expect(() => parseCreateLocalAiProviderInput({
+      name: "local/",
+      baseUrl: "http://127.0.0.1:12345/v1",
+      apiKey: ""
+    })).toThrowError(/不能只包含 local 前缀/u);
   });
 
   it("本地推理请求只能引用已保存的 model id", () => {

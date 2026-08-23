@@ -9,7 +9,7 @@ import type { LocalAiModelCredential } from "../../src/main/local-ai-provider-st
 const credential: LocalAiModelCredential = {
   provider: {
     id: "11111111-1111-4111-8111-111111111111",
-    name: "本机 Ollama",
+    name: "local/本机 Ollama",
     baseUrl: "http://127.0.0.1:11434/v1",
     protocol: "openai-chat-completions",
     maxTokensParameter: "max_tokens",
@@ -45,7 +45,7 @@ const credential: LocalAiModelCredential = {
     enabled: true,
     note: "",
     scope: "local",
-    providerName: "本机 Ollama",
+    providerName: "local/本机 Ollama",
     providerStatus: "enabled",
     providerConnectionStatus: "success",
     createdAt: "2026-08-23T00:00:00.000Z",

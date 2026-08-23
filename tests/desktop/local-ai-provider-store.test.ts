@@ -62,8 +62,8 @@ describe("Desktop 本地 AI 供应商存储", () => {
     store.updateSystemPrompt({ systemPrompt: "仅使用简体中文" });
     expect(store.configuration()).toMatchObject({
       systemPrompt: "仅使用简体中文",
-      providers: [{ id: provider.id, scope: "local", hasApiKey: true, analysisTimeoutSeconds: 300 }],
-      models: [{ id: model.id, providerId: provider.id, scope: "local" }]
+      providers: [{ id: provider.id, scope: "local", name: "local/本机 Ollama", hasApiKey: true, analysisTimeoutSeconds: 300 }],
+      models: [{ id: model.id, providerId: provider.id, providerName: "local/本机 Ollama", scope: "local" }]
     });
     const credential: LocalAiModelCredential = store.credential(model.id);
     expect(credential.provider.apiKey).toBe("local-secret-key");
@@ -71,6 +71,7 @@ describe("Desktop 本地 AI 供应商存储", () => {
     const path = join(directory, "config.json");
     const source = readFileSync(path, "utf8");
     expect(source).not.toContain("local-secret-key");
+    expect(JSON.parse(source).providers[0].name).toBe("本机 Ollama");
     if (process.platform !== "win32") expect(statSync(path).mode & 0o777).toBe(0o600);
   });
 
@@ -88,6 +89,9 @@ describe("Desktop 本地 AI 供应商存储", () => {
     const provider = store.create(providerInput());
     const model = store.createModel(modelInput(provider.id));
     expect(store.markConnection(provider.id, { ok: true })).toMatchObject({ connectionStatus: "success" });
+    expect(store.update({ ...providerInput(), name: "local/本机 Ollama", providerId: provider.id, replaceApiKey: false })).toMatchObject({
+      name: "local/本机 Ollama"
+    });
     expect(store.updateModel({ ...modelInput(provider.id), localModelId: model.id, enabled: false })).toMatchObject({ enabled: false });
   });
 
@@ -126,8 +130,8 @@ describe("Desktop 本地 AI 供应商存储", () => {
     const store = new LocalAiProviderStore(directory, credentialVault());
     expect(store.configuration()).toMatchObject({
       systemPrompt: "旧本地规则",
-      providers: [{ id: providerId, hasApiKey: false, analysisTimeoutSeconds: 300, lastError: "API 密钥需要重新填写" }],
-      models: [{ id: modelId, providerId }]
+      providers: [{ id: providerId, name: "local/LM-Studio", hasApiKey: false, analysisTimeoutSeconds: 300, lastError: "API 密钥需要重新填写" }],
+      models: [{ id: modelId, providerId, providerName: "local/LM-Studio" }]
     });
     expect(store.credential(modelId).provider.apiKey).toBe("");
 

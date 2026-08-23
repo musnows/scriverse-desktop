@@ -1,4 +1,5 @@
 export const LOCAL_AI_PROTOCOL = "openai-chat-completions" as const;
+export const LOCAL_AI_PROVIDER_NAME_PREFIX = "local/";
 export const LOCAL_AI_DEFAULT_ANALYSIS_TIMEOUT_SECONDS = 300;
 export const LOCAL_AI_MIN_ANALYSIS_TIMEOUT_SECONDS = 30;
 export const LOCAL_AI_MAX_ANALYSIS_TIMEOUT_SECONDS = 3_600;
@@ -113,6 +114,14 @@ export type LocalAiCompletionResult = {
   content: string;
   scope: "local";
 };
+
+export function localAiProviderStoredName(value: string): string {
+  return value.trim().replace(/^local\/+\s*/iu, "").trim();
+}
+
+export function localAiProviderDisplayName(value: string): string {
+  return `${LOCAL_AI_PROVIDER_NAME_PREFIX}${localAiProviderStoredName(value)}`;
+}
 
 export function isLocalAiLongRunningAnalysisTaskType(taskType: string | undefined): boolean {
   return taskType === "book-analysis" || taskType === "relationship-analysis";
@@ -235,8 +244,10 @@ export function parseCreateLocalAiProviderInput(value: unknown): LocalAiProvider
     throw new LocalAiContractError("LOCAL_AI_STATUS_INVALID", "本地 AI 供应商状态无效");
   }
   const apiKey = optionalString(value.apiKey ?? "", 8_192, "LOCAL_AI_API_KEY_INVALID", "本地 AI API Key");
+  const name = localAiProviderStoredName(requiredString(value.name, 200, "LOCAL_AI_NAME_INVALID", "本地 AI 供应商名称"));
+  if (!name) throw new LocalAiContractError("LOCAL_AI_NAME_INVALID", "本地 AI 供应商名称不能只包含 local 前缀");
   return {
-    name: requiredString(value.name, 200, "LOCAL_AI_NAME_INVALID", "本地 AI 供应商名称"),
+    name,
     baseUrl: normalizeLocalAiBaseUrl(value.baseUrl),
     apiKey,
     protocol,

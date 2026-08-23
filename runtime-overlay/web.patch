@@ -1,5 +1,5 @@
 diff --git a/public/app.js b/public/app.js
-index d4c1dd86..740ae1b8 100644
+index d4c1dd86..e3340414 100644
 --- a/public/app.js
 +++ b/public/app.js
 @@ -25,6 +25,7 @@ import {
@@ -276,6 +276,23 @@ index d4c1dd86..740ae1b8 100644
      conversationId: tab.conversationId
    });
  }
+@@ -1040,14 +1277,14 @@ function syncChapterAutoSaveWithPresence() {
+
+ function renderPresence() {
+   const control = $("#presence-control");
+-  if (!state.work || !presenceParticipants.length) {
++  const groups = groupedPresenceParticipants();
++  if (!state.work || groups.length <= 1) {
+     syncChapterAutoSaveWithPresence();
+     control.classList.add("hidden");
+     $("#presence-panel").classList.add("hidden");
+     $("#presence-button").setAttribute("aria-expanded", "false");
+     return;
+   }
+-  const groups = groupedPresenceParticipants();
+   const localKey = presencePageKey(presencePageForRoute());
+   syncChapterAutoSaveWithPresence();
+   control.classList.remove("hidden");
 @@ -1067,6 +1304,11 @@ async function refreshPresence() {
    const requestId = ++presenceHeartbeatRequest;
    if (presenceHeartbeatTimer !== null) clearTimeout(presenceHeartbeatTimer);

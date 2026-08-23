@@ -35,4 +35,13 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain("data-desktop-workspace-name");
     expect(overlayPatch).toContain("workspaceName ? `${workspaceName} · Scriverse Desktop`");
   });
+
+  it("hides the online presence banner until more than one distinct user is present", () => {
+    const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
+
+    expect(overlayPatch).toContain("const groups = groupedPresenceParticipants();");
+    expect(overlayPatch).toContain("if (!state.work || groups.length <= 1)");
+    expect(overlayPatch).toContain('control.classList.add("hidden")');
+    expect(overlayPatch).toContain('control.classList.remove("hidden")');
+  });
 });

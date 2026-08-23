@@ -23,6 +23,8 @@ import { writeDesktopJsonAtomically } from "../shared/storage-manifest.js";
 import type { CredentialVault, EncryptedSecret } from "./credential-vault.js";
 
 export const LOCAL_AI_PROVIDER_STORE_VERSION = 3;
+export const LEGACY_LOCAL_AI_PROVIDER_STORE_VERSION = 2;
+export const LEGACY_LOCAL_AI_PROVIDER_BACKUP_FILENAME = "config.keychain-v2.backup.json";
 const LOCAL_AI_PROVIDER_LIMIT = 64;
 const LOCAL_AI_MODEL_LIMIT = 512;
 const LOCAL_AI_STORE_MAX_BYTES = 4 * 1024 * 1024;
@@ -102,6 +104,17 @@ function encryptedApiKeyValue(value: unknown): EncryptedSecret | null {
     throw new LocalAiProviderStoreError("LOCAL_AI_STORE_INVALID", "本地 AI API Key 密文无效");
   }
   return { encrypted: String(value.encrypted), iv: String(value.iv), tag: String(value.tag) };
+}
+
+function legacyEncryptedApiKeyPresent(value: unknown): boolean {
+  if (value === null) return false;
+  if (
+    typeof value !== "string"
+    || value.length === 0
+    || value.length > 16_384
+    || !/^[A-Za-z0-9+/=]+$/u.test(value)
+  ) throw new LocalAiProviderStoreError("LOCAL_AI_STORE_INVALID", "旧版本地 AI API Key 密文无效");
+  return true;
 }
 
 function documentPath(directory: string): string {
@@ -366,14 +379,17 @@ export class LocalAiProviderStore {
     if (!isRecord(value)) throw new LocalAiProviderStoreError("LOCAL_AI_STORE_INVALID", "本地 AI 配置存储格式无效");
     assertExactKeys(value, ["version", "systemPrompt", "providers", "models", "updatedAt"], "本地 AI 配置存储");
     if (
-      value.version !== LOCAL_AI_PROVIDER_STORE_VERSION
+      (value.version !== LOCAL_AI_PROVIDER_STORE_VERSION && value.version !== LEGACY_LOCAL_AI_PROVIDER_STORE_VERSION)
       || !Array.isArray(value.providers)
       || value.providers.length > LOCAL_AI_PROVIDER_LIMIT
       || !Array.isArray(value.models)
       || value.models.length > LOCAL_AI_MODEL_LIMIT
     ) throw new LocalAiProviderStoreError("LOCAL_AI_STORE_INVALID", "本地 AI 配置存储版本或数量无效");
     const systemPrompt = parseLocalAiSystemPromptInput({ systemPrompt: value.systemPrompt }).systemPrompt;
-    const providers = value.providers.map((item) => this.parseProvider(item));
+    const legacyKeychainDocument = value.version === LEGACY_LOCAL_AI_PROVIDER_STORE_VERSION;
+    const providers = value.providers.map((item) => (
+      legacyKeychainDocument ? this.parseLegacyKeychainProvider(item) : this.parseProvider(item)
+    ));
     const models = value.models.map((item) => this.parseModel(item));
     if (new Set(providers.map((provider) => provider.id)).size !== providers.length) {
       throw new LocalAiProviderStoreError("LOCAL_AI_STORE_INVALID", "本地 AI 供应商 id 重复");
@@ -388,12 +404,67 @@ export class LocalAiProviderStore {
     if (models.filter((model) => model.imageToolDefault).length > 1) {
       throw new LocalAiProviderStoreError("LOCAL_AI_STORE_INVALID", "本地 AI 默认读图模型重复");
     }
-    return {
+    const document: LocalAiProviderDocument = {
       version: LOCAL_AI_PROVIDER_STORE_VERSION,
       systemPrompt,
       providers,
       models,
       updatedAt: assertTimestamp(value.updatedAt, "本地 AI 配置更新时间")
+    };
+    if (legacyKeychainDocument) {
+      const backupPath = join(this.directory, LEGACY_LOCAL_AI_PROVIDER_BACKUP_FILENAME);
+      if (!existsSync(backupPath)) writeDesktopJsonAtomically(backupPath, value);
+      this.write(document);
+    }
+    return document;
+  }
+
+  private parseLegacyKeychainProvider(value: unknown): StoredLocalAiProvider {
+    if (!isRecord(value)) throw new LocalAiProviderStoreError("LOCAL_AI_STORE_INVALID", "旧版本地 AI 供应商记录无效");
+    assertExactKeys(value, [
+      "id",
+      "name",
+      "baseUrl",
+      "protocol",
+      "maxTokensParameter",
+      "thinkingType",
+      "concurrencyLimit",
+      "rpmLimit",
+      "note",
+      "status",
+      "encryptedApiKey",
+      "connectionStatus",
+      "lastError",
+      "lastSuccessAt",
+      "createdAt",
+      "updatedAt"
+    ], "旧版本地 AI 供应商记录");
+    const hadLegacyApiKey = legacyEncryptedApiKeyPresent(value.encryptedApiKey);
+    const normalized = parseCreateLocalAiProviderInput({
+      name: value.name,
+      baseUrl: value.baseUrl,
+      apiKey: "",
+      protocol: value.protocol,
+      maxTokensParameter: value.maxTokensParameter,
+      thinkingType: value.thinkingType,
+      concurrencyLimit: value.concurrencyLimit,
+      rpmLimit: value.rpmLimit,
+      note: value.note,
+      status: value.status
+    });
+    if (value.baseUrl !== normalized.baseUrl || (value.lastError !== null && (typeof value.lastError !== "string" || value.lastError.length > 500))) {
+      throw new LocalAiProviderStoreError("LOCAL_AI_STORE_INVALID", "旧版本地 AI 供应商字段无效");
+    }
+    const { apiKey: _apiKey, ...storedFields } = normalized;
+    return {
+      id: parseLocalAiProviderId(value.id),
+      ...storedFields,
+      apiKeyCiphertext: null,
+      connectionStatus: hadLegacyApiKey ? "unchecked" : assertConnectionStatus(value.connectionStatus),
+      lastError: hadLegacyApiKey ? "API 密钥需要重新填写" : value.lastError,
+      lastSuccessAt: hadLegacyApiKey ? null : assertNullableTimestamp(value.lastSuccessAt, "本地 AI 上次连接成功时间"),
+      createdAt: assertTimestamp(value.createdAt, "本地 AI 供应商创建时间"),
+      updatedAt: assertTimestamp(value.updatedAt, "本地 AI 供应商更新时间")
     };
   }
 

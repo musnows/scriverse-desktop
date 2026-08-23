@@ -74,6 +74,12 @@ export type LocalAiModelSummary = LocalAiModelInput & {
   id: string;
   scope: "local";
   providerName: string;
+  providerProtocol: typeof LOCAL_AI_PROTOCOL;
+  providerMaxTokensParameter: typeof LOCAL_AI_MAX_TOKENS_PARAMETERS[number];
+  providerThinkingType: typeof LOCAL_AI_THINKING_TYPES[number];
+  providerConcurrencyLimit: number;
+  providerRpmLimit: number;
+  providerAnalysisTimeoutSeconds: number;
   providerStatus: "enabled" | "disabled";
   providerConnectionStatus: "unchecked" | "success" | "error";
   createdAt: string;
@@ -113,6 +119,21 @@ export type LocalAiCompletionResult = {
   model: string;
   content: string;
   scope: "local";
+};
+
+export type LocalAiAgentRoundInput = {
+  requestId: string;
+  modelId: string;
+  taskType: typeof LOCAL_AI_MODEL_PURPOSES[number];
+  purpose: "generation" | "tool-context-compaction";
+  body: Record<string, unknown>;
+  timeoutMs: number;
+};
+
+export type LocalAiAgentRoundResult = {
+  status: number;
+  body: string;
+  retryAfter: string | null;
 };
 
 export function localAiProviderStoredName(value: string): string {
@@ -185,6 +206,13 @@ export function parseLocalAiModelId(value: unknown): string {
 export function parseLocalAiRequestId(value: unknown): string {
   if (typeof value !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value)) {
     throw new LocalAiContractError("LOCAL_AI_REQUEST_ID_INVALID", "本地 AI 请求 id 无效");
+  }
+  return value;
+}
+
+export function parseLocalAiAgentRoundRequestId(value: unknown): string {
+  if (typeof value !== "string" || !/^[A-Za-z0-9_-]{1,200}$/u.test(value)) {
+    throw new LocalAiContractError("LOCAL_AI_REQUEST_ID_INVALID", "本地 AI Agent 轮次请求 id 无效");
   }
   return value;
 }
@@ -465,6 +493,51 @@ export function parseCancelLocalAiCompletionInput(value: unknown): { requestId: 
   if (!isRecord(value)) throw new LocalAiContractError("LOCAL_AI_INPUT_INVALID", "取消本地 AI 请求无效");
   assertExactKeys(value, ["requestId"], "取消本地 AI 请求");
   return { requestId: parseLocalAiRequestId(value.requestId) };
+}
+
+export function parseLocalAiAgentRoundInput(value: unknown): LocalAiAgentRoundInput {
+  if (!isRecord(value)) throw new LocalAiContractError("LOCAL_AI_INPUT_INVALID", "本地 AI Agent 轮次请求无效");
+  assertExactKeys(value, ["requestId", "modelId", "taskType", "purpose", "body", "timeoutMs"], "本地 AI Agent 轮次请求");
+  if (!LOCAL_AI_MODEL_PURPOSES.includes(value.taskType as typeof LOCAL_AI_MODEL_PURPOSES[number])) {
+    throw new LocalAiContractError("LOCAL_AI_TASK_TYPE_INVALID", "本地 AI Agent 轮次任务类型无效");
+  }
+  if (value.purpose !== "generation" && value.purpose !== "tool-context-compaction") {
+    throw new LocalAiContractError("LOCAL_AI_INPUT_INVALID", "本地 AI Agent 轮次用途无效");
+  }
+  if (!isRecord(value.body)) throw new LocalAiContractError("LOCAL_AI_INPUT_INVALID", "本地 AI Agent 请求正文无效");
+  const body = structuredClone(value.body);
+  if (
+    typeof body.model !== "string"
+    || body.model.length === 0
+    || body.model.length > 300
+    || !Array.isArray(body.messages)
+    || body.messages.length === 0
+    || body.messages.length > 512
+    || body.stream === true
+  ) throw new LocalAiContractError("LOCAL_AI_INPUT_INVALID", "本地 AI Agent 请求正文格式无效");
+  let serialized = "";
+  try {
+    serialized = JSON.stringify(body);
+  } catch {
+    throw new LocalAiContractError("LOCAL_AI_INPUT_INVALID", "本地 AI Agent 请求正文无法序列化");
+  }
+  if (new TextEncoder().encode(serialized).byteLength > 4 * 1024 * 1024) {
+    throw new LocalAiContractError("LOCAL_AI_INPUT_INVALID", "本地 AI Agent 请求正文过大");
+  }
+  return {
+    requestId: parseLocalAiAgentRoundRequestId(value.requestId),
+    modelId: parseLocalAiModelId(value.modelId),
+    taskType: value.taskType as LocalAiAgentRoundInput["taskType"],
+    purpose: value.purpose,
+    body,
+    timeoutMs: boundedInteger(value.timeoutMs, 1_000, 3_600_000, "LOCAL_AI_TIMEOUT_INVALID", "本地 AI Agent 请求超时")
+  };
+}
+
+export function parseCancelLocalAiAgentRoundInput(value: unknown): { requestId: string } {
+  if (!isRecord(value)) throw new LocalAiContractError("LOCAL_AI_INPUT_INVALID", "取消本地 AI Agent 轮次请求无效");
+  assertExactKeys(value, ["requestId"], "取消本地 AI Agent 轮次请求");
+  return { requestId: parseLocalAiAgentRoundRequestId(value.requestId) };
 }
 
 function escapeXmlText(value: string): string {

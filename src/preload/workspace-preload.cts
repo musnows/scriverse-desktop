@@ -21,6 +21,8 @@ contextBridge.exposeInMainWorld("scriverseDesktopWorkspace", Object.freeze({
   localAi: Object.freeze({
     catalog: () => ipcRenderer.invoke("workspace:local-ai:catalog"),
     complete: (input: unknown) => ipcRenderer.invoke("workspace:local-ai:complete", input),
-    cancel: (input: unknown) => ipcRenderer.invoke("workspace:local-ai:cancel", input)
+    cancel: (input: unknown) => ipcRenderer.invoke("workspace:local-ai:cancel", input),
+    completeAgentRound: (input: unknown) => ipcRenderer.invoke("workspace:local-ai:agent-round", input),
+    cancelAgentRound: (input: unknown) => ipcRenderer.invoke("workspace:local-ai:agent-round-cancel", input)
   })
 }));

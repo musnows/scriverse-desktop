@@ -353,7 +353,9 @@ function openLocalWorkspace(origin: string): Promise<void> {
         },
         getLocalAiCatalog: () => localAiRequestCoordinator!.catalog(),
         completeLocalAi: (input) => localAiRequestCoordinator!.complete(input),
-        cancelLocalAi: (requestId) => localAiRequestCoordinator!.cancel(requestId)
+        cancelLocalAi: (requestId) => localAiRequestCoordinator!.cancel(requestId),
+        completeLocalAiAgentRound: (input) => localAiRequestCoordinator!.completeAgentRound(input),
+        cancelLocalAiAgentRound: (requestId) => localAiRequestCoordinator!.cancelAgentRound(requestId)
       });
     },
     onReady: () => mainWindow?.hide(),
@@ -422,6 +424,8 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
         getLocalAiCatalog: () => localAiRequestCoordinator!.catalog(),
         completeLocalAi: (_userId, input) => localAiRequestCoordinator!.complete(input),
         cancelLocalAi: (_userId, requestId) => localAiRequestCoordinator!.cancel(requestId),
+        completeLocalAiAgentRound: (_userId, input) => localAiRequestCoordinator!.completeAgentRound(input),
+        cancelLocalAiAgentRound: (_userId, requestId) => localAiRequestCoordinator!.cancelAgentRound(requestId),
         reportLeaveState: (state) => {
           activeRemoteLeaveState = state;
           const user = remoteAuthCoordinator!.cachedUser(profile);

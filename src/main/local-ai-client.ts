@@ -1,7 +1,10 @@
 import {
   isLocalAiLongRunningAnalysisTaskType,
   mergeRemoteAndLocalAiPrompt,
+  parseLocalAiAgentRoundInput,
   parseLocalAiCompletionInput,
+  type LocalAiAgentRoundInput,
+  type LocalAiAgentRoundResult,
   type LocalAiCompletionInput,
   type LocalAiCompletionResult,
   type LocalAiMessage
@@ -146,6 +149,73 @@ export class LocalAiClient {
       model: credential.model.modelId,
       content: responseContent(payload),
       scope: "local"
+    };
+  }
+
+  async completeAgentRound(
+    credential: LocalAiModelCredential,
+    value: LocalAiAgentRoundInput,
+    signal?: AbortSignal
+  ): Promise<LocalAiAgentRoundResult> {
+    const input = parseLocalAiAgentRoundInput(value);
+    if (input.modelId !== credential.model.id) {
+      throw new LocalAiClientError("LOCAL_AI_MODEL_MISMATCH", "本地 AI 模型与 Agent 请求不匹配");
+    }
+    if (credential.provider.status !== "enabled" || credential.model.enabled !== true) {
+      throw new LocalAiClientError("LOCAL_AI_MODEL_DISABLED", "本地 AI 供应商或模型已停用");
+    }
+    if (input.body.model !== credential.model.modelId) {
+      throw new LocalAiClientError("LOCAL_AI_MODEL_MISMATCH", "Server Agent 请求的模型标识符与本地配置不匹配");
+    }
+    const body = structuredClone(input.body);
+    body.model = credential.model.modelId;
+    delete body.stream;
+    delete body.stream_options;
+    if (input.purpose === "generation" && credential.systemPrompt.trim()) {
+      const messages = Array.isArray(body.messages) ? structuredClone(body.messages) : [];
+      const systemMessage = messages.find((message) => isRecord(message) && message.role === "system");
+      if (isRecord(systemMessage) && typeof systemMessage.content === "string") {
+        systemMessage.content = mergeRemoteAndLocalAiPrompt(systemMessage.content, credential.systemPrompt);
+      } else {
+        messages.unshift({ role: "system", content: mergeRemoteAndLocalAiPrompt("", credential.systemPrompt) });
+      }
+      body.messages = messages;
+    }
+    let response: Response;
+    try {
+      response = await this.fetch(localAiChatCompletionsUrl(credential.provider.baseUrl), {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          ...(credential.provider.apiKey === "" ? {} : { Authorization: `Bearer ${credential.provider.apiKey}` })
+        },
+        body: JSON.stringify(body),
+        redirect: "error",
+        cache: "no-store",
+        signal: signal
+          ? AbortSignal.any([signal, AbortSignal.timeout(input.timeoutMs)])
+          : AbortSignal.timeout(input.timeoutMs)
+      });
+    } catch (error) {
+      if (signal?.aborted) throw new LocalAiClientError("LOCAL_AI_CANCELLED", "本地 AI 请求已取消");
+      if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
+        throw new LocalAiClientError("LOCAL_AI_TIMEOUT", `本地 AI 响应超时（${Math.round(input.timeoutMs / 1_000)} 秒）`);
+      }
+      throw new LocalAiClientError("LOCAL_AI_NETWORK_ERROR", "无法连接本地 AI Base URL");
+    }
+    const declaredBytes = Number(response.headers.get("content-length") ?? "0");
+    if (Number.isFinite(declaredBytes) && declaredBytes > LOCAL_AI_MAX_RESPONSE_BYTES) {
+      throw new LocalAiClientError("LOCAL_AI_RESPONSE_TOO_LARGE", "本地 AI 响应过大");
+    }
+    const responseBody = await response.text();
+    if (new TextEncoder().encode(responseBody).byteLength > LOCAL_AI_MAX_RESPONSE_BYTES) {
+      throw new LocalAiClientError("LOCAL_AI_RESPONSE_TOO_LARGE", "本地 AI 响应过大");
+    }
+    return {
+      status: response.status,
+      body: responseBody,
+      retryAfter: response.headers.get("retry-after")
     };
   }
 }

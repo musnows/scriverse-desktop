@@ -1,6 +1,10 @@
 import {
+  parseLocalAiAgentRoundInput,
+  parseLocalAiAgentRoundRequestId,
   parseLocalAiCompletionRequestInput,
   parseLocalAiRequestId,
+  type LocalAiAgentRoundInput,
+  type LocalAiAgentRoundResult,
   type LocalAiCompletionRequestInput,
   type LocalAiCompletionResult,
   type LocalAiWorkspaceCatalog
@@ -43,11 +47,33 @@ export class LocalAiRequestCoordinator {
     }
   }
 
+  async completeAgentRound(value: LocalAiAgentRoundInput): Promise<LocalAiAgentRoundResult> {
+    const input = parseLocalAiAgentRoundInput(value);
+    if (this.active.has(input.requestId)) {
+      throw new LocalAiRequestCoordinatorError("LOCAL_AI_REQUEST_IN_PROGRESS", "相同本地 AI Agent 轮次正在处理中");
+    }
+    const controller = new AbortController();
+    this.active.set(input.requestId, controller);
+    try {
+      return await this.client.completeAgentRound(this.store.credential(input.modelId), input, controller.signal);
+    } finally {
+      this.active.delete(input.requestId);
+    }
+  }
+
   cancel(requestIdValue: string): boolean {
     const requestId = parseLocalAiRequestId(requestIdValue);
     const controller = this.active.get(requestId);
     if (!controller) return false;
     controller.abort(new Error("Local AI request cancelled"));
+    return true;
+  }
+
+  cancelAgentRound(requestIdValue: string): boolean {
+    const requestId = parseLocalAiAgentRoundRequestId(requestIdValue);
+    const controller = this.active.get(requestId);
+    if (!controller) return false;
+    controller.abort(new Error("Local AI Agent round cancelled"));
     return true;
   }
 

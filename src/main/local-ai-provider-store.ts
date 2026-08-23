@@ -151,6 +151,12 @@ function modelSummary(model: StoredLocalAiModel, provider: StoredLocalAiProvider
     ...structuredClone(model),
     scope: "local",
     providerName: localAiProviderDisplayName(provider.name),
+    providerProtocol: provider.protocol,
+    providerMaxTokensParameter: provider.maxTokensParameter,
+    providerThinkingType: provider.thinkingType,
+    providerConcurrencyLimit: provider.concurrencyLimit,
+    providerRpmLimit: provider.rpmLimit,
+    providerAnalysisTimeoutSeconds: provider.analysisTimeoutSeconds,
     providerStatus: provider.status,
     providerConnectionStatus: provider.connectionStatus
   };

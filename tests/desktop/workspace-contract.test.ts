@@ -31,6 +31,8 @@ describe("Desktop 工作区最小 bridge", () => {
     expect(preloadSource).toContain('ipcRenderer.invoke("workspace:local-ai:catalog"');
     expect(preloadSource).toContain('ipcRenderer.invoke("workspace:local-ai:complete"');
     expect(preloadSource).toContain('ipcRenderer.invoke("workspace:local-ai:cancel"');
+    expect(preloadSource).toContain('ipcRenderer.invoke("workspace:local-ai:agent-round"');
+    expect(preloadSource).toContain('ipcRenderer.invoke("workspace:local-ai:agent-round-cancel"');
     expect(preloadSource).not.toContain('workspace:local-ai:create');
     expect(preloadSource).not.toContain('workspace:local-ai:remove');
     expect(preloadSource).not.toContain("ipcRenderer,");
@@ -42,8 +44,11 @@ describe("Desktop 工作区最小 bridge", () => {
     expect(ipcSource).toContain("connectionMode: options.getConnectionMode()");
     expect(ipcSource).toContain("getLocalAiCatalog");
     expect(ipcSource).toContain("parseLocalAiCompletionRequestInput");
+    expect(ipcSource).toContain("parseLocalAiAgentRoundInput");
+    expect(ipcSource).toContain("parseCancelLocalAiAgentRoundInput");
     expect(localPreloadSource).toContain('exposeInMainWorld("scriverseDesktopLocalAi"');
     expect(localPreloadSource).not.toContain("getOfflineKey");
+    expect(localPreloadSource).toContain('ipcRenderer.invoke("local-workspace:local-ai:agent-round"');
     expect(localIpcSource).toContain("event.sender.session !== workspaceWindow.webContents.session");
     expect(localIpcSource).toContain("senderOrigin !== origin");
   });

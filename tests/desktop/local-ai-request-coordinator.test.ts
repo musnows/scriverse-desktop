@@ -80,4 +80,47 @@ describe("Desktop 本地 AI 请求协调器", () => {
     await expect(active).rejects.toMatchObject({ code: "LOCAL_AI_CANCELLED" });
     expect(coordinator.cancel(requestId)).toBe(false);
   });
+
+  it("原样转发 Server Agent 的 tools 并把本地 Prompt 追加到系统提示词", async () => {
+    const { store, modelId } = configuredStore();
+    const fetchImpl = vi.fn<typeof fetch>(async (_input, init) => {
+      const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      expect(body.model).toBe("desktop-local-model");
+      expect(body.tool_choice).toBe("auto");
+      expect(body.tools).toEqual([expect.objectContaining({ function: expect.objectContaining({ name: "story_index" }) })]);
+      expect(JSON.stringify(body.messages)).toContain("远端规则");
+      expect(JSON.stringify(body.messages)).toContain("<desktop_local_ai_prompt>");
+      expect(JSON.stringify(body.messages)).toContain("只在本机使用");
+      return new Response(JSON.stringify({
+        choices: [{
+          finish_reason: "tool_calls",
+          message: {
+            content: null,
+            tool_calls: [{ id: "call-1", type: "function", function: { name: "story_index", arguments: "{}" } }]
+          }
+        }]
+      }), { status: 200, headers: { "Content-Type": "application/json" } });
+    });
+    const coordinator = new LocalAiRequestCoordinator(store, new LocalAiClient(fetchImpl));
+    const result = await coordinator.completeAgentRound({
+      requestId: "desktop-local-ai-completion_1234567890abcdef",
+      modelId,
+      taskType: "chat",
+      purpose: "generation",
+      body: {
+        model: "desktop-local-model",
+        messages: [{ role: "system", content: "远端规则" }, { role: "user", content: "查询作品" }],
+        tools: [{ type: "function", function: { name: "story_index", parameters: { type: "object", properties: {} } } }],
+        tool_choice: "auto",
+        max_tokens: 4096,
+        stream: false
+      },
+      timeoutMs: 180_000
+    });
+    expect(result.status).toBe(200);
+    expect(result.retryAfter).toBeNull();
+    expect(JSON.parse(result.body)).toMatchObject({
+      choices: [{ message: { tool_calls: [{ function: { name: "story_index" } }] } }]
+    });
+  });
 });

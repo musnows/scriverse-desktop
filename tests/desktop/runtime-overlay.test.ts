@@ -9,6 +9,7 @@ describe("Desktop Web runtime overlay", () => {
 
     expect(prepareSource).not.toContain('"public/desktop-workspace.js",\n  "public/vendor');
     expect(prepareSource).toContain('gitApply("--check")');
+    expect(prepareSource).toContain('"apply", "--recount"');
     expect(prepareSource).toContain("cpSync(overlayPublic");
     expect(overlayPatch).toContain("diff --git a/public/app.js b/public/app.js");
     expect(overlayPatch).toContain("createDesktopWorkspaceController");
@@ -23,7 +24,10 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain("loadDesktopLocalAiCatalog()");
     expect(overlayPatch).toContain('import { mergeDesktopLocalAiModels } from "/desktop-local-ai-catalog.js');
     expect(overlayPatch).toContain("applyAiModels(mergeDesktopLocalAiModels(models, localCatalog.models))");
-    expect(overlayPatch).toContain("+      modelId: model.id,\n+      taskType,\n+      remoteSystemPrompt: prepared.remoteSystemPrompt,");
+    expect(overlayPatch).toContain("bridge.completeAgentRound({");
+    expect(overlayPatch).toContain("runtimeModel: desktopLocalAiRuntimeModel(model)");
+    expect(overlayPatch).toContain("/desktop-local-ai/runs/");
+    expect(overlayPatch).not.toContain("/desktop-local-ai/prepare");
     expect(overlayPatch).toContain("+      modelId: model.id,\n+      taskType,\n+      remoteSystemPrompt: desktopOfflineLocalAiSystemPrompt(context),");
     expect(overlayPatch).toContain('scope.className = "ai-model-option-scope is-local"');
     expect(overlayPatch).toContain('scope.textContent = "本地"');
@@ -80,6 +84,7 @@ describe("Desktop Web runtime overlay", () => {
     expect(addedLines).not.toContain("Bearer 会话");
     expect(addedLines).not.toContain("本地推理");
     expect(addedLines).not.toContain("不经过 Server 供应商");
+    expect(addedLines).not.toContain("未运行 Server 一致性守卫");
     expect(addedLines).toContain('<div class="message-meta"></div>');
   });
 

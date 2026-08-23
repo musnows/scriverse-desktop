@@ -39,7 +39,7 @@ if (!existsSync(target) || realpathSync(source) !== realpathSync(target)) {
 }
 
 function gitApply(...args) {
-  return spawnSync("git", ["apply", "--directory=dist", ...args, overlayPatch], {
+  return spawnSync("git", ["apply", "--recount", "--directory=dist", ...args, overlayPatch], {
     cwd: root,
     encoding: "utf8",
     maxBuffer: 4 * 1024 * 1024

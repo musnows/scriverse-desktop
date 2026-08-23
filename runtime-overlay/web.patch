@@ -1027,93 +1027,159 @@ index 03b2f488..58c76e8d 100644
 +  return message;
 +}
 +
-+function attachDesktopLocalSuggestionAction(message, taskType, content, target) {
-+  if (!target || !["continue", "polish"].includes(taskType)) return;
-+  const actions = document.createElement("div");
-+  actions.className = "message-actions desktop-local-ai-actions";
-+  const note = document.createElement("small");
-+  note.textContent = "本地生成内容只会在你确认后写入编辑器，未运行 Server 一致性守卫。";
-+  const apply = document.createElement("button");
-+  apply.type = "button";
-+  apply.textContent = taskType === "continue" ? "插入正文末尾" : "替换选中文本";
-+  apply.addEventListener("click", () => {
-+    if (!state.chapter || state.chapter.id !== target.chapterId) {
-+      return toast("当前章节已经切换，无法直接插入这条本地建议", "error");
-+    }
-+    const editor = $("#chapter-content");
-+    if (taskType === "polish") {
-+      if (editor.value.slice(target.selectionStart, target.selectionEnd) !== target.selection) {
-+        return toast("原选中文本已经变化，请复制建议后手动处理", "error");
-+      }
-+      editor.setRangeText(content, target.selectionStart, target.selectionEnd, "end");
-+    } else {
-+      const separator = editor.value.length === 0 || /\n\s*\n$/u.test(editor.value) ? "" : "\n\n";
-+      editor.value = `${editor.value}${separator}${content}`;
-+      editor.setSelectionRange(editor.value.length, editor.value.length);
-+    }
-+    editor.dispatchEvent(new Event("input", { bubbles: true }));
-+    actions.replaceChildren(document.createTextNode("已插入编辑器，保存后才会写入作品版本"));
-+    toast("本地 AI 建议已插入编辑器");
-+  });
-+  actions.append(note, apply);
-+  message.append(actions);
++function desktopLocalAiRuntimeModel(model) {
++  return {
++    id: String(model.id),
++    providerId: String(model.providerId),
++    providerName: String(model.providerName),
++    protocol: model.providerProtocol ?? "openai-chat-completions",
++    maxTokensParameter: model.providerMaxTokensParameter ?? "max_tokens",
++    thinkingType: model.providerThinkingType ?? "enabled",
++    concurrencyLimit: Number(model.providerConcurrencyLimit) || 10,
++    rpmLimit: Number(model.providerRpmLimit) || 10,
++    analysisTimeoutSeconds: Number(model.providerAnalysisTimeoutSeconds) || 300,
++    displayName: String(model.displayName),
++    modelId: String(model.modelId),
++    purposes: Array.isArray(model.purposes) ? model.purposes : ["chat"],
++    contextNote: String(model.contextNote ?? ""),
++    contextWindow: Number(model.contextWindow) || 128_000,
++    outputNote: String(model.outputNote ?? ""),
++    preset: {
++      temperature: Number(model.preset?.temperature) || 0,
++      max_tokens: Number(model.preset?.max_tokens) || 32_000
++    },
++    thinkingEnabled: model.thinkingEnabled === true,
++    thinkingEffort: String(model.thinkingEffort ?? "default"),
++    multimodalEnabled: model.multimodalEnabled === true,
++    note: String(model.note ?? "")
++  };
 +}
 +
-+async function completeWithDesktopLocalAi({ requestHolder, tab, model, taskType, instruction, scope, citations, target }) {
-+  const bridge = desktopLocalAiBridge();
-+  if (!bridge?.complete || !bridge?.cancel) throw new Error("当前工作区没有 Desktop 本地 AI 能力");
-+  const request = assertAiRequestCurrent(requestHolder.snapshot);
-+  const prepared = await api(`/api/works/${encodeURIComponent(request.workId)}/desktop-local-ai/prepare`, {
-+    method: "POST",
-+    body: {
-+      taskType,
-+      instruction,
-+      scope,
-+      contextWindow: model.contextWindow,
-+      maxOutputTokens: model.preset?.max_tokens ?? 32_000,
-+      citations,
-+      conversationId: request.conversationId,
-+      ...(request.userMessageId ? { currentMessageId: request.userMessageId } : {})
-+    },
-+    signal: request.signal
++function waitForDesktopLocalAiRun(signal, delayMs = 75) {
++  return new Promise((resolve, reject) => {
++    if (signal.aborted) return reject(signal.reason instanceof Error ? signal.reason : new Error("本地 AI 请求已取消"));
++    const timer = setTimeout(() => {
++      signal.removeEventListener("abort", onAbort);
++      resolve();
++    }, delayMs);
++    const onAbort = () => {
++      clearTimeout(timer);
++      reject(signal.reason instanceof Error ? signal.reason : new Error("本地 AI 请求已取消"));
++    };
++    signal.addEventListener("abort", onAbort, { once: true });
 +  });
-+  assertAiRequestCurrent(request);
-+  setAiChatTabContextUsage(tab, { ...prepared.contextUsage, modelId: model.id }, false);
++}
++
++async function completeWithDesktopLocalAi({ requestHolder, tab, model, taskType, instruction, scope, citations, imageAttachmentIds, sceneDirection }) {
++  const bridge = desktopLocalAiBridge();
++  if (!bridge?.completeAgentRound || !bridge?.cancelAgentRound) throw new Error("当前工作区不能使用本地 AI");
++  const request = assertAiRequestCurrent(requestHolder.snapshot);
 +  const pending = createDesktopLocalAiPendingMessage(tab, model);
-+  const requestId = crypto.randomUUID();
-+  const cancel = () => { void bridge.cancel({ requestId }); };
-+  request.signal.addEventListener("abort", cancel, { once: true });
 +  const startedAt = performance.now();
++  let runId = "";
++  let activeRoundRequestId = "";
++  const cancel = () => {
++    if (activeRoundRequestId) void bridge.cancelAgentRound({ requestId: activeRoundRequestId });
++    if (runId) void api(`/api/works/${encodeURIComponent(request.workId)}/desktop-local-ai/runs/${encodeURIComponent(runId)}`, { method: "DELETE" }).catch(() => undefined);
++  };
++  request.signal.addEventListener("abort", cancel, { once: true });
 +  try {
-+    const completed = unwrapDesktopLocalAiResult(await bridge.complete({
-+      requestId,
-+      modelId: model.id,
-+      taskType,
-+      remoteSystemPrompt: prepared.remoteSystemPrompt,
-+      messages: prepared.messages
-+    }));
-+    assertAiRequestCurrent(requestHolder.snapshot);
++    let run = await api(`/api/works/${encodeURIComponent(request.workId)}/desktop-local-ai/runs`, {
++      method: "POST",
++      body: {
++        taskType,
++        instruction,
++        scope,
++        runtimeModel: desktopLocalAiRuntimeModel(model),
++        citations,
++        conversationId: request.conversationId,
++        ...(request.userMessageId ? { currentMessageId: request.userMessageId } : {}),
++        ...(imageAttachmentIds?.length ? { imageAttachmentIds } : {}),
++        ...(sceneDirection ? { sceneDirection } : {})
++      },
++      signal: request.signal
++    });
++    runId = String(run.id ?? "");
++    if (!runId) throw new Error("本地 AI 请求创建失败");
++    while (true) {
++      assertAiRequestCurrent(requestHolder.snapshot);
++      if (run.contextUsage) setAiChatTabContextUsage(tab, { ...run.contextUsage, modelId: model.id }, false);
++      if (run.status === "completed") break;
++      if (run.status === "failed") {
++        const error = new Error(run.error?.message ?? "本地 AI 请求失败");
++        error.code = run.error?.code ?? "DESKTOP_LOCAL_AI_FAILED";
++        throw error;
++      }
++      if (run.status === "cancelled") throw new Error("本地 AI 请求已取消");
++      if (run.status === "awaiting-completion") {
++        const completion = run.completion;
++        activeRoundRequestId = String(completion?.requestId ?? "");
++        if (!activeRoundRequestId) throw new Error("本地 AI 请求状态异常");
++        let localResponse;
++        try {
++          localResponse = unwrapDesktopLocalAiResult(await bridge.completeAgentRound({
++            requestId: activeRoundRequestId,
++            modelId: String(completion.localModelId),
++            taskType: completion.taskType,
++            purpose: completion.purpose,
++            body: completion.body,
++            timeoutMs: completion.timeoutMs
++          }));
++        } catch (error) {
++          if (request.signal.aborted) throw error;
++          localResponse = {
++            status: 502,
++            body: JSON.stringify({ error: { message: error instanceof Error ? error.message : "Desktop 本地 AI 调用失败" } }),
++            retryAfter: null
++          };
++        }
++        assertAiRequestCurrent(requestHolder.snapshot);
++        run = await api(`/api/works/${encodeURIComponent(request.workId)}/desktop-local-ai/runs/${encodeURIComponent(runId)}/responses`, {
++          method: "POST",
++          body: {
++            requestId: activeRoundRequestId,
++            status: localResponse.status,
++            body: localResponse.body,
++            ...(localResponse.retryAfter ? { retryAfter: localResponse.retryAfter } : {})
++          },
++          signal: request.signal
++        });
++        activeRoundRequestId = "";
++        continue;
++      }
++      await waitForDesktopLocalAiRun(request.signal);
++      run = await api(`/api/works/${encodeURIComponent(request.workId)}/desktop-local-ai/runs/${encodeURIComponent(runId)}`, { signal: request.signal });
++    }
++    const completed = run.result;
 +    const content = String(completed?.content ?? "");
 +    if (!content) throw new Error("本地 AI 未返回内容");
-+    const durationMs = Math.max(0, Math.round(performance.now() - startedAt));
++    const durationMs = Number(completed.processDurationMs) || Math.max(0, Math.round(performance.now() - startedAt));
++    if (taskType !== "chat") {
++      pending.remove();
++      return { content, suggestion: completed, message: null, metadata: {} };
++    }
 +    const body = pending.querySelector(".message-body");
 +    body.innerHTML = renderMarkdown(content);
 +    body.setAttribute("aria-busy", "false");
 +    pending.classList.remove("is-streaming");
-+    const outputTokens = estimateAiMessageTokens(content);
++    renderAiProcessSteps(pending, completed.processSteps, true, durationMs);
++    const outputTokens = Number(completed.outputTokens) || estimateAiMessageTokens(content);
 +    const meta = pending.querySelector(".message-meta");
-+    meta.textContent = formatAiMessageMeta(model.displayName, outputTokens, undefined, "本地", durationMs);
++    meta.textContent = formatAiMessageMeta(model.displayName, outputTokens, completed.cacheHitPercent, "本地", durationMs);
 +    attachAssistantCopyAction(pending, content);
-+    attachDesktopLocalSuggestionAction(pending, taskType, content, target);
 +    scrollAiFeedToBottom(tab.feed);
 +    return {
 +      content,
++      suggestion: completed,
 +      message: pending,
 +      metadata: {
 +        modelId: model.id,
 +        modelDisplayName: model.displayName,
 +        outputTokens,
-+        processDurationMs: durationMs
++        processDurationMs: durationMs,
++        toolCalls: completed.toolCalls,
++        processSteps: completed.processSteps,
++        ...(completed.cacheHitPercent === undefined ? {} : { cacheHitPercent: completed.cacheHitPercent })
 +      }
 +    };
 +  } catch (error) {
@@ -1384,12 +1450,6 @@ index 03b2f488..58c76e8d 100644
      if (!modelId) return toast("请先在 AI 管理中配置并选择模型", "error");
      tab.selectedModelId = modelId;
 +    const desktopLocalModel = selectedDesktopLocalAiModel(modelId);
-+    const desktopLocalSuggestionTarget = desktopLocalModel && state.chapter ? {
-+      chapterId: state.chapter.id,
-+      selectionStart: $("#chapter-content").selectionStart,
-+      selectionEnd: $("#chapter-content").selectionEnd,
-+      selection
-+    } : null;
      const imageAttachmentIds = aiChatImageAttachmentIds(requestComposerSnapshot.images);
      if (imageAttachmentIds.length > 0 && !state.models.find((model) => model.id === modelId)?.multimodalEnabled) {
        return toast("当前选择的模型不是多模态模型，无法发送图片附件", "error");
@@ -1397,9 +1457,6 @@ index 03b2f488..58c76e8d 100644
      if (imageAttachmentIds.length > 0 && taskType !== "chat") {
        return toast("图片附件目前仅支持问答对话", "error");
      }
-+    if (desktopLocalModel && imageAttachmentIds.length > 0) {
-+      return toast("Desktop 本地模型当前仅支持文本消息，请移除图片附件", "error");
-+    }
      try {
        await prepareAiRequestConversation(requestHolder, selectedTaskType, requestScope.conversationScope);
      } catch (error) {
@@ -1412,6 +1469,15 @@ index 03b2f488..58c76e8d 100644
        if (!retry) {
          try {
            const request = assertAiRequestCurrent(requestHolder.snapshot);
+@@ -16097,7 +16969,7 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
+             "user",
+             instruction,
+             citations,
+-            { modelId },
++            { modelId, ...(imageAttachmentIds.length ? { chatImageAttachmentIds: imageAttachmentIds } : {}) },
+             { signal: request.signal }
+           );
+           assertAiRequestCurrent(request);
 @@ -16122,7 +16912,21 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
      let assistantMetadata = {};
      let persistedStreamMessage = null;
@@ -1426,11 +1492,13 @@ index 03b2f488..58c76e8d 100644
 +        instruction,
 +        scope,
 +        citations,
-+        target: desktopLocalSuggestionTarget
++        imageAttachmentIds,
++        sceneDirection
 +      });
 +      assistantContent = completed.content;
 +      assistantMessage = completed.message;
 +      assistantMetadata = completed.metadata;
++      if (taskType !== "chat") suggestion = completed.suggestion;
 +    } else if (taskType === "chat") {
        const streamed = await streamChat(requestHolder, aiRetryStreamRequestBody({
          instruction,

@@ -1,7 +1,11 @@
 import { ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from "electron";
 import {
+  parseCancelLocalAiAgentRoundInput,
   parseCancelLocalAiCompletionInput,
+  parseLocalAiAgentRoundInput,
   parseLocalAiCompletionRequestInput,
+  type LocalAiAgentRoundInput,
+  type LocalAiAgentRoundResult,
   type LocalAiCompletionRequestInput,
   type LocalAiCompletionResult,
   type LocalAiWorkspaceCatalog
@@ -17,7 +21,9 @@ const localWorkspaceChannels = [
   "local-workspace:shell:logout",
   "local-workspace:local-ai:catalog",
   "local-workspace:local-ai:complete",
-  "local-workspace:local-ai:cancel"
+  "local-workspace:local-ai:cancel",
+  "local-workspace:local-ai:agent-round",
+  "local-workspace:local-ai:agent-round-cancel"
 ] as const;
 
 function errorResult(error: unknown): IpcFailure {
@@ -84,6 +90,8 @@ export function registerLocalWorkspaceIpc(workspaceWindow: BrowserWindow, origin
   getLocalAiCatalog: () => LocalAiWorkspaceCatalog;
   completeLocalAi: (input: LocalAiCompletionRequestInput) => Promise<LocalAiCompletionResult>;
   cancelLocalAi: (requestId: string) => boolean;
+  completeLocalAiAgentRound: (input: LocalAiAgentRoundInput) => Promise<LocalAiAgentRoundResult>;
+  cancelLocalAiAgentRound: (requestId: string) => boolean;
 }): () => void {
   handle("local-workspace:shell:get-capabilities", workspaceWindow, origin, options.isActive, () => options.getWorkspaceIdentity());
   handle("local-workspace:shell:request-switch", workspaceWindow, origin, options.isActive, () => options.requestSwitch());
@@ -94,6 +102,12 @@ export function registerLocalWorkspaceIpc(workspaceWindow: BrowserWindow, origin
   });
   handle("local-workspace:local-ai:cancel", workspaceWindow, origin, options.isActive, (input) => {
     return options.cancelLocalAi(parseCancelLocalAiCompletionInput(input).requestId);
+  });
+  handle("local-workspace:local-ai:agent-round", workspaceWindow, origin, options.isActive, (input) => {
+    return options.completeLocalAiAgentRound(parseLocalAiAgentRoundInput(input));
+  });
+  handle("local-workspace:local-ai:agent-round-cancel", workspaceWindow, origin, options.isActive, (input) => {
+    return options.cancelLocalAiAgentRound(parseCancelLocalAiAgentRoundInput(input).requestId);
   });
   return () => localWorkspaceChannels.forEach((channel) => ipcMain.removeHandler(channel));
 }

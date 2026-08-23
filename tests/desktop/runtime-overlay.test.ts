@@ -17,7 +17,7 @@ describe("Desktop Web runtime overlay", () => {
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-local-ai-catalog.js"))).toBe(true);
   });
 
-  it("merges local models into every workspace picker and marks them with a computer icon", () => {
+  it("merges local models into every workspace picker and marks them with a local badge", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 
     expect(overlayPatch).toContain("loadDesktopLocalAiCatalog()");
@@ -25,9 +25,11 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain("applyAiModels(mergeDesktopLocalAiModels(models, localCatalog.models))");
     expect(overlayPatch).toContain("+      modelId: model.id,\n+      taskType,\n+      remoteSystemPrompt: prepared.remoteSystemPrompt,");
     expect(overlayPatch).toContain("+      modelId: model.id,\n+      taskType,\n+      remoteSystemPrompt: desktopOfflineLocalAiSystemPrompt(context),");
-    expect(overlayPatch).toContain("function aiModelLocalIconMarkup()");
-    expect(overlayPatch).toContain('icon.setAttribute("aria-label", "Desktop 本地模型")');
-    expect(overlayPatch).toContain("ai-model-option-image is-local");
+    expect(overlayPatch).toContain('scope.className = "ai-model-option-scope is-local"');
+    expect(overlayPatch).toContain('scope.textContent = "本地"');
+    expect(overlayPatch).not.toContain("function aiModelLocalIconMarkup()");
+    expect(overlayPatch).not.toContain('icon.setAttribute("aria-label", "Desktop 本地模型")');
+    expect(overlayPatch).not.toContain("ai-model-option-image.is-local");
   });
 
   it("shows the active workspace in the header and footer with a settings switch action", () => {

@@ -1,5 +1,5 @@
 const DATABASE_VERSION = 1;
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 const SYNC_PROTOCOL = 1;
 const EDITABLE_ENTITY_TYPES = new Set(["chapter", "setting"]);
 const OUTBOX_STATUSES = new Set(["pending", "syncing", "conflict", "rejected"]);
@@ -40,35 +40,6 @@ function transactionDone(transaction) {
   });
 }
 
-function bytesToBase64(bytes) {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary);
-}
-
-function base64ToBytes(value) {
-  let binary;
-  try {
-    binary = atob(value);
-  } catch {
-    throw new DesktopSyncStoreError("SYNC_KEY_INVALID", "Desktop 返回的离线密钥无效");
-  }
-  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
-  if (bytes.byteLength !== 32 || bytesToBase64(bytes) !== value) {
-    throw new DesktopSyncStoreError("SYNC_KEY_INVALID", "Desktop 返回的离线密钥无效");
-  }
-  return bytes;
-}
-
-function cipherAad(context) {
-  return new TextEncoder().encode(stableSyncJson(context));
-}
-
-async function importDataKey(keyBase64, cryptoImpl = globalThis.crypto) {
-  if (!cryptoImpl?.subtle) throw new DesktopSyncStoreError("SYNC_CRYPTO_UNAVAILABLE", "当前环境不支持离线数据加密");
-  return cryptoImpl.subtle.importKey("raw", base64ToBytes(keyBase64), { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
-}
-
 export function stableSyncJson(value) {
   if (Array.isArray(value)) return `[${value.map((item) => stableSyncJson(item)).join(",")}]`;
   if (value && typeof value === "object") {
@@ -82,7 +53,7 @@ export function stableSyncJson(value) {
 }
 
 export function desktopSyncDatabaseName(profileId, userId) {
-  return `scriverse-desktop-sync-${assertUuid(profileId, "profile id")}-${assertUuid(userId, "user id")}`;
+  return `scriverse-desktop-sync-v2-${assertUuid(profileId, "profile id")}-${assertUuid(userId, "user id")}`;
 }
 
 export function normalizeInitialOfflineDownloadState(value) {
@@ -101,32 +72,8 @@ export function normalizeInitialOfflineDownloadState(value) {
   };
 }
 
-export async function encryptSyncSnapshot(snapshot, keyBase64, context, cryptoImpl = globalThis.crypto) {
-  const key = await importDataKey(keyBase64, cryptoImpl);
-  const iv = cryptoImpl.getRandomValues(new Uint8Array(12));
-  const plaintext = new TextEncoder().encode(stableSyncJson(snapshot));
-  const ciphertext = await cryptoImpl.subtle.encrypt({ name: "AES-GCM", iv, additionalData: cipherAad(context) }, key, plaintext);
-  return { version: 1, iv: bytesToBase64(iv), ciphertext: bytesToBase64(new Uint8Array(ciphertext)) };
-}
-
-export async function decryptSyncSnapshot(cipher, keyBase64, context, cryptoImpl = globalThis.crypto) {
-  if (
-    !cipher
-    || cipher.version !== 1
-    || typeof cipher.iv !== "string"
-    || typeof cipher.ciphertext !== "string"
-  ) throw new DesktopSyncStoreError("SYNC_CIPHER_INVALID", "离线数据密文格式无效");
-  const key = await importDataKey(keyBase64, cryptoImpl);
-  try {
-    const plaintext = await cryptoImpl.subtle.decrypt({
-      name: "AES-GCM",
-      iv: Uint8Array.from(atob(cipher.iv), (character) => character.charCodeAt(0)),
-      additionalData: cipherAad(context)
-    }, key, Uint8Array.from(atob(cipher.ciphertext), (character) => character.charCodeAt(0)));
-    return JSON.parse(new TextDecoder().decode(plaintext));
-  } catch {
-    throw new DesktopSyncStoreError("SYNC_DECRYPT_FAILED", "离线数据无法解密，已停止继续读写");
-  }
+export async function cloneSyncSnapshot(snapshot) {
+  return structuredClone(snapshot);
 }
 
 async function requestHash(value, cryptoImpl = globalThis.crypto) {
@@ -136,10 +83,6 @@ async function requestHash(value, cryptoImpl = globalThis.crypto) {
 
 function entityKey(workId, entityType, entityId) {
   return [workId, entityType, entityId];
-}
-
-function cipherContext(profileId, userId, workId, entityType, entityId, slot) {
-  return { profileId, userId, workId, entityType, entityId, slot, schemaVersion: SCHEMA_VERSION };
 }
 
 function openDatabase(indexedDBImpl, name) {
@@ -187,12 +130,10 @@ function summaryWorkStatus(workStore, workId, status) {
 }
 
 export class DesktopSyncStore {
-  constructor({ profileId, userId, keyBase64, indexedDBImpl = globalThis.indexedDB, cryptoImpl = globalThis.crypto }) {
+  constructor({ profileId, userId, indexedDBImpl = globalThis.indexedDB, cryptoImpl = globalThis.crypto }) {
     this.profileId = assertUuid(profileId, "profile id");
     this.userId = assertUuid(userId, "user id");
-    base64ToBytes(keyBase64);
     if (!indexedDBImpl) throw new DesktopSyncStoreError("SYNC_DATABASE_UNAVAILABLE", "当前环境不支持 IndexedDB");
-    this.keyBase64 = keyBase64;
     this.indexedDB = indexedDBImpl;
     this.crypto = cryptoImpl;
     this.databasePromise = null;
@@ -280,20 +221,19 @@ export class DesktopSyncStore {
     if (!workItem?.data || String(workItem.entityId) !== workId) {
       throw new DesktopSyncStoreError("SYNC_SNAPSHOT_INVALID", "同步快照缺少作品摘要");
     }
-    const encryptedEntities = [];
+    const storedEntities = [];
     for (const item of items) {
       if (item.entityType === "work") continue;
       if (!item.data || typeof item.data !== "object") throw new DesktopSyncStoreError("SYNC_SNAPSHOT_INVALID", "同步快照实体无效");
-      const context = cipherContext(this.profileId, this.userId, workId, item.entityType, String(item.entityId), "server");
-      const serverCipher = await encryptSyncSnapshot(item.data, this.keyBase64, context, this.crypto);
-      encryptedEntities.push({
+      const serverSnapshot = await cloneSyncSnapshot(item.data);
+      storedEntities.push({
         workId,
         entityType: item.entityType,
         entityId: String(item.entityId),
         serverVersionNo: Number(item.versionNo),
-        baseCipher: serverCipher,
-        serverCipher,
-        localCipher: serverCipher,
+        baseSnapshot: serverSnapshot,
+        serverSnapshot,
+        localSnapshot: serverSnapshot,
         localRevisionNo: 0,
         dirty: false,
         dirtyFlag: 0,
@@ -307,7 +247,7 @@ export class DesktopSyncStore {
     const entityStore = transaction.objectStore("entities");
     const existingKeys = await requestValue(entityStore.index("by-work").getAllKeys(workId));
     for (const key of existingKeys) entityStore.delete(key);
-    for (const entity of encryptedEntities) entityStore.put(entity);
+    for (const entity of storedEntities) entityStore.put(entity);
     transaction.objectStore("works").put({
       workId,
       title: String(workItem.data.title ?? "未命名作品"),
@@ -319,7 +259,7 @@ export class DesktopSyncStore {
       updatedAt: new Date().toISOString()
     });
     await transactionDone(transaction);
-    return { workId, cursor: Number(cutoffCursor), entityCount: encryptedEntities.length };
+    return { workId, cursor: Number(cutoffCursor), entityCount: storedEntities.length };
   }
 
   async listWorks() {
@@ -336,13 +276,7 @@ export class DesktopSyncStore {
     const entity = await requestValue(transaction.objectStore("entities").get(entityKey(workId, entityType, entityId)));
     await transactionDone(transaction);
     if (!entity || entity.deleted) return null;
-    const slot = entity.dirty ? "local" : "server";
-    const snapshot = await decryptSyncSnapshot(
-      entity.dirty ? entity.localCipher : entity.serverCipher,
-      this.keyBase64,
-      cipherContext(this.profileId, this.userId, workId, entityType, entityId, slot),
-      this.crypto
-    );
+    const snapshot = await cloneSyncSnapshot(entity.dirty ? entity.localSnapshot : entity.serverSnapshot);
     return { ...structuredClone(entity), snapshot };
   }
 
@@ -377,19 +311,14 @@ export class DesktopSyncStore {
       await transactionDone(lookup);
       const mutationId = pending?.mutationId ?? crypto.randomUUID();
       const baseVersionNo = Number(pending?.baseVersionNo ?? current.serverVersionNo);
-      const localCipher = await encryptSyncSnapshot(
-        localSnapshot,
-        this.keyBase64,
-        cipherContext(this.profileId, this.userId, workId, entityType, entityId, "local"),
-        this.crypto
-      );
+      const storedLocalSnapshot = await cloneSyncSnapshot(localSnapshot);
       const mutation = {
         mutationId,
         entityType,
         entityId,
         operation: "update",
         baseVersionNo,
-        localSnapshot,
+        localSnapshot: storedLocalSnapshot,
         changeNote: String(changeNote).trim().slice(0, 500) || "Desktop 离线修改"
       };
       const hash = await requestHash(mutation, this.crypto);
@@ -410,7 +339,7 @@ export class DesktopSyncStore {
       const timestamp = new Date().toISOString();
       entityStore.put({
         ...lockedEntity,
-        localCipher,
+        localSnapshot: storedLocalSnapshot,
         localRevisionNo: Number(lockedEntity.localRevisionNo) + 1,
         dirty: true,
         dirtyFlag: 1,
@@ -423,7 +352,7 @@ export class DesktopSyncStore {
         entityId,
         operation: "update",
         baseVersionNo,
-        localSnapshotCipher: localCipher,
+        localSnapshot: storedLocalSnapshot,
         changeNote: mutation.changeNote,
         requestHash: hash,
         localRevisionNo: Number(lockedEntity.localRevisionNo) + 1,
@@ -453,12 +382,7 @@ export class DesktopSyncStore {
     rows.sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.mutationId.localeCompare(right.mutationId));
     const result = [];
     for (const row of rows) {
-      const localSnapshot = await decryptSyncSnapshot(
-        row.localSnapshotCipher,
-        this.keyBase64,
-        cipherContext(this.profileId, this.userId, row.workId, row.entityType, row.entityId, "local"),
-        this.crypto
-      );
+      const localSnapshot = await cloneSyncSnapshot(row.localSnapshot);
       result.push({ ...structuredClone(row), localSnapshot });
     }
     return result;
@@ -529,33 +453,18 @@ export class DesktopSyncStore {
       const current = await this.rawEntity(workId, change.entityType, change.entityId);
       const disposition = pullChangeDisposition(current, change);
       if (disposition === "keep-local") return disposition;
-      const serverSnapshot = change.operation === "delete"
+      const incomingSnapshot = change.operation === "delete"
         ? { id: change.entityId, workId, versionNo: change.versionNo, deleted: true }
         : change.data;
-      if (!serverSnapshot || typeof serverSnapshot !== "object") {
+      if (!incomingSnapshot || typeof incomingSnapshot !== "object") {
         throw new DesktopSyncStoreError("SYNC_CHANGE_INVALID", "Server upsert 缺少实体快照");
       }
-      const serverCipher = await encryptSyncSnapshot(
-        serverSnapshot,
-        this.keyBase64,
-        cipherContext(this.profileId, this.userId, workId, change.entityType, change.entityId, "server"),
-        this.crypto
-      );
+      const serverSnapshot = await cloneSyncSnapshot(incomingSnapshot);
       let conflictRecord = null;
       let relatedMutationIds = [];
       if (disposition === "conflict") {
-        const baseSnapshot = await decryptSyncSnapshot(
-          current.baseCipher,
-          this.keyBase64,
-          cipherContext(this.profileId, this.userId, workId, change.entityType, change.entityId, "server"),
-          this.crypto
-        );
-        const localSnapshot = await decryptSyncSnapshot(
-          current.localCipher,
-          this.keyBase64,
-          cipherContext(this.profileId, this.userId, workId, change.entityType, change.entityId, "local"),
-          this.crypto
-        );
+        const baseSnapshot = await cloneSyncSnapshot(current.baseSnapshot);
+        const localSnapshot = await cloneSyncSnapshot(current.localSnapshot);
         const outbox = await this.rawOutboxForEntity(workId, change.entityType, change.entityId);
         const active = outbox.filter((record) => record.status === "pending" || record.status === "syncing");
         if (active.length === 0) throw new DesktopSyncStoreError("SYNC_STORE_INVARIANT", "本地 dirty 实体缺少 outbox 记录");
@@ -569,30 +478,10 @@ export class DesktopSyncStore {
           entityId: change.entityId,
           baseVersionNo: Number(current.serverVersionNo),
           currentServerVersionNo: Number(change.versionNo),
-          baseSnapshotCipher: await encryptSyncSnapshot(
-            baseSnapshot,
-            this.keyBase64,
-            cipherContext(this.profileId, this.userId, workId, change.entityType, change.entityId, "conflict-base"),
-            this.crypto
-          ),
-          localSnapshotCipher: await encryptSyncSnapshot(
-            localSnapshot,
-            this.keyBase64,
-            cipherContext(this.profileId, this.userId, workId, change.entityType, change.entityId, "conflict-local"),
-            this.crypto
-          ),
-          serverSnapshotCipher: await encryptSyncSnapshot(
-            serverSnapshot,
-            this.keyBase64,
-            cipherContext(this.profileId, this.userId, workId, change.entityType, change.entityId, "conflict-server"),
-            this.crypto
-          ),
-          mergeDraftCipher: await encryptSyncSnapshot(
-            localSnapshot,
-            this.keyBase64,
-            cipherContext(this.profileId, this.userId, workId, change.entityType, change.entityId, "conflict-merge"),
-            this.crypto
-          ),
+          baseSnapshot: await cloneSyncSnapshot(baseSnapshot),
+          localSnapshot: await cloneSyncSnapshot(localSnapshot),
+          serverSnapshot: await cloneSyncSnapshot(serverSnapshot),
+          mergeDraft: await cloneSyncSnapshot(localSnapshot),
           unresolvedBlockCount: null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
@@ -616,7 +505,7 @@ export class DesktopSyncStore {
         entityStore.put({
           ...locked,
           serverVersionNo: Number(change.versionNo),
-          serverCipher,
+          serverSnapshot,
           conflict: true,
           updatedAt: new Date().toISOString()
         });
@@ -635,9 +524,9 @@ export class DesktopSyncStore {
             localRevisionNo: 0
           }),
           serverVersionNo: Number(change.versionNo),
-          baseCipher: serverCipher,
-          serverCipher,
-          localCipher: serverCipher,
+          baseSnapshot: serverSnapshot,
+          serverSnapshot,
+          localSnapshot: serverSnapshot,
           dirty: false,
           dirtyFlag: 0,
           deleted: true,
@@ -651,9 +540,9 @@ export class DesktopSyncStore {
           entityType: change.entityType,
           entityId: change.entityId,
           serverVersionNo: Number(change.versionNo),
-          baseCipher: serverCipher,
-          serverCipher,
-          localCipher: serverCipher,
+          baseSnapshot: serverSnapshot,
+          serverSnapshot,
+          localSnapshot: serverSnapshot,
           localRevisionNo: Number(locked?.localRevisionNo ?? 0),
           dirty: false,
           dirtyFlag: 0,
@@ -729,15 +618,10 @@ export class DesktopSyncStore {
     const outbox = await requestValue(read.objectStore("outbox").get(result.mutationId));
     await transactionDone(read);
     if (!outbox || outbox.workId !== workId) return result.status === "applied" ? "applied" : result.status === "conflict" ? "conflicts" : "rejected";
-    let serverCipher = null;
+    let serverSnapshot = null;
     let conflictRecord = null;
     if (result.serverSnapshot) {
-      serverCipher = await encryptSyncSnapshot(
-        result.serverSnapshot,
-        this.keyBase64,
-        cipherContext(this.profileId, this.userId, workId, outbox.entityType, outbox.entityId, "server"),
-        this.crypto
-      );
+      serverSnapshot = await cloneSyncSnapshot(result.serverSnapshot);
     }
     if (result.status === "conflict") {
       if (!result.baseSnapshot || !result.localSnapshot || !result.serverSnapshot) {
@@ -751,30 +635,10 @@ export class DesktopSyncStore {
         entityId: outbox.entityId,
         baseVersionNo: Number(result.baseVersionNo),
         currentServerVersionNo: Number(result.conflictVersionNo),
-        baseSnapshotCipher: await encryptSyncSnapshot(
-          result.baseSnapshot,
-          this.keyBase64,
-          cipherContext(this.profileId, this.userId, workId, outbox.entityType, outbox.entityId, "conflict-base"),
-          this.crypto
-        ),
-        localSnapshotCipher: await encryptSyncSnapshot(
-          result.localSnapshot,
-          this.keyBase64,
-          cipherContext(this.profileId, this.userId, workId, outbox.entityType, outbox.entityId, "conflict-local"),
-          this.crypto
-        ),
-        serverSnapshotCipher: await encryptSyncSnapshot(
-          result.serverSnapshot,
-          this.keyBase64,
-          cipherContext(this.profileId, this.userId, workId, outbox.entityType, outbox.entityId, "conflict-server"),
-          this.crypto
-        ),
-        mergeDraftCipher: await encryptSyncSnapshot(
-          result.localSnapshot,
-          this.keyBase64,
-          cipherContext(this.profileId, this.userId, workId, outbox.entityType, outbox.entityId, "conflict-merge"),
-          this.crypto
-        ),
+        baseSnapshot: await cloneSyncSnapshot(result.baseSnapshot),
+        localSnapshot: await cloneSyncSnapshot(result.localSnapshot),
+        serverSnapshot: await cloneSyncSnapshot(result.serverSnapshot),
+        mergeDraft: await cloneSyncSnapshot(result.localSnapshot),
         unresolvedBlockCount: null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -792,7 +656,7 @@ export class DesktopSyncStore {
       throw new DesktopSyncStoreError("SYNC_STORE_INVARIANT", "push 结果找不到本地实体或 outbox");
     }
     if (result.status === "applied") {
-      if (!serverCipher || !Number.isInteger(result.appliedVersionNo)) {
+      if (!serverSnapshot || !Number.isInteger(result.appliedVersionNo)) {
         transaction.abort();
         throw new DesktopSyncStoreError("SYNC_PUSH_RESULT_INVALID", "Server applied 结果缺少权威快照");
       }
@@ -807,9 +671,9 @@ export class DesktopSyncStore {
       entityStore.put({
         ...entity,
         serverVersionNo: Number(result.appliedVersionNo),
-        baseCipher: serverCipher,
-        serverCipher,
-        ...(hasNewerLocal ? {} : { localCipher: serverCipher }),
+        baseSnapshot: serverSnapshot,
+        serverSnapshot,
+        ...(hasNewerLocal ? {} : { localSnapshot: serverSnapshot }),
         dirty: hasNewerLocal,
         dirtyFlag: hasNewerLocal ? 1 : 0,
         deleted: false,
@@ -836,7 +700,7 @@ export class DesktopSyncStore {
       entityStore.put({
         ...entity,
         serverVersionNo: Number(result.conflictVersionNo),
-        ...(serverCipher ? { serverCipher } : {}),
+        ...(serverSnapshot ? { serverSnapshot } : {}),
         dirty: true,
         dirtyFlag: 1,
         conflict: true,
@@ -879,13 +743,12 @@ export class DesktopSyncStore {
     await transactionDone(transaction);
     const result = [];
     for (const record of records) {
-      const context = (slot) => cipherContext(this.profileId, this.userId, workId, record.entityType, record.entityId, slot);
       result.push({
         ...structuredClone(record),
-        baseSnapshot: await decryptSyncSnapshot(record.baseSnapshotCipher, this.keyBase64, context("conflict-base"), this.crypto),
-        localSnapshot: await decryptSyncSnapshot(record.localSnapshotCipher, this.keyBase64, context("conflict-local"), this.crypto),
-        serverSnapshot: await decryptSyncSnapshot(record.serverSnapshotCipher, this.keyBase64, context("conflict-server"), this.crypto),
-        mergeDraft: await decryptSyncSnapshot(record.mergeDraftCipher, this.keyBase64, context("conflict-merge"), this.crypto)
+        baseSnapshot: await cloneSyncSnapshot(record.baseSnapshot),
+        localSnapshot: await cloneSyncSnapshot(record.localSnapshot),
+        serverSnapshot: await cloneSyncSnapshot(record.serverSnapshot),
+        mergeDraft: await cloneSyncSnapshot(record.mergeDraft)
       });
     }
     return result;
@@ -897,12 +760,7 @@ export class DesktopSyncStore {
     const conflict = await requestValue(read.objectStore("conflicts").get(mutationId));
     await transactionDone(read);
     if (!conflict) throw new DesktopSyncStoreError("SYNC_CONFLICT_NOT_FOUND", "同步冲突不存在");
-    const cipher = await encryptSyncSnapshot(
-      mergeDraft,
-      this.keyBase64,
-      cipherContext(this.profileId, this.userId, conflict.workId, conflict.entityType, conflict.entityId, "conflict-merge"),
-      this.crypto
-    );
+    const storedMergeDraft = await cloneSyncSnapshot(mergeDraft);
     const transaction = database.transaction(["conflicts"], "readwrite");
     const store = transaction.objectStore("conflicts");
     const locked = await requestValue(store.get(mutationId));
@@ -912,7 +770,7 @@ export class DesktopSyncStore {
     }
     store.put({
       ...locked,
-      mergeDraftCipher: cipher,
+      mergeDraft: storedMergeDraft,
       unresolvedBlockCount: Math.max(0, Number(unresolvedBlockCount) || 0),
       updatedAt: new Date().toISOString()
     });
@@ -924,12 +782,7 @@ export class DesktopSyncStore {
     const conflict = conflicts[0];
     if (!conflict) throw new DesktopSyncStoreError("SYNC_CONFLICT_NOT_FOUND", "同步冲突不存在");
     const newMutationId = crypto.randomUUID();
-    const localCipher = await encryptSyncSnapshot(
-      finalSnapshot,
-      this.keyBase64,
-      cipherContext(this.profileId, this.userId, conflict.workId, conflict.entityType, conflict.entityId, "local"),
-      this.crypto
-    );
+    const storedLocalSnapshot = await cloneSyncSnapshot(finalSnapshot);
     const mutation = {
       mutationId: newMutationId,
       entityType: conflict.entityType,
@@ -950,7 +803,7 @@ export class DesktopSyncStore {
     }
     entityStore.put({
       ...entity,
-      localCipher,
+      localSnapshot: storedLocalSnapshot,
       localRevisionNo: Number(entity.localRevisionNo) + 1,
       dirty: true,
       dirtyFlag: 1,
@@ -967,7 +820,7 @@ export class DesktopSyncStore {
       entityId: conflict.entityId,
       operation: "update",
       baseVersionNo: Number(conflict.currentServerVersionNo),
-      localSnapshotCipher: localCipher,
+      localSnapshot: storedLocalSnapshot,
       localRevisionNo: Number(entity.localRevisionNo) + 1,
       changeNote: mutation.changeNote,
       requestHash: hash,

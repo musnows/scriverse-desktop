@@ -24,13 +24,13 @@ describe("Desktop Server 删除与 origin 更换保护", () => {
     expect(updateSource.indexOf("options.forgetRemote(existing)")).toBeLessThan(updateSource.indexOf("profileStore.updateRemote"));
   });
 
-  it("清空 partition 的 Cookie、IndexedDB、Storage、Service Worker 和 HTTP cache，并覆盖离线密钥", () => {
+  it("清空 partition 的 IndexedDB、Storage、Service Worker、Cookie 和 HTTP cache", () => {
     expect(sessionPolicy).toContain("electronSession.flushStorageData()");
     expect(sessionPolicy).toContain("electronSession.clearStorageData()");
     expect(sessionPolicy).toContain("electronSession.clearCache()");
     expect(sessionPolicy).toContain("electronSession.clearAuthCache()");
     expect(sessionPolicy).toContain("this.policies.delete(profile.id)");
-    expect(main).toContain("offlineKeyStore!.clearProfile(profile.id)");
+    expect(main).not.toContain("offlineKeyStore");
     expect(main).toContain("remoteSyncStatusStore!.clear(profile)");
   });
 });

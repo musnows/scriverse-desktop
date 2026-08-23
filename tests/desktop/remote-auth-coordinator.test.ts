@@ -51,7 +51,7 @@ describe("Desktop 远端登录编排", () => {
     expect(client.captcha).not.toHaveBeenCalled();
   });
 
-  it("Server 断线时仅凭已有离线密钥和软件内登录打开缓存工作区", async () => {
+  it("Server 断线时凭已有离线状态和软件内登录打开缓存工作区", async () => {
     const token = `scrvd_${"c".repeat(43)}`;
     const store = {
       load: vi.fn().mockReturnValue({ token, expiresAt: "2099-09-23T00:00:00.000Z", user }),
@@ -71,7 +71,6 @@ describe("Desktop 远端登录编排", () => {
       () => true
     );
     await expect(coordinator.open(profile)).resolves.toEqual({ status: "opened", mode: "offline" });
-    await expect(coordinator.authorizeOfflineKey(profile, user.userId)).resolves.toEqual({ user, verifiedOnline: false });
     expect(openWorkspace).toHaveBeenCalledWith(profile, "offline");
     expect(client.session).toHaveBeenCalledTimes(1);
     expect(sessions.authorize).toHaveBeenCalledWith(profile, token);
@@ -84,7 +83,6 @@ describe("Desktop 远端登录编排", () => {
     const store = {
       load: vi.fn().mockReturnValue(null),
       clear: vi.fn(),
-      assertAvailable: vi.fn(),
       save: vi.fn()
     };
     const client = {

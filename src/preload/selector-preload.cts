@@ -13,7 +13,8 @@ contextBridge.exposeInMainWorld("scriverseDesktop", Object.freeze({
   }),
   local: Object.freeze({
     getStatus: () => ipcRenderer.invoke("selector:local:get-status"),
-    setup: (input: unknown) => ipcRenderer.invoke("selector:local:setup", input)
+    setup: (input: unknown) => ipcRenderer.invoke("selector:local:setup", input),
+    login: (input: unknown) => ipcRenderer.invoke("selector:local:login", input)
   }),
   settings: Object.freeze({
     get: () => ipcRenderer.invoke("selector:settings:get"),

@@ -231,7 +231,7 @@ export class DesktopWorkspaceController {
           download.disabled = true;
           try {
             await this.downloadWork(serverWork);
-            toast("离线副本已加密保存");
+            toast("离线副本已保存");
             await this.renderSyncCenter(toast);
           } catch (error) {
             toast(error.message, "error");

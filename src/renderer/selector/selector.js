@@ -26,6 +26,12 @@ const localPassword = document.querySelector("#local-password");
 const localPasswordConfirmation = document.querySelector("#local-password-confirmation");
 const localSetupError = document.querySelector("#local-setup-error");
 const localSetupSubmit = document.querySelector("#local-setup-submit");
+const localLoginDialog = document.querySelector("#local-login-dialog");
+const localLoginForm = document.querySelector("#local-login-form");
+const localLoginUsername = document.querySelector("#local-login-username");
+const localLoginPassword = document.querySelector("#local-login-password");
+const localLoginError = document.querySelector("#local-login-error");
+const localLoginSubmit = document.querySelector("#local-login-submit");
 const systemSettingsDialog = document.querySelector("#system-settings-dialog");
 const systemSettingsForm = document.querySelector("#system-settings-form");
 const localServerPort = document.querySelector("#local-server-port");
@@ -85,6 +91,12 @@ function requireElement(element, label) {
   [localPasswordConfirmation, "local-password-confirmation"],
   [localSetupError, "local-setup-error"],
   [localSetupSubmit, "local-setup-submit"],
+  [localLoginDialog, "local-login-dialog"],
+  [localLoginForm, "local-login-form"],
+  [localLoginUsername, "local-login-username"],
+  [localLoginPassword, "local-login-password"],
+  [localLoginError, "local-login-error"],
+  [localLoginSubmit, "local-login-submit"],
   [systemSettingsDialog, "system-settings-dialog"],
   [systemSettingsForm, "system-settings-form"],
   [localServerPort, "local-server-port"],
@@ -361,6 +373,18 @@ function closeLocalSetupDialog() {
   if (localSetupDialog.open) localSetupDialog.close();
 }
 
+function openLocalLoginDialog() {
+  localLoginForm.reset();
+  localLoginError.hidden = true;
+  localLoginDialog.showModal();
+  window.setTimeout(() => localLoginUsername.focus(), 0);
+}
+
+function closeLocalLoginDialog() {
+  localLoginPassword.value = "";
+  if (localLoginDialog.open) localLoginDialog.close();
+}
+
 async function openSystemSettingsDialog() {
   systemSettingsError.hidden = true;
   try {
@@ -500,6 +524,24 @@ localSetupForm.addEventListener("submit", async (event) => {
   }
 });
 
+localLoginForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  localLoginError.hidden = true;
+  setBusy(localLoginSubmit, true);
+  try {
+    unwrap(await bridge.local.login({ username: localLoginUsername.value, password: localLoginPassword.value }));
+    closeLocalLoginDialog();
+    showToast("本地工作区登录成功，正在进入");
+    await loadProfiles();
+  } catch (error) {
+    localLoginError.textContent = error.message;
+    localLoginError.hidden = false;
+  } finally {
+    localLoginPassword.value = "";
+    setBusy(localLoginSubmit, false);
+  }
+});
+
 systemSettingsForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   systemSettingsError.hidden = true;
@@ -548,9 +590,12 @@ workspaceList.addEventListener("click", async (event) => {
     try {
       const openResult = unwrap(await bridge.profiles.open(profile.id));
       await loadProfiles();
-      if (profile.kind === "local" && state.localStatus.setupRequired) {
+      if (profile.kind === "local" && openResult.status === "setup-required") {
         showToast("本地服务已启动，请创建首位管理员");
         openLocalSetupDialog();
+      } else if (profile.kind === "local" && openResult.status === "login-required") {
+        showToast("请登录本地工作区");
+        openLocalLoginDialog();
       } else if (profile.kind === "remote" && openResult.status === "login-required") {
         showToast("请直接登录该 Server");
         openRemoteLoginDialog(profile, openResult.challenge);
@@ -579,6 +624,7 @@ document.querySelector("#quit-button").addEventListener("click", async () => {
 document.querySelectorAll("[data-dialog-close]").forEach((button) => button.addEventListener("click", closeProfileDialog));
 document.querySelectorAll("[data-remote-login-close]").forEach((button) => button.addEventListener("click", closeRemoteLoginDialog));
 document.querySelectorAll("[data-local-setup-close]").forEach((button) => button.addEventListener("click", closeLocalSetupDialog));
+document.querySelectorAll("[data-local-login-close]").forEach((button) => button.addEventListener("click", closeLocalLoginDialog));
 document.querySelectorAll("[data-system-settings-close]").forEach((button) => button.addEventListener("click", closeSystemSettingsDialog));
 document.querySelectorAll("[data-delete-close]").forEach((button) => button.addEventListener("click", closeDeleteDialog));
 profileOrigin.addEventListener("input", updateOriginPreview);
@@ -592,6 +638,11 @@ document.addEventListener("keydown", (event) => {
   if (localSetupDialog.open) {
     event.preventDefault();
     closeLocalSetupDialog();
+    return;
+  }
+  if (localLoginDialog.open) {
+    event.preventDefault();
+    closeLocalLoginDialog();
     return;
   }
   if (systemSettingsDialog.open) {

@@ -26,7 +26,7 @@ import {
   type LocalAiProviderUpdateInput
 } from "../shared/local-ai-contract.js";
 import type { LocalServerPublicStatus } from "../shared/local-server-contract.js";
-import { parseLocalSetupInput } from "../shared/local-server-contract.js";
+import { parseLocalLoginInput, parseLocalSetupInput } from "../shared/local-server-contract.js";
 import {
   parseRemoteLoginInput,
   type RemoteAuthUser,
@@ -53,6 +53,7 @@ const channels = [
   "selector:profiles:probe",
   "selector:local:get-status",
   "selector:local:setup",
+  "selector:local:login",
   "selector:settings:get",
   "selector:settings:update",
   "selector:remote:refresh-captcha",
@@ -145,8 +146,9 @@ export function registerSelectorIpc(selectorWindow: BrowserWindow, profileStore:
   getLocalStatus: () => LocalServerPublicStatus;
   getDesktopSettings: () => DesktopSettingsSummary;
   updateDesktopSettings: (input: unknown) => DesktopSettingsSummary;
-  openLocal: () => Promise<unknown>;
+  openLocal: () => Promise<{ status: "opened" | "setup-required" | "login-required"; mode?: "online" }>;
   setupLocal: (input: { username: string; password: string }) => Promise<unknown>;
+  loginLocal: (input: { username: string; password: string }) => Promise<unknown>;
   openRemote: (profile: RemoteWorkspaceProfile) => Promise<RemoteProfileOpenResult>;
   refreshRemoteChallenge: (profile: RemoteWorkspaceProfile) => Promise<RemoteLoginChallenge>;
   loginRemote: (profile: RemoteWorkspaceProfile, input: RemoteLoginInput) => Promise<RemoteAuthUser>;
@@ -202,8 +204,8 @@ export function registerSelectorIpc(selectorWindow: BrowserWindow, profileStore:
     const id = parseProfileId(input);
     const profile = profileStore.get(id);
     if (profile.kind === "local") {
-      await options.openLocal();
-      return { status: "opened", profile: profileStore.markUsed(id) };
+      const result = await options.openLocal();
+      return { ...result, profile: result.status === "opened" ? profileStore.markUsed(id) : profile };
     }
     let checkedProfile = profile;
     try {
@@ -224,6 +226,7 @@ export function registerSelectorIpc(selectorWindow: BrowserWindow, profileStore:
   });
   handle("selector:local:get-status", selectorWindow, () => options.getLocalStatus());
   handle("selector:local:setup", selectorWindow, (_event, input) => options.setupLocal(parseLocalSetupInput(input)));
+  handle("selector:local:login", selectorWindow, (_event, input) => options.loginLocal(parseLocalLoginInput(input)));
   handle("selector:settings:get", selectorWindow, () => options.getDesktopSettings());
   handle("selector:settings:update", selectorWindow, (_event, input) => options.updateDesktopSettings(input));
   handle("selector:remote:refresh-captcha", selectorWindow, (_event, input) => {

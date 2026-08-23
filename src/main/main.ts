@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, safeStorage, session, shell, utilityProcess, type UtilityProcess } from "electron";
+import { app, BrowserWindow, dialog, shell, utilityProcess, type UtilityProcess } from "electron";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -14,11 +14,13 @@ import { createLocalWorkspaceWindow } from "./workspace-window.js";
 import { createRemoteWorkspaceWindow } from "./remote-workspace-window.js";
 import { RemoteAuthClient } from "./remote-auth-client.js";
 import { RemoteAuthCoordinator } from "./remote-auth-coordinator.js";
-import { RemoteAuthStore, type DesktopSecretStorage } from "./remote-auth-store.js";
+import { RemoteAuthStore } from "./remote-auth-store.js";
+import { CredentialVault, loadMasterSecret } from "./credential-vault.js";
+import { LocalAuthStore, LocalAuthStoreError, type StoredLocalCredential } from "./local-auth-store.js";
+import { LocalSessionPolicy } from "./local-session-policy.js";
 import { RemoteSessionRegistry } from "./remote-session-policy.js";
 import { RemoteSyncStatusStore } from "./remote-sync-status-store.js";
 import { RemoteServerProbe } from "./remote-server-probe.js";
-import { OfflineKeyStore } from "./offline-key-store.js";
 import { LocalAiProviderStore } from "./local-ai-provider-store.js";
 import { LocalAiClient } from "./local-ai-client.js";
 import { LocalAiRequestCoordinator } from "./local-ai-request-coordinator.js";
@@ -30,13 +32,9 @@ import { DesktopUpdater } from "./desktop-updater.js";
 import { handleSquirrelStartup } from "./squirrel-startup.js";
 import { applyWindowPlacement, captureWindowPlacement } from "./window-placement.js";
 import { DesktopSettingsStore } from "./desktop-settings-store.js";
-import { LOCAL_PROFILE_ID, LOCAL_PROFILE_PARTITION, type RemoteWorkspaceProfile } from "../shared/contracts.js";
+import { LOCAL_PROFILE_ID, type RemoteWorkspaceProfile } from "../shared/contracts.js";
+import { parseRemoteSessionResponse, type RemoteAuthUser } from "../shared/remote-auth-contract.js";
 import type { WorkspaceLeaveState } from "../shared/workspace-contract.js";
-import {
-  LOCAL_COOKIE_OPERATION_TIMEOUT_MS,
-  LOCAL_SESSION_COOKIE_NAME,
-  LOCAL_SESSION_MAX_AGE_SECONDS
-} from "../shared/local-server-contract.js";
 
 type RuntimeGateResult = {
   ok: boolean;
@@ -67,7 +65,8 @@ let localServerManager: LocalServerManager | null = null;
 let desktopSettingsStore: DesktopSettingsStore | null = null;
 let remoteAuthCoordinator: RemoteAuthCoordinator | null = null;
 let remoteSyncStatusStore: RemoteSyncStatusStore | null = null;
-let offlineKeyStore: OfflineKeyStore | null = null;
+let localAuthStore: LocalAuthStore | null = null;
+let localSessionPolicy: LocalSessionPolicy | null = null;
 let localAiProviderStore: LocalAiProviderStore | null = null;
 let localAiClient: LocalAiClient | null = null;
 let localAiRequestCoordinator: LocalAiRequestCoordinator | null = null;
@@ -181,6 +180,11 @@ function createLocalServerManager(environment: DesktopEnvironment, settings: Des
   return new LocalServerManager({
     paths: environment.paths,
     desktopId: environment.desktopId,
+    desktopVersion: resolveDesktopAppVersion({
+      packaged: app.isPackaged,
+      packagedVersion: app.getVersion(),
+      applicationRoot
+    }),
     applicationRoot,
     desktopRoot,
     utilityWorkingDirectory,
@@ -195,29 +199,23 @@ async function runLocalServerGate(manager: LocalServerManager): Promise<void> {
     let userRole: string | null = null;
     let duplicateProvisionRejected = false;
     let setupRequiredAfter = ready.setupRequired;
-    let cookieVerified = false;
+    let bearerVerified = false;
     let workspaceLoaded = false;
     if (localProvisionGateRequested && ready.setupRequired) {
       const provision = await manager.provision({
         username: "desktop_gate_admin",
         password: `desktop-gate-${randomUUID()}-A1`
       });
-      await setLocalSessionCookie(provision);
-      const storedCookie = (await withLocalCookieTimeout(session.fromPartition(LOCAL_PROFILE_PARTITION).cookies.get({
-        url: provision.url,
-        name: LOCAL_SESSION_COOKIE_NAME
-      })))[0];
-      if (!storedCookie || storedCookie.value !== provision.sessionToken || storedCookie.httpOnly !== true || storedCookie.sameSite !== "lax") {
-        throw new Error("Local provision gate cookie verification failed");
-      }
-      cookieVerified = true;
+      const gateSessionPolicy = new LocalSessionPolicy();
+      gateSessionPolicy.authorize(provision.url, provision.token);
       const sessionState = await fetch(`${provision.url}/api/auth/session`, {
-        headers: { Cookie: `${LOCAL_SESSION_COOKIE_NAME}=${provision.sessionToken}` },
+        headers: { Authorization: `Bearer ${provision.token}` },
         redirect: "error"
       }).then((response) => response.json()) as { data?: { authenticated?: unknown; user?: { userId?: unknown } } };
       if (sessionState.data?.authenticated !== true || sessionState.data.user?.userId !== provision.user.userId) {
         throw new Error("Local provision gate session verification failed");
       }
+      bearerVerified = true;
       const gateWindow = await createLocalWorkspaceWindow({
         origin: provision.url,
         desktopRoot,
@@ -251,7 +249,7 @@ async function runLocalServerGate(manager: LocalServerManager): Promise<void> {
       provisioned,
       userRole,
       duplicateProvisionRejected,
-      cookieVerified,
+      bearerVerified,
       workspaceLoaded,
       stopped: manager.getStatus().phase === "stopped"
     })}\n`);
@@ -264,47 +262,6 @@ async function runLocalServerGate(manager: LocalServerManager): Promise<void> {
     })}\n`);
     app.exit(1);
   }
-}
-
-async function setLocalSessionCookie(result: { url: string; sessionToken: string }): Promise<void> {
-  const localSession = session.fromPartition(LOCAL_PROFILE_PARTITION);
-  await withLocalCookieTimeout(localSession.cookies.set({
-    url: result.url,
-    name: LOCAL_SESSION_COOKIE_NAME,
-    value: result.sessionToken,
-    httpOnly: true,
-    secure: false,
-    sameSite: "lax",
-    path: "/",
-    expirationDate: Math.floor(Date.now() / 1_000) + LOCAL_SESSION_MAX_AGE_SECONDS
-  }));
-}
-
-async function withLocalCookieTimeout<T>(operation: Promise<T>): Promise<T> {
-  let timeout: ReturnType<typeof setTimeout> | null = null;
-  try {
-    return await Promise.race([
-      operation,
-      new Promise<T>((_resolve, reject) => {
-        timeout = setTimeout(() => {
-          const error = new Error("系统钥匙串授权未完成，请在前台允许 Scriverse Desktop Safe Storage 后重试") as Error & { code: string };
-          error.code = "KEYCHAIN_INTERACTION_REQUIRED";
-          reject(error);
-        }, LOCAL_COOKIE_OPERATION_TIMEOUT_MS);
-      })
-    ]);
-  } finally {
-    if (timeout) clearTimeout(timeout);
-  }
-}
-
-function createDesktopSecretStorage(): DesktopSecretStorage {
-  return {
-    isEncryptionAvailable: () => safeStorage.isEncryptionAvailable(),
-    isSecureBackend: () => process.platform !== "linux" || safeStorage.getSelectedStorageBackend() !== "basic_text",
-    encryptString: (value) => safeStorage.encryptString(value),
-    decryptString: (value) => safeStorage.decryptString(value)
-  };
 }
 
 function showSelectorFromWorkspace(window: BrowserWindow): void {
@@ -320,6 +277,50 @@ function bindWorkspaceReplacement(window: BrowserWindow): void {
   window.on("close", () => {
     if (!quitAfterLocalShutdown) showSelectorFromWorkspace(window);
   });
+}
+
+function readLocalCredential(): StoredLocalCredential | null {
+  if (!localAuthStore) throw new Error("Desktop 本地登录存储尚未就绪");
+  try {
+    return localAuthStore.load();
+  } catch (error) {
+    if (error instanceof LocalAuthStoreError && (error.code === "LOCAL_AUTH_DECRYPT_FAILED" || error.code === "LOCAL_AUTH_STORE_INVALID")) {
+      localAuthStore.clear();
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function validateLocalCredential(origin: string, credential: StoredLocalCredential): Promise<RemoteAuthUser | null> {
+  const response = await fetch(`${origin}/api/auth/session`, {
+    headers: { Accept: "application/json", Authorization: `Bearer ${credential.token}` },
+    cache: "no-store",
+    credentials: "omit",
+    redirect: "error"
+  });
+  if (!response.ok) return null;
+  const state = parseRemoteSessionResponse(await response.json());
+  return state.authenticated && state.user?.userId === credential.user.userId ? state.user : null;
+}
+
+async function openStoredLocalWorkspace(origin: string): Promise<{ status: "opened" | "login-required"; mode?: "online" }> {
+  if (!localAuthStore || !localSessionPolicy) throw new Error("Desktop 本地登录尚未就绪");
+  const credential = readLocalCredential();
+  if (!credential || Date.parse(credential.expiresAt) <= Date.now()) {
+    if (credential) localAuthStore.clear();
+    localSessionPolicy.clear();
+    return { status: "login-required" };
+  }
+  const user = await validateLocalCredential(origin, credential);
+  if (!user) {
+    localAuthStore.clear();
+    localSessionPolicy.clear();
+    return { status: "login-required" };
+  }
+  localSessionPolicy.authorize(origin, credential.token);
+  await openLocalWorkspace(origin);
+  return { status: "opened", mode: "online" };
 }
 
 function openLocalWorkspace(origin: string): Promise<void> {
@@ -344,6 +345,12 @@ function openLocalWorkspace(origin: string): Promise<void> {
         isActive: () => activeWorkspaceKind === "local" && workspaceWindow === window,
         getWorkspaceIdentity: () => ({ profileId: LOCAL_PROFILE_ID, profileName: "本地工作区", profileKind: "local" }),
         requestSwitch: requestWorkspaceSwitch,
+        logout: async () => {
+          localAuthStore?.clear();
+          localSessionPolicy?.clear();
+          showSelectorFromWorkspace(window);
+          window.destroy();
+        },
         getLocalAiCatalog: () => localAiRequestCoordinator!.catalog(),
         completeLocalAi: (input) => localAiRequestCoordinator!.complete(input),
         cancelLocalAi: (requestId) => localAiRequestCoordinator!.cancel(requestId)
@@ -385,7 +392,7 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
     return Promise.resolve();
   }
   if (remoteWorkspaceOpenPromise) return remoteWorkspaceOpenPromise;
-  if (!remoteAuthCoordinator || !remoteSyncStatusStore || !offlineKeyStore || !localAiRequestCoordinator) return Promise.reject(new Error("Desktop 离线安全存储尚未就绪"));
+  if (!remoteAuthCoordinator || !remoteSyncStatusStore || !localAiRequestCoordinator) return Promise.reject(new Error("Desktop 离线存储尚未就绪"));
   activeWorkspaceKind = "remote";
   activeRemoteProfileId = profile.id;
   const cachedUser = remoteAuthCoordinator.cachedUser(profile);
@@ -412,12 +419,6 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
         activeProfileId: () => activeRemoteProfileId,
         getCachedUser: () => remoteAuthCoordinator!.cachedUser(profile),
         getConnectionMode: () => remoteAuthCoordinator!.connectionMode(profile),
-        getOfflineKey: async (userId) => {
-          const access = await remoteAuthCoordinator!.authorizeOfflineKey(profile, userId);
-          return access.verifiedOnline
-            ? offlineKeyStore!.getOrCreate(profile, userId)
-            : offlineKeyStore!.load(profile, userId);
-        },
         getLocalAiCatalog: () => localAiRequestCoordinator!.catalog(),
         completeLocalAi: (_userId, input) => localAiRequestCoordinator!.complete(input),
         cancelLocalAi: (_userId, requestId) => localAiRequestCoordinator!.cancel(requestId),
@@ -565,20 +566,21 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
   });
   const serverVersion = resolveCompatibleServerVersion(applicationRoot);
   const profileStore = new ProfileStore(environment.paths.profiles);
-  const secretStorage = createDesktopSecretStorage();
+  const credentialVault = new CredentialVault(loadMasterSecret(environment.paths.desktopMasterKey));
   remoteSyncStatusStore = new RemoteSyncStatusStore(environment.paths.syncStatus);
-  offlineKeyStore = new OfflineKeyStore(environment.paths.offlineKeys, secretStorage);
-  localAiProviderStore = new LocalAiProviderStore(environment.paths.localAiProviders, secretStorage);
+  localAuthStore = new LocalAuthStore(environment.paths.localAuth, credentialVault);
+  localSessionPolicy = new LocalSessionPolicy();
+  localAiProviderStore = new LocalAiProviderStore(environment.paths.localAiProviders, credentialVault);
   localAiClient = new LocalAiClient();
   localAiRequestCoordinator = new LocalAiRequestCoordinator(localAiProviderStore, localAiClient);
   const remoteAuth = new RemoteAuthCoordinator(
     environment.desktopId,
     desktopVersion,
-    new RemoteAuthStore(environment.paths.remoteAuth, secretStorage),
+    new RemoteAuthStore(environment.paths.remoteAuth, credentialVault),
     new RemoteAuthClient(),
     new RemoteSessionRegistry(),
     openRemoteWorkspace,
-    (profile, user) => offlineKeyStore!.has(profile, user.userId)
+    (profile, user) => remoteSyncStatusStore!.user(profile, user.userId) !== null
   );
   remoteAuthCoordinator = remoteAuth;
   const remoteProbe = new RemoteServerProbe();
@@ -633,11 +635,20 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
     updateDesktopSettings: (input) => desktopSettingsStore!.update(input),
     openLocal: async () => {
       const ready = await manager.start();
-      if (!ready.setupRequired) await openLocalWorkspace(ready.url);
+      if (ready.setupRequired) return { status: "setup-required" as const };
+      return openStoredLocalWorkspace(ready.url);
     },
     setupLocal: async (input) => {
       const result = await manager.provision(input);
-      await setLocalSessionCookie(result);
+      localAuthStore!.save(result);
+      localSessionPolicy!.authorize(result.url, result.token);
+      await openLocalWorkspace(result.url);
+      return result.user;
+    },
+    loginLocal: async (input) => {
+      const result = await manager.login(input);
+      localAuthStore!.save(result);
+      localSessionPolicy!.authorize(result.url, result.token);
       await openLocalWorkspace(result.url);
       return result.user;
     },
@@ -646,7 +657,6 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
     loginRemote: (profile, input) => remoteAuth.login(profile, input),
     forgetRemote: async (profile) => {
       await remoteAuth.forget(profile);
-      offlineKeyStore!.clearProfile(profile.id);
       remoteSyncStatusStore!.clear(profile);
     },
     getRemoteSyncStatus: (profile) => remoteSyncStatusStore!.summary(profile),

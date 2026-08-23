@@ -7,7 +7,6 @@ contextBridge.exposeInMainWorld("scriverseDesktopWorkspace", Object.freeze({
   syncProtocol: 1,
   shell: Object.freeze({
     getCapabilities: () => ipcRenderer.invoke("workspace:shell:get-capabilities"),
-    getOfflineKey: (input: unknown) => ipcRenderer.invoke("workspace:shell:get-offline-key", input),
     reportLeaveState: (input: unknown) => ipcRenderer.invoke("workspace:shell:report-leave-state", input),
     requestSwitch: () => ipcRenderer.invoke("workspace:shell:request-switch"),
     onMenuCommand: (listener: (command: string) => void) => {

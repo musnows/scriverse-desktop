@@ -8,8 +8,9 @@ export type DesktopPaths = {
   windowState: string;
   syncStatus: string;
   remoteAuth: string;
-  offlineKeys: string;
+  localAuth: string;
   localAiProviders: string;
+  desktopMasterKey: string;
   desktopSettings: string;
   localVault: string;
   localRuntime: string;
@@ -58,13 +59,14 @@ export function resolveDesktopPaths(rootInput: string): DesktopPaths {
     windowState: join(clientMeta, "window-state.json"),
     syncStatus: join(clientMeta, "sync-status"),
     remoteAuth: join(clientMeta, "remote-auth"),
-    offlineKeys: join(clientMeta, "offline-keys"),
+    localAuth: join(clientMeta, "local-auth.json"),
     localAiProviders: join(clientMeta, "local-ai-providers"),
+    desktopMasterKey: join(clientMeta, "master.key"),
     desktopSettings: join(clientMeta, "desktop-settings.json"),
     localVault,
     localRuntime: join(localVault, "runtime"),
     localVaultLock: join(localVault, "desktop-vault.lock"),
-    browserSessions: join(root, "browser-sessions"),
+    browserSessions: join(root, "browser-sessions-v2"),
     logs: join(root, "logs"),
     crashDumps: join(root, "crash-dumps")
   };

@@ -20,16 +20,16 @@ import {
   type LocalAiWorkspaceCatalog
 } from "../shared/local-ai-contract.js";
 import { writeDesktopJsonAtomically } from "../shared/storage-manifest.js";
-import type { DesktopSecretStorage } from "./remote-auth-store.js";
+import type { CredentialVault, EncryptedSecret } from "./credential-vault.js";
 
-export const LOCAL_AI_PROVIDER_STORE_VERSION = 2;
+export const LOCAL_AI_PROVIDER_STORE_VERSION = 3;
 const LOCAL_AI_PROVIDER_LIMIT = 64;
 const LOCAL_AI_MODEL_LIMIT = 512;
 const LOCAL_AI_STORE_MAX_BYTES = 4 * 1024 * 1024;
 
 type StoredLocalAiProvider = Omit<LocalAiProviderInput, "apiKey"> & {
   id: string;
-  encryptedApiKey: string | null;
+  apiKeyCiphertext: EncryptedSecret | null;
   connectionStatus: "unchecked" | "success" | "error";
   lastError: string | null;
   lastSuccessAt: string | null;
@@ -93,15 +93,15 @@ function assertConnectionStatus(value: unknown): StoredLocalAiProvider["connecti
   return value;
 }
 
-function encryptedApiKeyValue(value: unknown): string | null {
+function encryptedApiKeyValue(value: unknown): EncryptedSecret | null {
   if (value === null) return null;
-  if (
-    typeof value !== "string"
-    || value.length === 0
-    || value.length > 16_384
-    || !/^[A-Za-z0-9+/=]+$/u.test(value)
-  ) throw new LocalAiProviderStoreError("LOCAL_AI_STORE_INVALID", "本地 AI API Key 密文无效");
-  return value;
+  if (!isRecord(value)) throw new LocalAiProviderStoreError("LOCAL_AI_STORE_INVALID", "本地 AI API Key 密文无效");
+  assertExactKeys(value, ["encrypted", "iv", "tag"], "本地 AI API Key 密文");
+  const parts = [value.encrypted, value.iv, value.tag];
+  if (parts.some((part) => typeof part !== "string" || part.length > 16_384 || !/^[A-Za-z0-9+/=]+$/u.test(part))) {
+    throw new LocalAiProviderStoreError("LOCAL_AI_STORE_INVALID", "本地 AI API Key 密文无效");
+  }
+  return { encrypted: String(value.encrypted), iv: String(value.iv), tag: String(value.tag) };
 }
 
 function documentPath(directory: string): string {
@@ -122,8 +122,8 @@ function providerSummary(provider: StoredLocalAiProvider): LocalAiProviderSummar
     note: provider.note,
     status: provider.status,
     connectionStatus: provider.connectionStatus,
-    hasApiKey: provider.encryptedApiKey !== null,
-    apiKey: provider.encryptedApiKey === null ? "未配置" : "已安全保存",
+    hasApiKey: provider.apiKeyCiphertext !== null,
+    apiKey: provider.apiKeyCiphertext === null ? "未配置" : "已保存",
     lastError: provider.lastError,
     lastSuccessAt: provider.lastSuccessAt,
     createdAt: provider.createdAt,
@@ -144,7 +144,7 @@ function modelSummary(model: StoredLocalAiModel, provider: StoredLocalAiProvider
 export class LocalAiProviderStore {
   constructor(
     private readonly directory: string,
-    private readonly secretStorage: DesktopSecretStorage
+    private readonly credentialVault: CredentialVault
   ) {}
 
   configuration(): LocalAiConfigurationSummary {
@@ -200,7 +200,7 @@ export class LocalAiProviderStore {
       rpmLimit: input.rpmLimit,
       note: input.note,
       status: input.status,
-      encryptedApiKey: input.apiKey === "" ? null : this.encryptApiKey(input.apiKey),
+      apiKeyCiphertext: input.apiKey === "" ? null : this.encryptApiKey(input.apiKey),
       connectionStatus: "unchecked",
       lastError: null,
       lastSuccessAt: null,
@@ -231,7 +231,7 @@ export class LocalAiProviderStore {
     provider.rpmLimit = input.rpmLimit;
     provider.note = input.note;
     provider.status = input.status;
-    if (input.replaceApiKey) provider.encryptedApiKey = input.apiKey === "" ? null : this.encryptApiKey(input.apiKey);
+    if (input.replaceApiKey) provider.apiKeyCiphertext = input.apiKey === "" ? null : this.encryptApiKey(input.apiKey);
     if (connectionChanged) {
       provider.connectionStatus = "unchecked";
       provider.lastError = null;
@@ -323,10 +323,9 @@ export class LocalAiProviderStore {
     const model = this.requiredModel(document, modelId);
     const provider = this.requiredProvider(document, model.providerId);
     let apiKey = "";
-    if (provider.encryptedApiKey !== null) {
-      this.assertSecretStorage();
+    if (provider.apiKeyCiphertext !== null) {
       try {
-        apiKey = this.secretStorage.decryptString(Buffer.from(provider.encryptedApiKey, "base64"));
+        apiKey = this.credentialVault.decrypt(provider.apiKeyCiphertext);
       } catch {
         throw new LocalAiProviderStoreError("LOCAL_AI_API_KEY_DECRYPT_FAILED", "无法解锁本地 AI API Key");
       }
@@ -408,7 +407,7 @@ export class LocalAiProviderStore {
       "rpmLimit",
       "note",
       "status",
-      "encryptedApiKey",
+      "apiKeyCiphertext",
       "connectionStatus",
       "lastError",
       "lastSuccessAt",
@@ -434,7 +433,7 @@ export class LocalAiProviderStore {
     return {
       id: parseLocalAiProviderId(value.id),
       ...storedFields,
-      encryptedApiKey: encryptedApiKeyValue(value.encryptedApiKey),
+      apiKeyCiphertext: encryptedApiKeyValue(value.apiKeyCiphertext),
       connectionStatus: assertConnectionStatus(value.connectionStatus),
       lastError: value.lastError,
       lastSuccessAt: assertNullableTimestamp(value.lastSuccessAt, "本地 AI 上次连接成功时间"),
@@ -509,26 +508,12 @@ export class LocalAiProviderStore {
     writeDesktopJsonAtomically(documentPath(this.directory), document);
   }
 
-  private encryptApiKey(apiKey: string): string {
-    this.assertSecretStorage();
-    let encrypted: Buffer;
+  private encryptApiKey(apiKey: string): EncryptedSecret {
     try {
-      encrypted = this.secretStorage.encryptString(apiKey);
+      return this.credentialVault.encrypt(apiKey);
     } catch {
-      throw new LocalAiProviderStoreError("LOCAL_AI_API_KEY_ENCRYPT_FAILED", "系统安全存储未能保存本地 AI API Key");
+      throw new LocalAiProviderStoreError("LOCAL_AI_API_KEY_ENCRYPT_FAILED", "本地 master.key 未能保存 AI API Key");
     }
-    if (!Buffer.isBuffer(encrypted) || encrypted.byteLength === 0 || encrypted.byteLength > 12_288) {
-      throw new LocalAiProviderStoreError("LOCAL_AI_API_KEY_ENCRYPT_FAILED", "系统安全存储返回了无效本地 AI 密文");
-    }
-    return encrypted.toString("base64");
   }
 
-  private assertSecretStorage(): void {
-    if (!this.secretStorage.isEncryptionAvailable() || !this.secretStorage.isSecureBackend()) {
-      throw new LocalAiProviderStoreError(
-        "DESKTOP_SECRET_STORAGE_UNAVAILABLE",
-        "系统安全存储不可用，无法保存或读取本地 AI API Key"
-      );
-    }
-  }
 }

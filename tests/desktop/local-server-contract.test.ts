@@ -3,8 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   filterLocalServerEnvironment,
-  LOCAL_SESSION_COOKIE_NAME,
-  LOCAL_SESSION_MAX_AGE_SECONDS,
+  parseLocalLoginInput,
   parseLocalSetupInput,
   parseLocalServerEnvironment,
   parseLocalServerParentMessage,
@@ -21,9 +20,12 @@ describe("Desktop 本地服务消息契约", () => {
     expect(utilitySource).not.toContain("trustAiEndpointNetwork");
   });
 
-  it("与 Server 使用同一个 HttpOnly 会话 Cookie 契约", () => {
-    expect(LOCAL_SESSION_COOKIE_NAME).toBe("scriverse_session");
-    expect(LOCAL_SESSION_MAX_AGE_SECONDS).toBe(30 * 24 * 60 * 60);
+  it("本地登录只接受软件内 Bearer 凭据", () => {
+    expect(parseLocalLoginInput({ username: " author ", password: "local-password" })).toEqual({
+      username: "author",
+      password: "local-password"
+    });
+    expect(() => parseLocalLoginInput({ username: "author", password: "", cookie: "forbidden" })).toThrowError(/未知字段/u);
   });
 
   it("严格校验首次管理员凭据且不接受未知字段", () => {
@@ -71,6 +73,9 @@ describe("Desktop 本地服务消息契约", () => {
       publicPath,
       vditorPath: join(publicPath, "vendor", "vditor", "dist"),
       preferredPort: 23_241,
+      desktopId: "11111111-1111-4111-8111-111111111111",
+      profileId: "22222222-2222-4222-8222-222222222222",
+      clientVersion: "0.0.1",
       envAllowlist: { NODE_ENV: "production", APP_ALLOW_PRIVATE_AI_ENDPOINTS: "true" }
     })).toMatchObject({ type: "start", dataDirectory: root, databasePath: join(root, "novel.db"), preferredPort: 23_241 });
     expect(() => parseLocalServerParentMessage({
@@ -80,6 +85,9 @@ describe("Desktop 本地服务消息契约", () => {
       publicPath,
       vditorPath: join(publicPath, "vendor", "vditor", "dist"),
       preferredPort: 23_241,
+      desktopId: "11111111-1111-4111-8111-111111111111",
+      profileId: "22222222-2222-4222-8222-222222222222",
+      clientVersion: "0.0.1",
       envAllowlist: { NODE_ENV: "production", APP_ALLOW_PRIVATE_AI_ENDPOINTS: "true" }
     })).toThrowError(/runtime 目录/u);
   });
@@ -108,12 +116,13 @@ describe("Desktop 本地服务消息契约", () => {
     })).toThrowError(/未知字段/u);
   });
 
-  it("验证 provision 响应并拒绝携带额外凭据", () => {
+  it("验证 Desktop Bearer 响应并拒绝携带额外凭据", () => {
     const requestId = "33333333-3333-4333-8333-333333333333";
     expect(parseLocalServerUtilityMessage({
-      type: "provisioned",
+      type: "authenticated",
       requestId,
-      sessionToken: "a".repeat(43),
+      token: `scrvd_${"a".repeat(43)}`,
+      expiresAt: "2026-09-23T00:00:00.000Z",
       user: {
         userId: "44444444-4444-4444-8444-444444444444",
         username: "author",
@@ -125,11 +134,12 @@ describe("Desktop 本地服务消息契约", () => {
         onboardingCompleted: false,
         isSystemAdmin: true
       }
-    })).toMatchObject({ type: "provisioned", requestId, user: { role: "admin", isSystemAdmin: true } });
+    })).toMatchObject({ type: "authenticated", requestId, user: { role: "admin", isSystemAdmin: true } });
     expect(() => parseLocalServerUtilityMessage({
-      type: "provisioned",
+      type: "authenticated",
       requestId,
-      sessionToken: "a".repeat(43),
+      token: `scrvd_${"a".repeat(43)}`,
+      expiresAt: "2026-09-23T00:00:00.000Z",
       user: {
         userId: "44444444-4444-4444-8444-444444444444",
         username: "author",
@@ -143,7 +153,7 @@ describe("Desktop 本地服务消息契约", () => {
       }
     })).toThrowError(/用户字段/u);
     expect(() => parseLocalServerUtilityMessage({
-      type: "provision-failed",
+      type: "authentication-failed",
       requestId,
       code: "LOCAL_ALREADY_PROVISIONED",
       safeMessage: "already",

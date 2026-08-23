@@ -22,8 +22,8 @@ Scriverse Desktop 为长篇小说创作工作台 [叙界 Scriverse](https://gith
 ## 主要能力
 
 - 本地工作区：在当前设备上启动随包提供的兼容 Scriverse 运行时，数据与远程 Server 完全隔离。
-- 远程工作区：直接使用 Scriverse Server 的 Desktop 登录能力，登录令牌由软件通过系统安全存储持久化，不依赖外部浏览器 Cookie。
-- 工作区隔离：每个 Server 使用独立的浏览器分区、登录状态、离线密钥和本机副本。
+- 远程工作区：直接使用 Scriverse Server 的 Desktop 登录能力，登录令牌由软件使用 Server 同款 `master.key` 加密保存，不依赖外部浏览器 Cookie 或操作系统凭据存储。
+- 工作区隔离：每个 Server 使用独立的浏览器分区、登录状态、离线数据和本机副本。
 - 离线访问：当 Server 提供兼容的 Desktop 协议时，可以打开已下载的离线副本，并跟踪待同步修改、冲突与拒绝状态。
 - 本地 AI：单独配置只在本机使用的供应商、模型和追加系统提示词，支持本地部署的模型服务。
 
@@ -71,7 +71,7 @@ npm run verify:package
 
 ```text
 assets/          桌面应用图标
-src/main/        Electron 主进程、工作区与安全存储
+src/main/        Electron 主进程、工作区与凭据存储
 src/preload/     受限的 Desktop IPC 桥接
 src/renderer/    工作区选择和本地 AI 配置界面
 src/shared/      主进程、预加载与页面共享契约

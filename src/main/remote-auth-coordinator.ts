@@ -85,7 +85,6 @@ export class RemoteAuthCoordinator {
   }
 
   async login(profile: RemoteWorkspaceProfile, input: RemoteLoginInput): Promise<RemoteAuthUser> {
-    this.store.assertAvailable();
     const result = await this.client.login(profile, input, this.desktopId, this.desktopVersion);
     try {
       this.store.save(profile, result);
@@ -98,47 +97,6 @@ export class RemoteAuthCoordinator {
     this.activeModes.set(profile.id, "online");
     await this.openWorkspace(profile, "online");
     return result.user;
-  }
-
-  async authorizeOfflineKey(profile: RemoteWorkspaceProfile, userId: string): Promise<{
-    user: RemoteAuthUser;
-    verifiedOnline: boolean;
-  }> {
-    const credential = this.readCredential(profile);
-    if (!credential || Date.parse(credential.expiresAt) <= Date.now()) {
-      this.sessions.clear(profile.id);
-      this.activeUsers.delete(profile.id);
-      this.activeModes.delete(profile.id);
-      if (credential) this.store.clear(profile);
-      const error = new Error("远端 Desktop 登录已失效，请重新登录后开启离线") as Error & { code: string };
-      error.code = "REMOTE_LOGIN_REQUIRED";
-      throw error;
-    }
-    if (credential.user.userId !== userId) {
-      const error = new Error("页面用户与当前 Desktop 登录不一致") as Error & { code: string };
-      error.code = "OFFLINE_USER_MISMATCH";
-      throw error;
-    }
-    if (this.activeModes.get(profile.id) === "offline") {
-      return { user: credential.user, verifiedOnline: false };
-    }
-    let state;
-    try {
-      state = await this.client.session(profile, credential.token);
-    } catch (error) {
-      if (!this.isConnectivityError(error) || !this.canOpenOffline(profile, credential.user)) throw error;
-      return { user: credential.user, verifiedOnline: false };
-    }
-    if (!state.authenticated || !state.user || state.user.userId !== credential.user.userId) {
-      this.sessions.clear(profile.id);
-      this.activeUsers.delete(profile.id);
-      this.activeModes.delete(profile.id);
-      this.store.clear(profile);
-      const error = new Error("远端 Desktop 登录已失效，请重新登录后开启离线") as Error & { code: string };
-      error.code = "REMOTE_LOGIN_REQUIRED";
-      throw error;
-    }
-    return { user: state.user, verifiedOnline: true };
   }
 
   cachedUser(profile: RemoteWorkspaceProfile): RemoteAuthUser | null {

@@ -5,9 +5,6 @@ export const LOCAL_SERVER_START_TIMEOUT_MS = 30_000;
 export const LOCAL_SERVER_SHUTDOWN_TIMEOUT_MS = 10_000;
 export const LOCAL_SERVER_HEALTH_TIMEOUT_MS = 5_000;
 export const LOCAL_SERVER_HEALTH_MAX_BYTES = 64 * 1024;
-export const LOCAL_COOKIE_OPERATION_TIMEOUT_MS = 30_000;
-export const LOCAL_SESSION_COOKIE_NAME = "scriverse_session";
-export const LOCAL_SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 
 export const LOCAL_SERVER_ALLOWED_ENVIRONMENT_KEYS = [
   "APP_UPDATE_CHECK_INTERVAL_MINUTES",
@@ -34,6 +31,9 @@ export type LocalServerStartMessage = {
   publicPath: string;
   vditorPath: string;
   preferredPort: number;
+  desktopId: string;
+  profileId: string;
+  clientVersion: string;
   envAllowlist: LocalServerEnvironment;
 };
 
@@ -49,7 +49,14 @@ export type LocalServerProvisionMessage = {
   password: string;
 };
 
-export type LocalServerParentMessage = LocalServerStartMessage | LocalServerProvisionMessage | LocalServerShutdownMessage;
+export type LocalServerLoginMessage = {
+  type: "login";
+  requestId: string;
+  username: string;
+  password: string;
+};
+
+export type LocalServerParentMessage = LocalServerStartMessage | LocalServerProvisionMessage | LocalServerLoginMessage | LocalServerShutdownMessage;
 
 export type LocalProvisionedUser = {
   userId: string;
@@ -63,15 +70,16 @@ export type LocalProvisionedUser = {
   isSystemAdmin: boolean;
 };
 
-export type LocalServerProvisionedMessage = {
-  type: "provisioned";
+export type LocalServerAuthenticatedMessage = {
+  type: "authenticated";
   requestId: string;
-  sessionToken: string;
+  token: string;
+  expiresAt: string;
   user: LocalProvisionedUser;
 };
 
-export type LocalServerProvisionFailedMessage = {
-  type: "provision-failed";
+export type LocalServerAuthenticationFailedMessage = {
+  type: "authentication-failed";
   requestId: string;
   code: string;
   safeMessage: string;
@@ -99,8 +107,8 @@ export type LocalServerFatalMessage = {
 
 export type LocalServerUtilityMessage =
   | LocalServerReadyMessage
-  | LocalServerProvisionedMessage
-  | LocalServerProvisionFailedMessage
+  | LocalServerAuthenticatedMessage
+  | LocalServerAuthenticationFailedMessage
   | LocalServerStoppedMessage
   | LocalServerFatalMessage;
 
@@ -135,6 +143,13 @@ function assertRequestId(value: unknown): string {
   return value;
 }
 
+function assertSemanticVersion(value: unknown): string {
+  if (typeof value !== "string" || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(value)) {
+    throw new LocalServerContractError("LOCAL_MESSAGE_INVALID", "Desktop 版本无效");
+  }
+  return value;
+}
+
 function assertAbsolutePath(value: unknown, label: string): string {
   if (typeof value !== "string" || value.length === 0 || value.length > 4_096 || !isAbsolute(value)) {
     throw new LocalServerContractError("LOCAL_PATH_INVALID", `${label} 必须是绝对路径`);
@@ -152,6 +167,19 @@ export function parseLocalSetupInput(value: unknown): { username: string; passwo
   }
   if (typeof value.password !== "string" || value.password.length < 10 || value.password.length > 200) {
     throw new LocalServerContractError("LOCAL_PASSWORD_INVALID", "密码长度必须在 10 到 200 个字符之间");
+  }
+  return { username, password: value.password };
+}
+
+export function parseLocalLoginInput(value: unknown): { username: string; password: string } {
+  if (!isRecord(value)) throw new LocalServerContractError("LOCAL_LOGIN_INVALID", "本地登录请求无效");
+  assertExactKeys(value, ["username", "password"]);
+  const username = typeof value.username === "string" ? value.username.trim() : "";
+  if (username.length === 0 || username.length > 100) {
+    throw new LocalServerContractError("LOCAL_USERNAME_INVALID", "用户名长度必须在 1 到 100 个字符之间");
+  }
+  if (typeof value.password !== "string" || value.password.length === 0 || value.password.length > 200) {
+    throw new LocalServerContractError("LOCAL_PASSWORD_INVALID", "密码长度必须在 1 到 200 个字符之间");
   }
   return { username, password: value.password };
 }
@@ -209,8 +237,16 @@ export function parseLocalServerParentMessage(value: unknown): LocalServerParent
       ...parseLocalSetupInput({ username: value.username, password: value.password })
     };
   }
+  if (value.type === "login") {
+    assertExactKeys(value, ["type", "requestId", "username", "password"]);
+    return {
+      type: "login",
+      requestId: assertRequestId(value.requestId),
+      ...parseLocalLoginInput({ username: value.username, password: value.password })
+    };
+  }
   if (value.type !== "start") throw new LocalServerContractError("LOCAL_MESSAGE_INVALID", "本地服务消息类型无效");
-  assertExactKeys(value, ["type", "dataDirectory", "databasePath", "publicPath", "vditorPath", "preferredPort", "envAllowlist"]);
+  assertExactKeys(value, ["type", "dataDirectory", "databasePath", "publicPath", "vditorPath", "preferredPort", "desktopId", "profileId", "clientVersion", "envAllowlist"]);
   const dataDirectory = assertAbsolutePath(value.dataDirectory, "本地数据目录");
   const databasePath = assertAbsolutePath(value.databasePath, "本地数据库路径");
   if (databasePath !== join(dataDirectory, "novel.db")) {
@@ -223,6 +259,9 @@ export function parseLocalServerParentMessage(value: unknown): LocalServerParent
     publicPath: assertAbsolutePath(value.publicPath, "本地页面资源路径"),
     vditorPath: assertAbsolutePath(value.vditorPath, "Vditor 资源路径"),
     preferredPort: parseLocalServerPort(value.preferredPort),
+    desktopId: assertRequestId(value.desktopId),
+    profileId: assertRequestId(value.profileId),
+    clientVersion: assertSemanticVersion(value.clientVersion),
     envAllowlist: parseLocalServerEnvironment(value.envAllowlist)
   };
 }
@@ -235,7 +274,7 @@ export function parseLocalServerUtilityMessage(value: unknown): LocalServerUtili
     assertExactKeys(value, ["type", "requestId"]);
     return { type: "stopped", requestId: assertRequestId(value.requestId) };
   }
-  if (value.type === "provision-failed") {
+  if (value.type === "authentication-failed") {
     assertExactKeys(value, ["type", "requestId", "code", "safeMessage"]);
     const requestId = assertRequestId(value.requestId);
     if (typeof value.code !== "string" || !/^[A-Z][A-Z0-9_]{2,63}$/u.test(value.code)) {
@@ -244,13 +283,16 @@ export function parseLocalServerUtilityMessage(value: unknown): LocalServerUtili
     if (typeof value.safeMessage !== "string" || value.safeMessage.length === 0 || value.safeMessage.length > 300) {
       throw new LocalServerContractError("LOCAL_MESSAGE_INVALID", "本地初始化错误信息无效");
     }
-    return { type: "provision-failed", requestId, code: value.code, safeMessage: value.safeMessage };
+    return { type: "authentication-failed", requestId, code: value.code, safeMessage: value.safeMessage };
   }
-  if (value.type === "provisioned") {
-    assertExactKeys(value, ["type", "requestId", "sessionToken", "user"]);
+  if (value.type === "authenticated") {
+    assertExactKeys(value, ["type", "requestId", "token", "expiresAt", "user"]);
     const requestId = assertRequestId(value.requestId);
-    if (typeof value.sessionToken !== "string" || !/^[A-Za-z0-9_-]{32,128}$/u.test(value.sessionToken)) {
-      throw new LocalServerContractError("LOCAL_MESSAGE_INVALID", "本地初始化 session token 无效");
+    if (typeof value.token !== "string" || !/^scrvd_[A-Za-z0-9_-]{43}$/u.test(value.token)) {
+      throw new LocalServerContractError("LOCAL_MESSAGE_INVALID", "本地 Desktop token 无效");
+    }
+    if (typeof value.expiresAt !== "string" || !Number.isFinite(Date.parse(value.expiresAt))) {
+      throw new LocalServerContractError("LOCAL_MESSAGE_INVALID", "本地 Desktop token 到期时间无效");
     }
     if (!isRecord(value.user)) throw new LocalServerContractError("LOCAL_MESSAGE_INVALID", "本地初始化用户无效");
     assertExactKeys(value.user, ["userId", "username", "displayName", "role", "status", "createdAt", "avatarUrl", "onboardingCompleted", "isSystemAdmin"]);
@@ -269,9 +311,10 @@ export function parseLocalServerUtilityMessage(value: unknown): LocalServerUtili
       || value.user.isSystemAdmin !== (value.user.role === "admin")
     ) throw new LocalServerContractError("LOCAL_MESSAGE_INVALID", "本地初始化用户字段无效");
     return {
-      type: "provisioned",
+      type: "authenticated",
       requestId,
-      sessionToken: value.sessionToken,
+      token: value.token,
+      expiresAt: value.expiresAt,
       user: value.user as LocalProvisionedUser
     };
   }

@@ -296,11 +296,7 @@ export async function createDesktopSyncClient({ user, bridge = globalThis.scrive
   const profile = bridgeData(await bridge.shell.getCapabilities());
   const syncProtocol = profile.capabilities?.syncProtocol;
   if (!rangesOverlap(syncProtocol, SYNC_PROTOCOL)) return null;
-  const key = bridgeData(await bridge.shell.getOfflineKey({ userId: user.userId }));
-  if (key.profileId !== profile.profileId || key.userId !== user.userId || key.algorithm !== "AES-GCM") {
-    throw new DesktopSyncClientError("OFFLINE_KEY_MISMATCH", "Desktop 返回的离线密钥与当前工作区不匹配");
-  }
-  const store = new DesktopSyncStore({ profileId: profile.profileId, userId: user.userId, keyBase64: key.keyBase64 });
+  const store = new DesktopSyncStore({ profileId: profile.profileId, userId: user.userId });
   await store.open();
   await store.recoverSyncing();
   return new DesktopSyncClient({ bridge, profile, user, store, fetchImpl });

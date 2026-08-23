@@ -25,7 +25,6 @@ export function initializeDesktopEnvironment(): DesktopEnvironment {
     paths.clientMeta,
     paths.syncStatus,
     paths.remoteAuth,
-    paths.offlineKeys,
     paths.localAiProviders,
     paths.localRuntime,
     paths.browserSessions,

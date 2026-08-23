@@ -14,6 +14,7 @@ type IpcResult<T> = IpcSuccess<T> | IpcFailure;
 const localWorkspaceChannels = [
   "local-workspace:shell:get-capabilities",
   "local-workspace:shell:request-switch",
+  "local-workspace:shell:logout",
   "local-workspace:local-ai:catalog",
   "local-workspace:local-ai:complete",
   "local-workspace:local-ai:cancel"
@@ -79,12 +80,14 @@ export function registerLocalWorkspaceIpc(workspaceWindow: BrowserWindow, origin
   isActive: () => boolean;
   getWorkspaceIdentity: () => { profileId: string; profileName: string; profileKind: "local" };
   requestSwitch: () => Promise<void> | void;
+  logout: () => Promise<void> | void;
   getLocalAiCatalog: () => LocalAiWorkspaceCatalog;
   completeLocalAi: (input: LocalAiCompletionRequestInput) => Promise<LocalAiCompletionResult>;
   cancelLocalAi: (requestId: string) => boolean;
 }): () => void {
   handle("local-workspace:shell:get-capabilities", workspaceWindow, origin, options.isActive, () => options.getWorkspaceIdentity());
   handle("local-workspace:shell:request-switch", workspaceWindow, origin, options.isActive, () => options.requestSwitch());
+  handle("local-workspace:shell:logout", workspaceWindow, origin, options.isActive, () => options.logout());
   handle("local-workspace:local-ai:catalog", workspaceWindow, origin, options.isActive, () => options.getLocalAiCatalog());
   handle("local-workspace:local-ai:complete", workspaceWindow, origin, options.isActive, (input) => {
     return options.completeLocalAi(parseLocalAiCompletionRequestInput(input));

@@ -148,6 +148,34 @@
       </form>
     </dialog>
 
+    <dialog id="local-login-dialog" class="dialog" aria-labelledby="local-login-title">
+      <form id="local-login-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <span class="eyebrow">本地工作区</span>
+            <h2 id="local-login-title">登录本地工作区</h2>
+          </div>
+          <button class="dialog-close" type="button" data-local-login-close aria-label="关闭">×</button>
+        </div>
+        <div class="dialog-fields">
+          <p class="setup-safety-note">Desktop 直接调用本机服务登录并保存 Bearer 会话，不使用浏览器 Cookie。</p>
+          <label>
+            <span>用户名</span>
+            <input id="local-login-username" name="username" type="text" maxlength="100" autocomplete="username" required>
+          </label>
+          <label>
+            <span>密码</span>
+            <input id="local-login-password" name="password" type="password" maxlength="200" autocomplete="current-password" required>
+          </label>
+          <p id="local-login-error" class="form-error" role="alert" hidden></p>
+        </div>
+        <div class="dialog-actions">
+          <button class="ghost-button" type="button" data-local-login-close>取消</button>
+          <button id="local-login-submit" class="primary-button" type="submit">登录并进入</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="system-settings-dialog" class="dialog" aria-labelledby="system-settings-title">
       <form id="system-settings-form" method="dialog">
         <div class="dialog-header">
@@ -183,7 +211,7 @@
         </div>
         <div class="dialog-fields">
           <p id="delete-message" class="confirm-copy"></p>
-          <p class="field-note">本地工作区不会受影响。待上传、冲突或只读修改会先阻止删除；再次确认才会清除该 Server 的登录、Cookie、IndexedDB、缓存、离线密钥和本机副本。</p>
+          <p class="field-note">本地工作区不会受影响。待上传、冲突或只读修改会先阻止删除；再次确认才会清除该 Server 的登录、IndexedDB、缓存和本机副本。</p>
           <p id="delete-error" class="form-error" role="alert" hidden></p>
         </div>
         <div class="dialog-actions">

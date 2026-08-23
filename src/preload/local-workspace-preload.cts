@@ -2,7 +2,8 @@ const { contextBridge, ipcRenderer } = require("electron") as typeof import("ele
 
 contextBridge.exposeInMainWorld("scriverseDesktopLocalShell", Object.freeze({
   getCapabilities: () => ipcRenderer.invoke("local-workspace:shell:get-capabilities"),
-  requestSwitch: () => ipcRenderer.invoke("local-workspace:shell:request-switch")
+  requestSwitch: () => ipcRenderer.invoke("local-workspace:shell:request-switch"),
+  logout: () => ipcRenderer.invoke("local-workspace:shell:logout")
 }));
 
 contextBridge.exposeInMainWorld("scriverseDesktopLocalAi", Object.freeze({

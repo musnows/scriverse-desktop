@@ -19,12 +19,13 @@ describe("Desktop Selector UI", () => {
     expect(html).toContain("app://desktop/local-ai/index.html");
     expect(html).toContain("id=\"profile-dialog\"");
     expect(html).toContain("id=\"local-setup-dialog\"");
+    expect(html).toContain("id=\"local-login-dialog\"");
     expect(html).toContain("id=\"remote-login-dialog\"");
     expect(html).toContain("autocomplete=\"current-password\"");
-    expect(html).not.toContain("不写入浏览器 Cookie");
+    expect(html).toContain("不使用浏览器 Cookie");
     expect(html).toContain("autocomplete=\"new-password\"");
     expect(html).toContain("id=\"delete-dialog\"");
-    expect(html).toContain("再次确认才会清除该 Server 的登录、Cookie、IndexedDB、缓存、离线密钥和本机副本");
+    expect(html).toContain("再次确认才会清除该 Server 的登录、IndexedDB、缓存和本机副本");
     expect(html).toContain("aria-live=\"polite\"");
     expect(script).toContain('error.code === "PROFILE_UNSYNCED_DATA"');
     expect(script).toContain("永久删除本机离线数据");
@@ -52,6 +53,7 @@ describe("Desktop Selector UI", () => {
     expect(preload).toContain("selector:profiles:probe");
     expect(preload).toContain("selector:local:get-status");
     expect(preload).toContain("selector:local:setup");
+    expect(preload).toContain("selector:local:login");
     expect(preload).toContain("selector:settings:get");
     expect(preload).toContain("selector:settings:update");
     expect(preload).toContain("selector:remote:refresh-captcha");

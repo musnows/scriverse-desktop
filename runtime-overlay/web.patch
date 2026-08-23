@@ -208,7 +208,7 @@ index 03b2f488..58c76e8d 100644
 +    let bootstrap = await controller.store.getInitialOfflineDownloadState();
 +    if (!bootstrap) {
 +      const accepted = await confirmToast(
-+        "是否立即在本机加密保存此 Server 的全部可离线作品？只下载作品快照，不下载远端 AI 设置；下载严格限制为 30 RPM、并发 3。",
++        "是否立即在本机保存此 Server 的全部可离线作品？只下载作品快照，不下载远端 AI 设置；下载严格限制为 30 RPM、并发 3。",
 +        { title: "首次连接 Server", confirmLabel: "立即离线全部", cancelLabel: "暂不离线" }
 +      );
 +      bootstrap = await controller.store.setInitialOfflineDownloadState({
@@ -221,7 +221,7 @@ index 03b2f488..58c76e8d 100644
 +      }
 +    }
 +    if (bootstrap.decision !== "accepted" || bootstrap.completed) return bootstrap;
-+    const dismiss = persistentToast("正在加密下载全部可离线作品；本地限速 30 RPM，并发 3");
++    const dismiss = persistentToast("正在下载全部可离线作品；本地限速 30 RPM，并发 3");
 +    try {
 +      const works = await apiAllPages("/api/works", 100);
 +      const result = await controller.downloadAllWorks(works);
@@ -233,7 +233,7 @@ index 03b2f488..58c76e8d 100644
 +      } else if (result.skipped.length > 0) {
 +        toast(`已离线 ${result.downloaded + result.alreadyCached} 部作品；${result.skipped.length} 部尚未获得离线权限`);
 +      } else {
-+        toast(`已加密离线全部 ${result.total} 部作品`);
++        toast(`已离线全部 ${result.total} 部作品`);
 +      }
 +      return result;
 +    } catch (error) {
@@ -759,7 +759,7 @@ index 03b2f488..58c76e8d 100644
    try {
      const saved = await persistChapter({ automatic: false });
 -    if (saved) toast(`保存成功（正文 v${saved.versionNo}）`);
-+    if (saved) toast(desktopOfflineMode ? "正文已加密保存到本机，等待同步" : `保存成功（正文 v${saved.versionNo}）`);
++    if (saved) toast(desktopOfflineMode ? "正文已保存到本机，等待同步" : `保存成功（正文 v${saved.versionNo}）`);
      return saved;
    } finally {
      dismissSavingToast();
@@ -897,7 +897,7 @@ index 03b2f488..58c76e8d 100644
      ${canManageAccess ? '<button id="work-access-manage" class="ghost-button" type="button">配置成员权限</button>' : '<small>仅作品创建者或系统管理员可以调整访问权限。</small>'}
    </section>`;
 +  const desktopOfflineField = isDesktopWorkspaceRuntime() ? `<section class="work-access-field" aria-labelledby="work-offline-settings-title">
-+    <div><strong id="work-offline-settings-title">Desktop 离线访问</strong><small>${work.offlineAccessEnabled ? "Server 已允许为此作品下载加密离线副本。关闭后只会停止后续同步，不会远程删除任何本机内容。" : "默认关闭。作品所有者或系统管理员允许后，Desktop 用户才能明确下载已有正文与设定。"}</small><div class="work-access-options" aria-label="离线范围"><span>已有章节</span><span>已有设定</span><span>AES-GCM 加密</span></div></div>
++    <div><strong id="work-offline-settings-title">Desktop 离线访问</strong><small>${work.offlineAccessEnabled ? "Server 已允许为此作品下载离线副本。关闭后只会停止后续同步，不会远程删除任何本机内容。" : "默认关闭。作品所有者或系统管理员允许后，Desktop 用户才能明确下载已有正文与设定。"}</small><div class="work-access-options" aria-label="离线范围"><span>已有章节</span><span>已有设定</span><span>本机存储</span></div></div>
 +    <div class="work-offline-actions">${canManageAccess ? `<button id="work-offline-access-toggle" class="ghost-button" type="button">${work.offlineAccessEnabled ? "关闭离线访问" : "允许离线访问"}</button>` : ""}<button id="work-offline-download" class="ghost-button" type="button" ${work.offlineAccessEnabled ? "" : "disabled"}>下载或更新副本</button></div>
 +  </section>` : "";
    const importHistoryField = `<section class="work-access-field" aria-labelledby="import-history-settings-title">
@@ -941,7 +941,7 @@ index 03b2f488..58c76e8d 100644
 +    try {
 +      const controller = await ensureDesktopWorkspace();
 +      await controller.downloadWork(work);
-+      toast("离线副本已加密保存");
++      toast("离线副本已保存");
 +      void renderDesktopShelfBadges();
 +    } catch (error) {
 +      toast(error.message, "error");
@@ -983,7 +983,7 @@ index 03b2f488..58c76e8d 100644
            buttonLabel: "保存新版本",
 -          message: currentItem ? `设定已保存为 v${saved.versionNo}` : `设定已创建为 v${saved.versionNo}`
 +          message: desktopOfflineMode
-+            ? "设定已加密保存到本机，等待同步"
++            ? "设定已保存到本机，等待同步"
 +            : currentItem ? `设定已保存为 v${saved.versionNo}` : `设定已创建为 v${saved.versionNo}`
          };
        }
@@ -1477,6 +1477,21 @@ index 03b2f488..58c76e8d 100644
  $("#global-replace-button").addEventListener("click", openGlobalReplaceDialog);
  $("#account-button").addEventListener("click", () => {
    const expanded = $("#account-menu").classList.toggle("hidden") === false;
+@@ -17865,8 +18685,14 @@ $("#logout-button").addEventListener("click", async () => {
+   try {
+     stopS3BackupEventPolling();
+     await api("/api/auth/session", { method: "DELETE" });
++    const localLogout = globalThis.scriverseDesktopLocalShell?.logout;
++    if (typeof localLogout === "function") {
++      const result = await localLogout();
++      if (result?.ok !== true) throw new Error(result?.error?.message ?? "Desktop 本地工作区退出失败");
++      return;
++    }
+     state.user = null;
+     state.csrfToken = null;
+     window.location.reload();
+   } catch (error) { toast(error.message, "error"); }
+ });
 @@ -19152,6 +19972,11 @@ $("#reader-viewport").addEventListener("scroll", () => {
  }, { passive: true });
  document.addEventListener("visibilitychange", () => {
@@ -1553,7 +1568,7 @@ index be0fea35..78e661ed 100644
              <button id="admin-ai-conversations-button" class="settings-hub-card hidden" type="button"><span class="settings-card-mark">话</span><strong>Chat 对话</strong><small>查看所有作品、所有用户的对话记录</small></button>
              <button id="platform-ui-settings-button" class="settings-hub-card hidden" type="button"><span class="settings-card-mark">界</span><strong>界面与分页</strong><small>设置通知位置、银河图性能及各模块的单页数量</small></button>
              <button id="s3-backup-button" class="settings-hub-card hidden" type="button"><span class="settings-card-mark">S3</span><strong>S3 备份</strong><small>将整个系统的数据库和图片同步到多个目标</small></button>
-+            <button id="desktop-sync-button" class="settings-hub-card hidden" type="button"><span class="settings-card-mark">D</span><strong>离线与同步</strong><small>下载加密副本、查看待同步项目并处理冲突</small></button>
++            <button id="desktop-sync-button" class="settings-hub-card hidden" type="button"><span class="settings-card-mark">D</span><strong>离线与同步</strong><small>下载本机副本、查看待同步项目并处理冲突</small></button>
              <button id="collaboration-button" class="settings-hub-card" type="button"><span class="settings-card-mark">协</span><strong>作品协作</strong><small>邀请注册用户共同编辑当前作品</small></button>
              <button id="writing-progress-button" class="settings-hub-card" type="button"><span class="settings-card-mark">字</span><strong>写作目标</strong><small>每日目标、总字数目标与近 30 天趋势</small></button>
              <button id="work-audit-button" class="settings-hub-card" type="button"><span class="settings-card-mark">录</span><strong>操作记录</strong><small>查看作品修改、操作者、对象与时间</small></button>
@@ -1564,7 +1579,7 @@ index be0fea35..78e661ed 100644
 +    <dialog id="desktop-sync-dialog" class="dialog wide-dialog desktop-sync-dialog" aria-labelledby="desktop-sync-dialog-title">
 +      <div class="dialog-header"><div><span class="eyebrow">Desktop 安全副本</span><h2 id="desktop-sync-dialog-title">离线同步中心</h2><p id="desktop-sync-summary" class="dialog-header-meta">正在读取同步状态</p></div><button id="desktop-sync-dialog-close" class="dialog-close" type="button" aria-label="关闭离线同步中心">×</button></div>
 +      <div id="desktop-sync-list" class="desktop-sync-list" aria-live="polite"></div>
-+      <div class="desktop-sync-warning"><strong>远端关闭不会删除本机副本</strong><p>关闭离线访问只会停止后续同步。为防止远程擦除，本机已下载的加密内容和未同步修改会继续保留；救援包会导出作品明文，请妥善保管。</p></div>
++      <div class="desktop-sync-warning"><strong>远端关闭不会删除本机副本</strong><p>关闭离线访问只会停止后续同步。为防止远程擦除，本机已下载的内容和未同步修改会继续保留；救援包可用于恢复作品。</p></div>
 +      <div class="dialog-actions"><button id="desktop-sync-switch" class="ghost-button" type="button">切换工作区</button><button id="desktop-sync-refresh" class="primary-button" type="button">刷新状态</button></div>
 +    </dialog>
 +

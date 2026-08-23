@@ -48,6 +48,18 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).not.toContain("-  const isSystemAdmin = session.user.isSystemAdmin === true;");
   });
 
+  it("keeps offline snapshots plaintext and returns local logout to Selector", () => {
+    const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
+    const syncStore = readFileSync(join(process.cwd(), "runtime-overlay/public/desktop-sync-store.js"), "utf8");
+
+    expect(overlayPatch).toContain("globalThis.scriverseDesktopLocalShell?.logout");
+    expect(overlayPatch).not.toContain("AES-GCM");
+    expect(overlayPatch).not.toContain("加密离线副本");
+    expect(syncStore).toContain("return structuredClone(snapshot)");
+    expect(syncStore).not.toContain("subtle.encrypt");
+    expect(syncStore).not.toContain("subtle.decrypt");
+  });
+
   it("hides the online presence banner until more than one distinct user is present", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 

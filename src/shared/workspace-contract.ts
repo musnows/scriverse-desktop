@@ -27,19 +27,6 @@ function assertExactKeys(value: Record<string, unknown>, keys: readonly string[]
   }
 }
 
-function assertUuid(value: unknown, label: string): string {
-  if (typeof value !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value)) {
-    throw new WorkspaceContractError("WORKSPACE_INPUT_INVALID", `${label} 无效`);
-  }
-  return value;
-}
-
-export function parseOfflineKeyRequest(value: unknown): { userId: string } {
-  if (!isRecord(value)) throw new WorkspaceContractError("WORKSPACE_INPUT_INVALID", "离线密钥请求无效");
-  assertExactKeys(value, ["userId"], "离线密钥请求");
-  return { userId: assertUuid(value.userId, "user id") };
-}
-
 export function parseWorkspaceLeaveState(value: unknown): WorkspaceLeaveState {
   if (!isRecord(value)) throw new WorkspaceContractError("WORKSPACE_INPUT_INVALID", "工作区离开状态无效");
   assertExactKeys(value, ["dirty", "activeAiRequests", "pendingMutations", "conflicts", "rejected"], "工作区离开状态");

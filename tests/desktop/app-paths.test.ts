@@ -15,12 +15,13 @@ describe("Desktop 路径", () => {
       root,
       profiles: "/Users/author/Scriverse/client-meta/profiles.json",
       remoteAuth: "/Users/author/Scriverse/client-meta/remote-auth",
-      offlineKeys: "/Users/author/Scriverse/client-meta/offline-keys",
+      localAuth: "/Users/author/Scriverse/client-meta/local-auth.json",
       localAiProviders: "/Users/author/Scriverse/client-meta/local-ai-providers",
+      desktopMasterKey: "/Users/author/Scriverse/client-meta/master.key",
       desktopSettings: "/Users/author/Scriverse/client-meta/desktop-settings.json",
       localRuntime: "/Users/author/Scriverse/local-vault/runtime",
       localVaultLock: "/Users/author/Scriverse/local-vault/desktop-vault.lock",
-      browserSessions: "/Users/author/Scriverse/browser-sessions"
+      browserSessions: "/Users/author/Scriverse/browser-sessions-v2"
     });
   });
 });

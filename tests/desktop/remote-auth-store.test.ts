@@ -2,11 +2,8 @@ import { mkdirSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import {
-  RemoteAuthStore,
-  RemoteAuthStoreError,
-  type DesktopSecretStorage
-} from "../../src/main/remote-auth-store.js";
+import { RemoteAuthStore } from "../../src/main/remote-auth-store.js";
+import { CredentialVault } from "../../src/main/credential-vault.js";
 import { remotePartition, type RemoteWorkspaceProfile } from "../../src/shared/contracts.js";
 
 function testProfile(): RemoteWorkspaceProfile {
@@ -29,13 +26,8 @@ function testDirectory(): string {
   return directory;
 }
 
-function secretStorage(secure = true): DesktopSecretStorage {
-  return {
-    isEncryptionAvailable: () => true,
-    isSecureBackend: () => secure,
-    encryptString: (value) => Buffer.from([...value].reverse().join(""), "utf8"),
-    decryptString: (value) => [...value.toString("utf8")].reverse().join("")
-  };
+function credentialVault(): CredentialVault {
+  return new CredentialVault("remote-auth-test-master-secret-1234567890");
 }
 
 const user = {
@@ -50,42 +42,33 @@ const user = {
   isSystemAdmin: true
 };
 
-describe("Desktop 远端登录安全存储", () => {
-  it("只把系统加密密文写入 profile 独立文件并可重启解锁", () => {
+describe("Desktop 远端登录 CredentialVault 存储", () => {
+  it("只把 master.key 加密密文写入 profile 独立文件并可重启解锁", () => {
     const directory = testDirectory();
     const profile = testProfile();
     const token = `scrvd_${"a".repeat(43)}`;
-    const store = new RemoteAuthStore(directory, secretStorage());
+    const store = new RemoteAuthStore(directory, credentialVault());
     store.save(profile, { token, expiresAt: "2026-09-23T00:00:00.000Z", user });
     const path = join(directory, `${profile.id}.json`);
     const source = readFileSync(path, "utf8");
     expect(source).not.toContain(token);
     expect(source).not.toContain("password");
     if (process.platform !== "win32") expect(statSync(path).mode & 0o777).toBe(0o600);
-    expect(new RemoteAuthStore(directory, secretStorage()).load(profile)).toEqual({
+    expect(new RemoteAuthStore(directory, credentialVault()).load(profile)).toEqual({
       token,
       expiresAt: "2026-09-23T00:00:00.000Z",
       user
     });
   });
 
-  it("登出以无密钥状态原子覆盖存储", () => {
+  it("登出以无令牌状态原子覆盖存储", () => {
     const directory = testDirectory();
     const profile = testProfile();
-    const store = new RemoteAuthStore(directory, secretStorage());
+    const store = new RemoteAuthStore(directory, credentialVault());
     store.save(profile, { token: `scrvd_${"b".repeat(43)}`, expiresAt: "2026-09-23T00:00:00.000Z", user });
     store.clear(profile);
     expect(store.load(profile)).toBeNull();
     expect(JSON.parse(readFileSync(join(directory, `${profile.id}.json`), "utf8"))).toMatchObject({ state: "signed-out" });
   });
 
-  it("拒绝 Linux 明文 fallback 或不可用的系统安全存储", () => {
-    const profile = testProfile();
-    const store = new RemoteAuthStore(testDirectory(), secretStorage(false));
-    expect(() => store.save(profile, {
-      token: `scrvd_${"c".repeat(43)}`,
-      expiresAt: "2026-09-23T00:00:00.000Z",
-      user
-    })).toThrowError(RemoteAuthStoreError);
-  });
 });

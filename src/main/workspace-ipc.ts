@@ -1,5 +1,4 @@
 import { ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from "electron";
-import type { OfflineDataKey } from "./offline-key-store.js";
 import type { RemoteAuthUser } from "../shared/remote-auth-contract.js";
 import type { RemoteWorkspaceProfile } from "../shared/contracts.js";
 import {
@@ -10,7 +9,6 @@ import {
   type LocalAiWorkspaceCatalog
 } from "../shared/local-ai-contract.js";
 import {
-  parseOfflineKeyRequest,
   parseWorkspaceLeaveState,
   type WorkspaceLeaveState
 } from "../shared/workspace-contract.js";
@@ -21,7 +19,6 @@ type IpcResult<T> = IpcSuccess<T> | IpcFailure;
 
 const workspaceChannels = [
   "workspace:shell:get-capabilities",
-  "workspace:shell:get-offline-key",
   "workspace:shell:report-leave-state",
   "workspace:shell:request-switch",
   "workspace:local-ai:catalog",
@@ -93,7 +90,6 @@ export function registerWorkspaceIpc(workspaceWindow: BrowserWindow, profile: Re
   activeProfileId: () => string | null;
   getCachedUser: () => RemoteAuthUser | null;
   getConnectionMode: () => "online" | "offline" | null;
-  getOfflineKey: (userId: string) => Promise<OfflineDataKey>;
   getLocalAiCatalog: (userId: string) => LocalAiWorkspaceCatalog;
   completeLocalAi: (userId: string, input: LocalAiCompletionRequestInput) => Promise<LocalAiCompletionResult>;
   cancelLocalAi: (userId: string, requestId: string) => boolean;
@@ -118,9 +114,6 @@ export function registerWorkspaceIpc(workspaceWindow: BrowserWindow, profile: Re
     user: options.getCachedUser(),
     connectionMode: options.getConnectionMode()
   }));
-  handle("workspace:shell:get-offline-key", workspaceWindow, profile, options.activeProfileId, (input) => {
-    return options.getOfflineKey(parseOfflineKeyRequest(input).userId);
-  });
   handle("workspace:shell:report-leave-state", workspaceWindow, profile, options.activeProfileId, (input) => {
     const state = parseWorkspaceLeaveState(input);
     options.reportLeaveState(state);

@@ -19,11 +19,12 @@ describe("Desktop 本地工作区窗口", () => {
     expect(workspaceSource).toContain('action: "deny"');
   });
 
-  it("只由 Main 写入 HttpOnly session cookie，Selector 不接收 token", () => {
-    expect(mainSource).toContain("httpOnly: true");
-    expect(mainSource).toContain("LOCAL_SESSION_COOKIE_NAME");
-    expect(mainSource).toContain('error.code = "KEYCHAIN_INTERACTION_REQUIRED"');
-    expect(mainSource).not.toContain("sessionToken: result.sessionToken");
+  it("只由 Main 持久化 Bearer 并禁止浏览器 Cookie 与系统凭据存储", () => {
+    expect(mainSource).toContain("localSessionPolicy!.authorize(result.url, result.token)");
+    expect(mainSource).toContain("localAuthStore!.save(result)");
+    expect(mainSource).not.toContain("cookies.set");
+    expect(mainSource).not.toContain("safeStorage");
+    expect(mainSource).not.toContain("KEYCHAIN_INTERACTION_REQUIRED");
   });
 
   it("打开与切换工作区时继承当前窗口位置且先显示替代窗口", () => {

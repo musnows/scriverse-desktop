@@ -6,20 +6,15 @@ import {
   LocalAiProviderStore,
   type LocalAiModelCredential
 } from "../../src/main/local-ai-provider-store.js";
-import type { DesktopSecretStorage } from "../../src/main/remote-auth-store.js";
+import { CredentialVault } from "../../src/main/credential-vault.js";
 import type { LocalAiModelInput, LocalAiProviderInput } from "../../src/shared/local-ai-contract.js";
 
 function testDirectory(): string {
   return join(tmpdir(), `scriverse-local-ai-${process.pid}-${crypto.randomUUID()}`);
 }
 
-function secretStorage(secure = true): DesktopSecretStorage {
-  return {
-    isEncryptionAvailable: () => true,
-    isSecureBackend: () => secure,
-    encryptString: (value) => Buffer.from([...value].reverse().join(""), "utf8"),
-    decryptString: (value) => [...value.toString("utf8")].reverse().join("")
-  };
+function credentialVault(): CredentialVault {
+  return new CredentialVault("local-ai-test-master-secret-1234567890");
 }
 
 function providerInput(apiKey = "local-secret-key"): LocalAiProviderInput {
@@ -59,7 +54,7 @@ function modelInput(providerId: string): LocalAiModelInput {
 describe("Desktop 本地 AI 供应商存储", () => {
   it("在设备级配置中保存供应商、模型与 Prompt，并只把系统密文写入本机", () => {
     const directory = testDirectory();
-    const store = new LocalAiProviderStore(directory, secretStorage());
+    const store = new LocalAiProviderStore(directory, credentialVault());
     const provider = store.create(providerInput());
     const model = store.createModel(modelInput(provider.id));
     store.updateSystemPrompt({ systemPrompt: "仅使用简体中文" });
@@ -77,8 +72,8 @@ describe("Desktop 本地 AI 供应商存储", () => {
     if (process.platform !== "win32") expect(statSync(path).mode & 0o777).toBe(0o600);
   });
 
-  it("无 API Key 的局域网端点不依赖系统密钥环", () => {
-    const store = new LocalAiProviderStore(testDirectory(), secretStorage(false));
+  it("无 API Key 的局域网端点不写入伪加密字段", () => {
+    const store = new LocalAiProviderStore(testDirectory(), credentialVault());
     const provider = store.create({ ...providerInput(""), baseUrl: "http://192.168.1.20:12345/v1" });
     const model = store.createModel(modelInput(provider.id));
     expect(store.credential(model.id).provider.apiKey).toBe("");
@@ -87,7 +82,7 @@ describe("Desktop 本地 AI 供应商存储", () => {
   });
 
   it("供应商连接状态与模型启用状态保留在本机", () => {
-    const store = new LocalAiProviderStore(testDirectory(), secretStorage());
+    const store = new LocalAiProviderStore(testDirectory(), credentialVault());
     const provider = store.create(providerInput());
     const model = store.createModel(modelInput(provider.id));
     expect(store.markConnection(provider.id, { ok: true })).toMatchObject({ connectionStatus: "success" });

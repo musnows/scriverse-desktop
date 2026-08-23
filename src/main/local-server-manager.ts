@@ -9,6 +9,7 @@ import {
   LOCAL_SERVER_HEALTH_TIMEOUT_MS,
   LOCAL_SERVER_SHUTDOWN_TIMEOUT_MS,
   LOCAL_SERVER_START_TIMEOUT_MS,
+  parseLocalLoginInput,
   parseLocalSetupInput,
   parseLocalServerUtilityMessage,
   type LocalProvisionedUser,
@@ -16,21 +17,23 @@ import {
   type LocalServerReadyMessage,
   type LocalServerStartMessage
 } from "../shared/local-server-contract.js";
+import { LOCAL_PROFILE_ID } from "../shared/contracts.js";
 
 export type LocalServerReady = LocalServerReadyMessage & {
   setupRequired: boolean;
 };
 
-export type LocalProvisionResult = {
+export type LocalAuthenticationResult = {
   user: LocalProvisionedUser;
-  sessionToken: string;
+  token: string;
+  expiresAt: string;
   url: string;
 };
 
-type PendingProvision = {
+type PendingAuthentication = {
   requestId: string;
   timeout: ReturnType<typeof setTimeout>;
-  resolve: (result: LocalProvisionResult) => void;
+  resolve: (result: LocalAuthenticationResult) => void;
   reject: (error: LocalServerManagerError) => void;
 };
 
@@ -44,6 +47,7 @@ export class LocalServerManagerError extends Error {
 type LocalServerManagerOptions = {
   paths: DesktopPaths;
   desktopId: string;
+  desktopVersion: string;
   applicationRoot: string;
   desktopRoot: string;
   utilityWorkingDirectory: string;
@@ -92,8 +96,8 @@ export class LocalServerManager {
   private stopPromise: Promise<void> | null = null;
   private shutdownResolve: (() => void) | null = null;
   private shutdownRequestId: string | null = null;
-  private provisionPromise: Promise<LocalProvisionResult> | null = null;
-  private pendingProvision: PendingProvision | null = null;
+  private authenticationPromise: Promise<LocalAuthenticationResult> | null = null;
+  private pendingAuthentication: PendingAuthentication | null = null;
   private readonly utilityLogRemainders = { stdout: "", stderr: "" };
   private readonly listeners = new Set<(status: LocalServerPublicStatus) => void>();
 
@@ -113,25 +117,25 @@ export class LocalServerManager {
     for (const listener of this.listeners) listener(this.getStatus());
   }
 
-  private rejectPendingProvision(error: LocalServerManagerError): void {
-    const pending = this.pendingProvision;
+  private rejectPendingAuthentication(error: LocalServerManagerError): void {
+    const pending = this.pendingAuthentication;
     if (!pending) return;
-    this.pendingProvision = null;
+    this.pendingAuthentication = null;
     clearTimeout(pending.timeout);
     pending.reject(error);
   }
 
-  private handleProvisionMessage(message: Extract<ReturnType<typeof parseLocalServerUtilityMessage>, {
-    type: "provisioned" | "provision-failed";
+  private handleAuthenticationMessage(message: Extract<ReturnType<typeof parseLocalServerUtilityMessage>, {
+    type: "authenticated" | "authentication-failed";
   }>): void {
-    const pending = this.pendingProvision;
+    const pending = this.pendingAuthentication;
     if (!pending || pending.requestId !== message.requestId) {
       this.beginUnexpectedStop("LOCAL_MESSAGE_INVALID");
       return;
     }
-    this.pendingProvision = null;
+    this.pendingAuthentication = null;
     clearTimeout(pending.timeout);
-    if (message.type === "provision-failed") {
+    if (message.type === "authentication-failed") {
       pending.reject(new LocalServerManagerError(message.code, message.safeMessage));
       return;
     }
@@ -141,7 +145,7 @@ export class LocalServerManager {
     }
     this.ready = { ...this.ready, setupRequired: false };
     this.setStatus({ phase: "running", setupRequired: false, errorCode: null });
-    pending.resolve({ user: message.user, sessionToken: message.sessionToken, url: this.ready.url });
+    pending.resolve({ user: message.user, token: message.token, expiresAt: message.expiresAt, url: this.ready.url });
   }
 
   private releaseLock(): void {
@@ -274,6 +278,9 @@ export class LocalServerManager {
         publicPath: join(this.options.applicationRoot, "dist", "public"),
         vditorPath: join(this.options.applicationRoot, "dist", "public", "vendor", "vditor", "dist"),
         preferredPort: this.options.getPreferredPort(),
+        desktopId: this.options.desktopId,
+        profileId: LOCAL_PROFILE_ID,
+        clientVersion: this.options.desktopVersion,
         envAllowlist: filterLocalServerEnvironment(this.options.environment ?? process.env)
       };
       const ready = await new Promise<LocalServerReady>((resolve, reject) => {
@@ -297,8 +304,8 @@ export class LocalServerManager {
             finishError(new LocalServerManagerError("LOCAL_MESSAGE_INVALID", "本地服务返回了无效消息"));
             return;
           }
-          if (message.type === "provisioned" || message.type === "provision-failed") {
-            this.handleProvisionMessage(message);
+          if (message.type === "authenticated" || message.type === "authentication-failed") {
+            this.handleAuthenticationMessage(message);
             return;
           }
           if (message.type === "fatal") {
@@ -352,7 +359,7 @@ export class LocalServerManager {
       const terminated = child ? await this.terminateChild(child) : true;
       if (!terminated) this.child = child;
       this.ready = null;
-      this.rejectPendingProvision(new LocalServerManagerError("LOCAL_PROCESS_EXITED", "本地服务进程已停止"));
+      this.rejectPendingAuthentication(new LocalServerManagerError("LOCAL_PROCESS_EXITED", "本地服务进程已停止"));
       if (terminated) this.releaseLock();
       const finalError = terminated
         ? managerError
@@ -364,7 +371,7 @@ export class LocalServerManager {
 
   private beginUnexpectedStop(errorCode: string): void {
     this.ready = null;
-    this.rejectPendingProvision(new LocalServerManagerError(errorCode, "本地服务进程已停止"));
+    this.rejectPendingAuthentication(new LocalServerManagerError(errorCode, "本地服务进程已停止"));
     this.setStatus({ phase: "failed", setupRequired: null, errorCode });
     this.child?.kill();
   }
@@ -373,7 +380,7 @@ export class LocalServerManager {
     const resolvedErrorCode = this.status.errorCode ?? errorCode;
     this.child = null;
     this.ready = null;
-    this.rejectPendingProvision(new LocalServerManagerError(resolvedErrorCode, "本地服务进程已停止"));
+    this.rejectPendingAuthentication(new LocalServerManagerError(resolvedErrorCode, "本地服务进程已停止"));
     this.releaseLock();
     this.setStatus({ phase: "failed", setupRequired: null, errorCode: resolvedErrorCode });
     this.shutdownResolve?.();
@@ -387,14 +394,14 @@ export class LocalServerManager {
     return this.stopPromise;
   }
 
-  provision(input: unknown): Promise<LocalProvisionResult> {
+  provision(input: unknown): Promise<LocalAuthenticationResult> {
     if (!this.child || !this.ready || this.status.phase !== "running") {
       return Promise.reject(new LocalServerManagerError("LOCAL_SERVER_NOT_RUNNING", "本地服务尚未启动"));
     }
     if (!this.ready.setupRequired) {
       return Promise.reject(new LocalServerManagerError("LOCAL_ALREADY_PROVISIONED", "本地工作区已经完成初始化，请直接登录"));
     }
-    if (this.provisionPromise) {
+    if (this.authenticationPromise) {
       return Promise.reject(new LocalServerManagerError("LOCAL_PROVISION_IN_PROGRESS", "本地管理员初始化正在进行"));
     }
     let parsed: { username: string; password: string };
@@ -403,30 +410,53 @@ export class LocalServerManager {
     } catch (error) {
       return Promise.reject(error);
     }
+    return this.requestAuthentication("provision", parsed);
+  }
+
+  login(input: unknown): Promise<LocalAuthenticationResult> {
+    if (!this.child || !this.ready || this.status.phase !== "running") {
+      return Promise.reject(new LocalServerManagerError("LOCAL_SERVER_NOT_RUNNING", "本地服务尚未启动"));
+    }
+    if (this.ready.setupRequired) {
+      return Promise.reject(new LocalServerManagerError("LOCAL_SETUP_REQUIRED", "请先创建本地管理员"));
+    }
+    if (this.authenticationPromise) {
+      return Promise.reject(new LocalServerManagerError("LOCAL_LOGIN_IN_PROGRESS", "本地工作区正在登录"));
+    }
+    let parsed: { username: string; password: string };
+    try {
+      parsed = parseLocalLoginInput(input);
+    } catch (error) {
+      return Promise.reject(error);
+    }
+    return this.requestAuthentication("login", parsed);
+  }
+
+  private requestAuthentication(type: "provision" | "login", input: { username: string; password: string }): Promise<LocalAuthenticationResult> {
     const requestId = randomUUID();
-    this.provisionPromise = new Promise<LocalProvisionResult>((resolve, reject) => {
+    this.authenticationPromise = new Promise<LocalAuthenticationResult>((resolve, reject) => {
       const timeout = setTimeout(() => {
-        if (this.pendingProvision?.requestId !== requestId) return;
-        this.pendingProvision = null;
-        reject(new LocalServerManagerError("LOCAL_PROVISION_TIMEOUT", "本地管理员初始化超时"));
+        if (this.pendingAuthentication?.requestId !== requestId) return;
+        this.pendingAuthentication = null;
+        reject(new LocalServerManagerError("LOCAL_AUTH_TIMEOUT", "本地工作区登录超时"));
       }, LOCAL_SERVER_START_TIMEOUT_MS);
-      this.pendingProvision = { requestId, timeout, resolve, reject };
+      this.pendingAuthentication = { requestId, timeout, resolve, reject };
       try {
-        this.child!.postMessage({ type: "provision", requestId, ...parsed });
+        this.child!.postMessage({ type, requestId, ...input });
       } catch {
-        this.pendingProvision = null;
+        this.pendingAuthentication = null;
         clearTimeout(timeout);
-        reject(new LocalServerManagerError("LOCAL_PROVISION_FAILED", "本地管理员初始化请求发送失败"));
+        reject(new LocalServerManagerError("LOCAL_AUTH_FAILED", "本地工作区登录请求发送失败"));
       }
     }).finally(() => {
-      this.provisionPromise = null;
+      this.authenticationPromise = null;
     });
-    return this.provisionPromise;
+    return this.authenticationPromise;
   }
 
   private async shutdown(): Promise<void> {
     if (this.startPromise) await this.startPromise.catch(() => undefined);
-    if (this.provisionPromise) await this.provisionPromise.catch(() => undefined);
+    if (this.authenticationPromise) await this.authenticationPromise.catch(() => undefined);
     const child = this.child;
     if (!child) {
       this.ready = null;

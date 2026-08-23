@@ -4,21 +4,16 @@ import { describe, expect, it, vi } from "vitest";
 import { LocalAiClient } from "../../src/main/local-ai-client.js";
 import { LocalAiProviderStore } from "../../src/main/local-ai-provider-store.js";
 import { LocalAiRequestCoordinator } from "../../src/main/local-ai-request-coordinator.js";
-import type { DesktopSecretStorage } from "../../src/main/remote-auth-store.js";
+import { CredentialVault } from "../../src/main/credential-vault.js";
 
-function secretStorage(): DesktopSecretStorage {
-  return {
-    isEncryptionAvailable: () => true,
-    isSecureBackend: () => true,
-    encryptString: (value) => Buffer.from(value, "utf8"),
-    decryptString: (value) => value.toString("utf8")
-  };
+function credentialVault(): CredentialVault {
+  return new CredentialVault("local-ai-coordinator-test-secret-1234567890");
 }
 
 function configuredStore(): { store: LocalAiProviderStore; modelId: string } {
   const store = new LocalAiProviderStore(
     join(tmpdir(), `scriverse-local-ai-coordinator-${process.pid}-${crypto.randomUUID()}`),
-    secretStorage()
+    credentialVault()
   );
   const provider = store.create({
     name: "本机模型",

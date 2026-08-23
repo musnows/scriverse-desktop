@@ -4,9 +4,9 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
   parseLocalServerParentMessage,
+  type LocalServerAuthenticatedMessage,
+  type LocalServerAuthenticationFailedMessage,
   type LocalServerFatalMessage,
-  type LocalServerProvisionedMessage,
-  type LocalServerProvisionFailedMessage,
   type LocalServerReadyMessage,
   type LocalServerStoppedMessage,
   type LocalProvisionedUser
@@ -17,8 +17,14 @@ type RuntimeAuth = {
   hasUsers: () => boolean;
   register: (input: { username: string; password: string }) => {
     token: string;
-    session: { user: LocalProvisionedUser };
+    session: { id: string; user: LocalProvisionedUser };
   };
+  loginDesktop: (username: string, password: string, input: {
+    desktopId: string;
+    profileId: string;
+    clientVersion: string;
+  }) => { token: string; session: { user: LocalProvisionedUser; expiresAt: string } };
+  revoke: (sessionId: string) => void;
 };
 
 type RuntimeStore = {
@@ -55,12 +61,14 @@ let running: RunningServer | null = null;
 let started = false;
 let stopping = false;
 let provisioning = false;
+let authenticating = false;
 let runWithRequestActor: (<T>(actor: LocalProvisionedUser, operation: () => T) => T) | null = null;
+let desktopSessionContext: { desktopId: string; profileId: string; clientVersion: string } | null = null;
 
 function post(message:
   | LocalServerReadyMessage
-  | LocalServerProvisionedMessage
-  | LocalServerProvisionFailedMessage
+  | LocalServerAuthenticatedMessage
+  | LocalServerAuthenticationFailedMessage
   | LocalServerStoppedMessage
   | LocalServerFatalMessage
 ): void {
@@ -145,6 +153,11 @@ async function start(messageValue: unknown): Promise<void> {
       }>
     ]);
     runWithRequestActor = requestContextModule.runWithRequestActor;
+    desktopSessionContext = {
+      desktopId: message.desktopId,
+      profileId: message.profileId,
+      clientVersion: message.clientVersion
+    };
     const selectedPort = await selectLocalServerPort(message.preferredPort, canBindLoopbackPort);
     running = await runtimeModule.startLocalServer({
       host: "127.0.0.1",
@@ -189,7 +202,7 @@ async function provision(messageValue: unknown): Promise<void> {
   }
   if (provisioning) {
     post({
-      type: "provision-failed",
+      type: "authentication-failed",
       requestId: message.requestId,
       code: "LOCAL_PROVISION_IN_PROGRESS",
       safeMessage: "本地管理员初始化正在进行"
@@ -200,7 +213,7 @@ async function provision(messageValue: unknown): Promise<void> {
   try {
     if (running.runtime.auth.hasUsers()) {
       post({
-        type: "provision-failed",
+        type: "authentication-failed",
         requestId: message.requestId,
         code: "LOCAL_ALREADY_PROVISIONED",
         safeMessage: "本地工作区已经完成初始化，请直接登录"
@@ -208,7 +221,7 @@ async function provision(messageValue: unknown): Promise<void> {
       return;
     }
     if (!runWithRequestActor) throw new Error("request actor context is unavailable");
-    const result = running.runtime.database.transaction(() => {
+    const registered = running.runtime.database.transaction(() => {
       if (running!.runtime.auth.hasUsers()) throw new Error("local workspace already provisioned");
       const registered = running!.runtime.auth.register({ username: message.username, password: message.password });
       runWithRequestActor!(registered.session.user, () => {
@@ -219,16 +232,20 @@ async function provision(messageValue: unknown): Promise<void> {
       });
       return registered;
     });
+    if (!desktopSessionContext) throw new Error("desktop session context is unavailable");
+    const result = running.runtime.auth.loginDesktop(message.username, message.password, desktopSessionContext);
+    running.runtime.auth.revoke(registered.session.id);
     post({
-      type: "provisioned",
+      type: "authenticated",
       requestId: message.requestId,
-      sessionToken: result.token,
+      token: result.token,
+      expiresAt: result.session.expiresAt,
       user: result.session.user
     });
   } catch (error) {
     const alreadyProvisioned = error instanceof Error && error.message === "local workspace already provisioned";
     post({
-      type: "provision-failed",
+      type: "authentication-failed",
       requestId: message.requestId,
       code: alreadyProvisioned ? "LOCAL_ALREADY_PROVISIONED" : "LOCAL_PROVISION_FAILED",
       safeMessage: alreadyProvisioned
@@ -237,6 +254,47 @@ async function provision(messageValue: unknown): Promise<void> {
     });
   } finally {
     provisioning = false;
+  }
+}
+
+async function login(messageValue: unknown): Promise<void> {
+  let message;
+  try {
+    message = parseLocalServerParentMessage(messageValue);
+    if (message.type !== "login" || !started || !running || stopping) throw new Error("invalid login message state");
+  } catch (error) {
+    fatal("validate", error);
+    return;
+  }
+  if (authenticating) {
+    post({
+      type: "authentication-failed",
+      requestId: message.requestId,
+      code: "LOCAL_LOGIN_IN_PROGRESS",
+      safeMessage: "本地工作区正在登录"
+    });
+    return;
+  }
+  authenticating = true;
+  try {
+    if (!desktopSessionContext) throw new Error("desktop session context is unavailable");
+    const result = running.runtime.auth.loginDesktop(message.username, message.password, desktopSessionContext);
+    post({
+      type: "authenticated",
+      requestId: message.requestId,
+      token: result.token,
+      expiresAt: result.session.expiresAt,
+      user: result.session.user
+    });
+  } catch {
+    post({
+      type: "authentication-failed",
+      requestId: message.requestId,
+      code: "INVALID_CREDENTIALS",
+      safeMessage: "用户名或密码不正确"
+    });
+  } finally {
+    authenticating = false;
   }
 }
 
@@ -278,6 +336,10 @@ process.parentPort.on("message", (event) => {
   }
   if (typeof value === "object" && value !== null && "type" in value && value.type === "provision") {
     void provision(value);
+    return;
+  }
+  if (typeof value === "object" && value !== null && "type" in value && value.type === "login") {
+    void login(value);
     return;
   }
   void shutdown(value);

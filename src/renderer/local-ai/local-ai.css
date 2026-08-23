@@ -1,7 +1,7 @@
 body { background: var(--paper); }
 .local-ai-config-view { width: min(1280px, 100%); margin: 0 auto; }
 .local-ai-config-view .module-header-actions a { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
-#local-ai-form-dialog { color: var(--ink); }
+#local-ai-form-dialog { overflow: hidden; color: var(--ink); }
 #local-ai-form-dialog > form { display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; max-height: 88vh; }
 #local-ai-form-dialog .dialog-fields { min-height: 0; max-height: none; }
 .local-ai-form-error { margin: 0 24px 14px; padding: 10px 12px; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); color: var(--accent-dark); font-size: 11px; line-height: 1.55; }

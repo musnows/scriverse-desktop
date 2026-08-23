@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -14,6 +15,11 @@ const root = process.platform === "win32" ? "C:\\desktop\\runtime" : "/desktop/r
 const publicPath = process.platform === "win32" ? "C:\\app\\dist\\public" : "/app/dist/public";
 
 describe("Desktop 本地服务消息契约", () => {
+  it("仅在 Desktop 本地嵌入运行时信任 AI 地址解析", () => {
+    const utilitySource = readFileSync(new URL("../../src/utility/local-server.mts", import.meta.url), "utf8");
+    expect(utilitySource).toContain("trustAiEndpointNetwork: true");
+  });
+
   it("与 Server 使用同一个 HttpOnly 会话 Cookie 契约", () => {
     expect(LOCAL_SESSION_COOKIE_NAME).toBe("scriverse_session");
     expect(LOCAL_SESSION_MAX_AGE_SECONDS).toBe(30 * 24 * 60 * 60);

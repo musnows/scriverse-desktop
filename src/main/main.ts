@@ -503,18 +503,19 @@ async function closeWorkspaceBeforeQuit(): Promise<boolean> {
   await remoteWorkspaceOpenPromise?.catch(() => undefined);
   const window = workspaceWindow;
   if (!window || window.isDestroyed()) return true;
+  const contents = window.webContents;
   return await new Promise<boolean>((resolve) => {
     let settled = false;
     const finish = (closed: boolean): void => {
       if (settled) return;
       settled = true;
-      window.webContents.off("will-prevent-unload", handlePreventedUnload);
+      contents.off("will-prevent-unload", handlePreventedUnload);
       window.off("closed", handleClosed);
       resolve(closed);
     };
     const handlePreventedUnload = (): void => finish(false);
     const handleClosed = (): void => finish(true);
-    window.webContents.once("will-prevent-unload", handlePreventedUnload);
+    contents.once("will-prevent-unload", handlePreventedUnload);
     window.once("closed", handleClosed);
     window.close();
   });

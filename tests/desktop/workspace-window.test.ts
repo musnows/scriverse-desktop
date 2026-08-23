@@ -34,4 +34,10 @@ describe("Desktop 本地工作区窗口", () => {
     expect(mainSource).toContain("showSelectorFromWorkspace(window);\n    window.destroy();");
     expect(mainSource).toContain("showSelectorFromWorkspace(window);\n  window.close();");
   });
+
+  it("退出时不在窗口销毁后重新读取 webContents", () => {
+    expect(mainSource).toContain("const contents = window.webContents;");
+    expect(mainSource).toContain('contents.off("will-prevent-unload", handlePreventedUnload)');
+    expect(mainSource).not.toContain('window.webContents.off("will-prevent-unload", handlePreventedUnload)');
+  });
 });

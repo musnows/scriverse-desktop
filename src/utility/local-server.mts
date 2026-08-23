@@ -48,7 +48,7 @@ type StartLocalServer = (options: {
   dataDirectory: string;
   databasePath: string;
   env: NodeJS.ProcessEnv;
-  trustAiEndpointNetwork?: boolean;
+  disableAiEndpointValidation?: boolean;
 }) => Promise<RunningServer>;
 
 let running: RunningServer | null = null;
@@ -152,7 +152,7 @@ async function start(messageValue: unknown): Promise<void> {
       dataDirectory: message.dataDirectory,
       databasePath: message.databasePath,
       env: message.envAllowlist,
-      trustAiEndpointNetwork: true
+      disableAiEndpointValidation: true
     });
     const health = await fetch(`${running.url}/api/health`).then((response) => response.json()) as {
       data?: { status?: unknown; bootId?: unknown };

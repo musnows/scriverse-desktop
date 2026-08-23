@@ -25,4 +25,14 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain('icon.setAttribute("aria-label", "Desktop 本地模型")');
     expect(overlayPatch).toContain("ai-model-option-image is-local");
   });
+
+  it("shows the active workspace in the header and footer with a settings switch action", () => {
+    const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
+
+    expect(overlayPatch).toContain('id="desktop-switch-button"');
+    expect(overlayPatch).toContain("desktopShellBridge()?.requestSwitch()");
+    expect(overlayPatch).toContain("当前工作区：${name}");
+    expect(overlayPatch).toContain("data-desktop-workspace-name");
+    expect(overlayPatch).toContain("workspaceName ? `${workspaceName} · Scriverse Desktop`");
+  });
 });

@@ -22,7 +22,7 @@ export async function createLocalWorkspaceWindow(options: {
     minHeight: 600,
     ...(options.placement?.bounds ?? {}),
     show: false,
-    title: "Scriverse Desktop",
+    title: "本地工作区 - Scriverse Desktop",
     backgroundColor: "#f3efe7",
     autoHideMenuBar: true,
     webPreferences: {

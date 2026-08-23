@@ -14,6 +14,7 @@ describe("Desktop 本地工作区窗口", () => {
     expect(workspaceSource).toContain("sandbox: true");
     expect(workspaceSource).toContain("webSecurity: true");
     expect(workspaceSource).toContain('preload: join(options.desktopRoot, "preload", "local-workspace-preload.cjs")');
+    expect(workspaceSource).toContain('title: "本地工作区 - Scriverse Desktop"');
     expect(workspaceSource).toContain("setPermissionRequestHandler");
     expect(workspaceSource).toContain('action: "deny"');
   });

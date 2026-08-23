@@ -10,6 +10,7 @@ const downloadSource = readFileSync(join(root, "src/main/download-policy.ts"), "
 const preloadSource = readFileSync(join(root, "src/preload/workspace-preload.cts"), "utf8");
 const localPreloadSource = readFileSync(join(root, "src/preload/local-workspace-preload.cts"), "utf8");
 const localIpcSource = readFileSync(join(root, "src/main/local-workspace-ipc.ts"), "utf8");
+const workspaceIpcSource = readFileSync(join(root, "src/main/workspace-ipc.ts"), "utf8");
 
 describe("Desktop 原生菜单与下载", () => {
   it("净化路径、控制字符、设备名和超长下载文件名", () => {
@@ -31,6 +32,11 @@ describe("Desktop 原生菜单与下载", () => {
     expect(localPreloadSource).toContain('exposeInMainWorld("scriverseDesktopLocalShell"');
     expect(localPreloadSource).toContain('invoke("local-workspace:shell:request-switch")');
     expect(localIpcSource).toContain('profileName: string; profileKind: "local"');
+  });
+
+  it("向远端页面提供已选择的 Server 工作区名称", () => {
+    expect(workspaceIpcSource).toContain("profileName: profile.name");
+    expect(workspaceIpcSource).toContain('profileKind: "remote"');
   });
 
   it("About 面板分行显示 Desktop 与对应 Server 版本", () => {

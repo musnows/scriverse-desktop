@@ -111,6 +111,8 @@ export function registerWorkspaceIpc(workspaceWindow: BrowserWindow, profile: Re
   };
   handle("workspace:shell:get-capabilities", workspaceWindow, profile, options.activeProfileId, () => ({
     profileId: profile.id,
+    profileName: profile.name,
+    profileKind: "remote" as const,
     origin: profile.origin,
     capabilities: profile.capabilities,
     user: options.getCachedUser(),

@@ -34,6 +34,7 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).not.toContain("function aiModelLocalIconMarkup()");
     expect(overlayPatch).not.toContain('icon.setAttribute("aria-label", "Desktop 本地模型")');
     expect(overlayPatch).not.toContain("ai-model-option-image.is-local");
+    expect(overlayPatch.match(/feature=desktop-local-model-badge-only-v1/g)).toHaveLength(2);
   });
 
   it("shows the active workspace in the header and footer with a settings switch action", () => {

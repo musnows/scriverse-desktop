@@ -1019,7 +1019,7 @@ index 03b2f488..58c76e8d 100644
 +function createDesktopLocalAiPendingMessage(tab, model) {
 +  const message = document.createElement("div");
 +  message.className = "assistant-message is-streaming desktop-local-ai-message";
-+  message.innerHTML = '<div class="message-body" aria-live="polite" aria-busy="true">正在等待本地模型响应……</div><div class="message-meta">本地推理 · 不经过 Server 供应商</div>';
++  message.innerHTML = '<div class="message-body" aria-live="polite" aria-busy="true">正在等待本地模型响应……</div><div class="message-meta"></div>';
 +  attachMessageHeading(message, "本地助手", undefined, tab);
 +  tab.feed.append(message);
 +  scrollAiFeedToBottom(tab.feed);

@@ -78,6 +78,9 @@ describe("Desktop Web runtime overlay", () => {
     expect(addedLines).not.toContain("最终 JSON");
     expect(addedLines).not.toContain("浏览器 Cookie");
     expect(addedLines).not.toContain("Bearer 会话");
+    expect(addedLines).not.toContain("本地推理");
+    expect(addedLines).not.toContain("不经过 Server 供应商");
+    expect(addedLines).toContain('<div class="message-meta"></div>');
   });
 
   it("hides the online presence banner until more than one distinct user is present", () => {

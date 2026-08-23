@@ -60,7 +60,7 @@ describe("Desktop 本地 AI 输入契约", () => {
     })).toThrowError(/不能只包含 local 前缀/u);
   });
 
-  it("本地推理请求只能引用已保存的 model id", () => {
+  it("Desktop 本地 AI 请求只能引用已保存的 model id", () => {
     const input = parseLocalAiCompletionInput({
       modelId: "11111111-1111-4111-8111-111111111111",
       taskType: "book-analysis",

@@ -30,6 +30,10 @@ describe("Desktop Web runtime overlay", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 
     expect(overlayPatch).toContain('id="desktop-switch-button"');
+    expect(overlayPatch).toContain('<div class="settings-detail-actions">');
+    expect(overlayPatch).toContain('id="desktop-switch-button" class="ghost-button settings-parent-button hidden"');
+    expect(overlayPatch).not.toContain('id="desktop-switch-button" class="settings-hub-card');
+    expect(overlayPatch).not.toContain("desktop-switch-menu-button");
     expect(overlayPatch).toContain("desktopShellBridge()?.requestSwitch()");
     expect(overlayPatch).toContain("当前工作区：${name}");
     expect(overlayPatch).toContain("data-desktop-workspace-name");

@@ -1,5 +1,5 @@
 diff --git a/public/app.js b/public/app.js
-index d4c1dd86..e3340414 100644
+index d4c1dd86..2b6c129a 100644
 --- a/public/app.js
 +++ b/public/app.js
 @@ -25,6 +25,7 @@ import {
@@ -20,7 +20,7 @@ index d4c1dd86..e3340414 100644
  import { buildGlobalReplaceRefreshPlan, resolveGlobalReplaceChapterCount } from "/global-replace-refresh.js?v=20260812-global-replace-tree-v2";
  import {
    clampCropRect,
-@@ -209,6 +213,231 @@ const state = {
+@@ -209,6 +213,230 @@ const state = {
    contextChapterId: null
  };
 
@@ -138,7 +138,6 @@ index d4c1dd86..e3340414 100644
 +      desktopWorkspaceController = controller;
 +      desktopWorkspaceError = null;
 +      $("#desktop-sync-menu-button").classList.remove("hidden");
-+      $("#desktop-switch-menu-button").classList.remove("hidden");
 +      $("#desktop-sync-button").classList.remove("hidden");
 +      $("#desktop-switch-button").classList.remove("hidden");
 +      void controller.reportDirty(false).catch(() => undefined);
@@ -252,7 +251,7 @@ index d4c1dd86..e3340414 100644
  let platformAiProtocolOptions = [];
 
  const aiRequestManager = createAiRequestManager();
-@@ -475,6 +704,14 @@ function applyWorkAccessMode() {
+@@ -475,6 +703,14 @@ function applyWorkAccessMode() {
    $("#ai-scene-present").readOnly = aiReadOnly;
    $("#ai-scene-time").readOnly = aiReadOnly;
    $("#ai-send").classList.toggle("permission-hidden", aiReadOnly);
@@ -267,7 +266,7 @@ index d4c1dd86..e3340414 100644
    renderAiRoleplayCharacterSelect();
    updateBackgroundTaskCenterVisibility();
    if (proseReadOnly) {
-@@ -606,7 +843,7 @@ function setAiChatTabStatus(tab, status) {
+@@ -606,7 +842,7 @@ function setAiChatTabStatus(tab, status) {
  function aiRequestTargetsCurrentState(request) {
    const tab = aiChatTabForRequest(request);
    return aiRequestManager.isCurrent(request) && Boolean(tab) && aiRequestTargetsState(request, {
@@ -276,7 +275,7 @@ index d4c1dd86..e3340414 100644
      conversationId: tab.conversationId
    });
  }
-@@ -1040,14 +1277,14 @@ function syncChapterAutoSaveWithPresence() {
+@@ -1040,14 +1276,14 @@ function syncChapterAutoSaveWithPresence() {
 
  function renderPresence() {
    const control = $("#presence-control");
@@ -293,7 +292,7 @@ index d4c1dd86..e3340414 100644
    const localKey = presencePageKey(presencePageForRoute());
    syncChapterAutoSaveWithPresence();
    control.classList.remove("hidden");
-@@ -1067,6 +1304,11 @@ async function refreshPresence() {
+@@ -1067,6 +1303,11 @@ async function refreshPresence() {
    const requestId = ++presenceHeartbeatRequest;
    if (presenceHeartbeatTimer !== null) clearTimeout(presenceHeartbeatTimer);
    presenceHeartbeatTimer = null;
@@ -305,7 +304,7 @@ index d4c1dd86..e3340414 100644
    const workId = state.work?.id;
    const page = presencePageForRoute();
    if (!workId || !page || !state.user) {
-@@ -1559,7 +1801,7 @@ function applyChapterEditorMode() {
+@@ -1559,7 +1800,7 @@ function applyChapterEditorMode() {
    $("#chapter-title").setAttribute("aria-readonly", String(viewOnly));
    $("#chapter-content").setAttribute("aria-readonly", String(viewOnly));
    $("#chapter-edit-button").classList.toggle("hidden", permissionBlocked || !chapterEditorReadOnly || !state.chapter);
@@ -314,7 +313,7 @@ index d4c1dd86..e3340414 100644
    $("#chapter-annotations-button").classList.toggle("hidden", !state.chapter || !canReadModule("comments"));
    $("#chapter-reader-button").classList.toggle("hidden", !state.chapter || !canReadModule("editor"));
    syncChapterSearchControls();
-@@ -2082,7 +2324,7 @@ function createAiChatTabState(input = {}) {
+@@ -2082,7 +2323,7 @@ function createAiChatTabState(input = {}) {
    const feed = input.feed ?? createAiChatFeed();
    bindAiFeedAutoScroll(feed);
    const tab = aiChatTabManager.open({
@@ -323,7 +322,7 @@ index d4c1dd86..e3340414 100644
      conversationId: input.conversationId ?? null,
      title: input.title ?? "新对话",
      modelId: input.modelId ?? null,
-@@ -2111,7 +2353,7 @@ function createAiChatTabState(input = {}) {
+@@ -2111,7 +2352,7 @@ function createAiChatTabState(input = {}) {
  function persistActiveAiChatTab() {
    const tab = activeAiChatTab();
    if (!tab) return null;
@@ -332,7 +331,7 @@ index d4c1dd86..e3340414 100644
    tab.conversationId = state.aiConversationId;
    tab.title = $("#ai-conversation-title").textContent || tab.title || "新对话";
    tab.modelId = state.aiConversationModelId;
-@@ -2289,6 +2531,9 @@ function setAiConversationSwitcherVisible(visible) {
+@@ -2289,6 +2530,9 @@ function setAiConversationSwitcherVisible(visible) {
 
  function setAiConversationWorkspaceVisible(visible) {
    const mobileWorkspace = isPhoneClient() || isMobileViewport();
@@ -342,7 +341,7 @@ index d4c1dd86..e3340414 100644
    aiConversationWorkspaceOpen = Boolean(visible);
    panelLayout.aiCollapsed = aiConversationWorkspaceOpen ? false : mobileWorkspace;
    $("#app").classList.toggle("ai-workspace-mode", aiConversationWorkspaceOpen);
-@@ -3531,6 +3776,10 @@ function aiModelImageIconMarkup() {
+@@ -3531,6 +3775,10 @@ function aiModelImageIconMarkup() {
    return '<svg class="ai-model-option-image-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3.5" y="4.5" width="17" height="15" rx="2"></rect><circle cx="9" cy="10" r="1.5"></circle><path d="m5.5 17 4.4-4.4 3.3 3.1 2.2-2.2 3.1 3.5"></path></svg>';
  }
 
@@ -353,7 +352,7 @@ index d4c1dd86..e3340414 100644
  function renderAiModelOptions() {
    const host = $("#ai-model-options");
    if (!host) return;
-@@ -3558,12 +3807,25 @@ function renderAiModelOptions() {
+@@ -3558,12 +3806,25 @@ function renderAiModelOptions() {
      copy.className = "ai-model-option-copy";
      const name = document.createElement("strong");
      name.textContent = String(model.displayName ?? model.modelId ?? "模型");
@@ -379,7 +378,7 @@ index d4c1dd86..e3340414 100644
      if (model.multimodalEnabled === true) {
        const icon = document.createElement("span");
        icon.className = "ai-model-option-image";
-@@ -3607,7 +3869,7 @@ function syncAiModelPicker() {
+@@ -3607,7 +3868,7 @@ function syncAiModelPicker() {
    if (interactionBusy) setAiModelPickerVisible(false);
  }
 
@@ -388,7 +387,7 @@ index d4c1dd86..e3340414 100644
    if (!locked) return false;
    const now = Date.now();
    const lastToastAt = Number(select.dataset.lockedToastAt ?? 0);
-@@ -3636,7 +3898,7 @@ function blockLockedAiConversationOptionKeydown(event) {
+@@ -3636,7 +3897,7 @@ function blockLockedAiConversationOptionKeydown(event) {
  }
 
  function syncAiTaskOptions() {
@@ -397,7 +396,7 @@ index d4c1dd86..e3340414 100644
    const relationshipRoleplaySelectable = roleplaySelected
      && Boolean(state.aiRoleplayCharacter)
      && (!state.aiPromptSent || Boolean(state.aiRoleplayUserCharacter));
-@@ -3648,9 +3910,12 @@ function syncAiTaskOptions() {
+@@ -3648,9 +3909,12 @@ function syncAiTaskOptions() {
    $("#ai-roleplay-user-character").classList.toggle("hidden", !relationshipRoleplaySelectable);
    $("#ai-roleplay-user-character").setAttribute("aria-hidden", String(!relationshipRoleplaySelectable));
    $("#ai-task").disabled = interactionBusy;
@@ -412,7 +411,7 @@ index d4c1dd86..e3340414 100644
      ? aiConversationOptionLockedMessage
      : roleplaySelected ? "角色扮演模式可以查询角色记忆、相识角色、知情设定、故事正文和设定图片" : "";
    syncAiModelPicker();
-@@ -3881,7 +4146,7 @@ function activeAiModel() {
+@@ -3881,7 +4145,7 @@ function activeAiModel() {
  }
 
  function aiModelSupportsImageInput() {
@@ -421,7 +420,7 @@ index d4c1dd86..e3340414 100644
  }
 
  function syncAiImageAttachmentControl() {
-@@ -3891,7 +4156,7 @@ function syncAiImageAttachmentControl() {
+@@ -3891,7 +4155,7 @@ function syncAiImageAttachmentControl() {
    button.classList.toggle("hidden", !enabled);
    button.disabled = !enabled || aiInteractionBusy();
    button.setAttribute("aria-hidden", String(!enabled));
@@ -430,7 +429,7 @@ index d4c1dd86..e3340414 100644
  }
 
  function renderAiImageAttachments() {
-@@ -4643,6 +4908,17 @@ function attachOptimisticVersion(path, method, body) {
+@@ -4643,6 +4907,17 @@ function attachOptimisticVersion(path, method, body) {
  async function api(path, options = {}) {
    const method = String(options.method ?? "GET").toUpperCase();
    const body = options.skipOptimisticVersion ? options.body : attachOptimisticVersion(path, method, options.body);
@@ -448,7 +447,7 @@ index d4c1dd86..e3340414 100644
    const headers = { ...(options.headers ?? {}) };
    if (state.csrfToken && !["GET", "HEAD", "OPTIONS"].includes(method)) headers["X-CSRF-Token"] = state.csrfToken;
    if (!(body instanceof FormData)) headers["Content-Type"] = "application/json";
-@@ -5213,7 +5489,23 @@ async function loadPlatformUiSettings() {
+@@ -5213,7 +5488,23 @@ async function loadPlatformUiSettings() {
 
  async function initializeAuthentication() {
    const route = parsePageRoute(window.location.hash);
@@ -473,12 +472,11 @@ index d4c1dd86..e3340414 100644
    if (!response.ok) throw new Error("无法读取登录状态");
    const session = (await response.json()).data;
    if (!session.authenticated) {
-@@ -5226,6 +5518,12 @@ async function initializeAuthentication() {
+@@ -5226,6 +5517,11 @@ async function initializeAuthentication() {
    if (route.view === "login") window.history.replaceState(null, "", serializePageRoute({ view: "shelf" }));
    observeSystemBootId(session.bootId);
    applyAuthenticatedUser(session);
 +  if (isDesktopWorkspaceRuntime()) {
-+    $("#desktop-switch-menu-button").classList.remove("hidden");
 +    $("#desktop-switch-button").classList.remove("hidden");
 +    void applyDesktopWorkspaceIdentity();
 +    void ensureDesktopWorkspace(session.user).catch(() => undefined);
@@ -486,7 +484,7 @@ index d4c1dd86..e3340414 100644
    scheduleSystemBootCheck();
    await loadPlatformUiSettings();
    startS3BackupEventPolling();
-@@ -5602,7 +5900,9 @@ async function persistChapter({ automatic = false } = {}) {
+@@ -5602,7 +5898,9 @@ async function persistChapter({ automatic = false } = {}) {
      scheduleChapterLineNumbers();
    }
    if (sameChapterSnapshot(draft, lastSavedChapterSnapshot)) {
@@ -497,7 +495,7 @@ index d4c1dd86..e3340414 100644
      if (!automatic) await loadChapterForeshadowReminders();
      return state.chapter;
    }
-@@ -5630,12 +5930,15 @@ async function persistChapter({ automatic = false } = {}) {
+@@ -5630,12 +5928,15 @@ async function persistChapter({ automatic = false } = {}) {
      if (state.work?.id !== workId || state.chapter?.id !== draft.chapterId) return saved.chapter;
      state.chapter = saved.chapter;
      state.work = saved.work;
@@ -514,7 +512,7 @@ index d4c1dd86..e3340414 100644
      } else {
        scheduleChapterAutoSave(250);
      }
-@@ -5684,7 +5987,10 @@ function chooseExistingWorkImportMode(file) {
+@@ -5684,7 +5985,10 @@ function chooseExistingWorkImportMode(file) {
 
  function updateDocumentTitle(work = null) {
    const workTitle = String(work?.title ?? "").trim();
@@ -526,7 +524,7 @@ index d4c1dd86..e3340414 100644
  }
 
  async function loadWorks(preferredId) {
-@@ -5707,13 +6013,29 @@ function restoredSettingsReturnContext(route) {
+@@ -5707,13 +6011,29 @@ function restoredSettingsReturnContext(route) {
  }
 
  async function initializePage() {
@@ -557,7 +555,7 @@ index d4c1dd86..e3340414 100644
    try {
      if (route.view === "shelf") {
        showShelf();
-@@ -5788,7 +6110,11 @@ async function initializePage() {
+@@ -5788,7 +6108,11 @@ async function initializePage() {
      document.body.classList.remove("auth-pending");
      restoringPageRoute = false;
      replacePageRoute(currentPageRoute());
@@ -570,7 +568,7 @@ index d4c1dd86..e3340414 100644
    }
  }
 
-@@ -5837,6 +6163,8 @@ function renderSettingsHub() {
+@@ -5837,6 +6161,8 @@ function renderSettingsHub() {
    $("#admin-ai-conversations-button").classList.toggle("hidden", !isAdmin);
    $("#platform-ui-settings-button").classList.toggle("hidden", !isAdmin);
    $("#s3-backup-button").classList.toggle("hidden", !isAdmin);
@@ -579,7 +577,7 @@ index d4c1dd86..e3340414 100644
    $("#collaboration-button").disabled = !canManageWork;
    $("#writing-progress-button").disabled = !hasWork || !canReadModule("editor");
    $("#work-audit-button").disabled = !canManageWork;
-@@ -5848,6 +6176,29 @@ function renderSettingsHub() {
+@@ -5848,6 +6174,29 @@ function renderSettingsHub() {
    $("#settings-work-note").textContent = hasWork
      ? `当前作品：《${state.work.title}》。导出正文时可选择 Markdown ZIP 或 DOCX；DOCX 在有封面时会嵌入为首页。`
      : "当前未选择作品；打开作品后可使用导出。";
@@ -609,7 +607,7 @@ index d4c1dd86..e3340414 100644
  }
 
  function renderWritingProgress(progress) {
-@@ -7222,6 +7573,10 @@ async function showPlatformUsage() {
+@@ -7222,6 +7571,10 @@ async function showPlatformUsage() {
 
  function renderShelf() {
    const shelf = $("#book-shelf");
@@ -620,7 +618,7 @@ index d4c1dd86..e3340414 100644
    shelf.innerHTML = `${state.works.map((work) => `
      <article class="book-card" data-work-card="${esc(work.id)}">
        <button class="book-open" type="button" data-open-work="${esc(work.id)}" aria-label="打开 ${esc(work.title)}">
-@@ -7231,15 +7586,16 @@ function renderShelf() {
+@@ -7231,15 +7584,16 @@ function renderShelf() {
          </span>
          <span class="book-info"><strong>${esc(work.title)}</strong><small>${esc(work.author || "未署名")} · ${work.chapterCount} 章 · ${Number(work.wordCount ?? 0).toLocaleString("zh-CN")} 字</small><span>${esc(work.description || "尚未填写作品简介")}</span><em class="book-access-badge">${work.accessRole === "viewer" ? "全部只读" : work.accessRole === "settings-editor" ? "设定协作" : work.accessRole === "editor" ? "全部可编辑" : work.accessRole === "custom" ? "自定义权限" : work.accessRole === "admin" ? "管理员访问" : "我的作品"}</em></span>
        </button>
@@ -640,7 +638,7 @@ index d4c1dd86..e3340414 100644
  }
 
  function resetWorkScopedUiCaches() {
-@@ -7263,6 +7619,7 @@ function resetWorkScopedUiCaches() {
+@@ -7263,6 +7617,7 @@ function resetWorkScopedUiCaches() {
    loadedRaceHierarchyWorkId = null;
    raceListRequestId += 1;
    state.models = [];
@@ -648,7 +646,7 @@ index d4c1dd86..e3340414 100644
    state.characters = [];
    state.settings = [];
    state.races = [];
-@@ -7333,7 +7690,7 @@ async function selectWork(workId, preferredChapterId = null) {
+@@ -7333,7 +7688,7 @@ async function selectWork(workId, preferredChapterId = null) {
    chapterEditorReadOnly = true;
    if (!canReadModule(state.module)) state.module = firstReadableUiModule(state.work) ?? "editor";
    applyWorkAccessMode();
@@ -657,7 +655,7 @@ index d4c1dd86..e3340414 100644
    updateDocumentTitle(state.work);
    $("#work-meta").textContent = `${state.work.title}${state.work.author ? ` · ${state.work.author}` : ""} · ${Number(state.work.wordCount ?? 0).toLocaleString("zh-CN")} 字`;
    $("#top-search-button").disabled = !canReadAggregateContent();
-@@ -7421,6 +7778,7 @@ function renderTree() {
+@@ -7421,6 +7776,7 @@ function renderTree() {
    if (!state.work) return;
    const count = state.work.volumes.reduce((total, volume) => total + Number(volume.chapterCount ?? volume.chapters?.length ?? 0), 0);
    const proseEditable = canEditProse();
@@ -665,7 +663,7 @@ index d4c1dd86..e3340414 100644
    $("#chapter-count").textContent = `${count} 章`;
    $("#reader-open-button").disabled = !canReadModule("editor") || count === 0;
    $("#novel-tree").classList.remove("empty-copy");
-@@ -7435,16 +7793,16 @@ function renderTree() {
+@@ -7435,16 +7791,16 @@ function renderTree() {
            ? '<p class="entity-history-empty">展开后加载章节。</p>'
            : chapters.length
              ? chapters.map((chapter) => `
@@ -686,7 +684,7 @@ index d4c1dd86..e3340414 100644
        </div>
        <div class="volume-chapters">
        ${chapterContent}
-@@ -7461,16 +7819,16 @@ function renderTree() {
+@@ -7461,16 +7817,16 @@ function renderTree() {
        renderTree();
      });
      button.addEventListener("contextmenu", (event) => {
@@ -706,7 +704,7 @@ index d4c1dd86..e3340414 100644
        button.addEventListener("dragover", (event) => {
          if (!event.dataTransfer?.types.includes("text/plain")) return;
          event.preventDefault();
-@@ -7509,7 +7867,7 @@ function renderTree() {
+@@ -7509,7 +7865,7 @@ function renderTree() {
        event.preventDefault();
        openChapterTypeMenu(button.dataset.chapterId, event.clientX, event.clientY);
      });
@@ -715,7 +713,7 @@ index d4c1dd86..e3340414 100644
        button.addEventListener("dragstart", (event) => {
          event.dataTransfer?.setData("text/plain", button.dataset.chapterId);
          if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
-@@ -7581,7 +7939,7 @@ function updateChapterBatchControls() {
+@@ -7581,7 +7937,7 @@ function updateChapterBatchControls() {
  }
 
  function openChapterBatchDialog() {
@@ -724,7 +722,7 @@ index d4c1dd86..e3340414 100644
    chapterBatchSelectedIds.clear();
    $("#chapter-batch-search").value = "";
    renderChapterBatchDialog();
-@@ -7645,6 +8003,7 @@ function findChapterLocation(chapterId) {
+@@ -7645,6 +8001,7 @@ function findChapterLocation(chapterId) {
  }
 
  async function moveChapterInTree(chapterId, volumeId, sortOrder) {
@@ -732,7 +730,7 @@ index d4c1dd86..e3340414 100644
    const location = findChapterLocation(chapterId);
    if (!location || chapterMovePending) return;
    const samePosition = location.volume.id === volumeId && location.chapterIndex === sortOrder;
-@@ -7696,6 +8055,7 @@ function openChapterTypeMenu(chapterId, clientX, clientY) {
+@@ -7696,6 +8053,7 @@ function openChapterTypeMenu(chapterId, clientX, clientY) {
      button.classList.toggle("active", button.dataset.chapterType === (chapter.chapterType || "正文"));
      button.setAttribute("aria-checked", String(button.classList.contains("active")));
    });
@@ -740,7 +738,7 @@ index d4c1dd86..e3340414 100644
    menu.classList.remove("hidden");
    const rect = menu.getBoundingClientRect();
    menu.style.left = `${Math.max(8, Math.min(clientX, window.innerWidth - rect.width - 8))}px`;
-@@ -7703,6 +8063,7 @@ function openChapterTypeMenu(chapterId, clientX, clientY) {
+@@ -7703,6 +8061,7 @@ function openChapterTypeMenu(chapterId, clientX, clientY) {
  }
 
  async function deleteChapter(chapterId) {
@@ -748,7 +746,7 @@ index d4c1dd86..e3340414 100644
    if (!state.work || !canEditProse()) return toast("当前权限不能删除正文", "error");
    const chaptersBeforeDelete = state.work.volumes.flatMap((volume) => volume.chapters);
    const chapterIndex = chaptersBeforeDelete.findIndex((chapter) => chapter.id === chapterId);
-@@ -8000,6 +8361,7 @@ async function selectChapter(chapterId, { editMode = false } = {}) {
+@@ -8000,6 +8359,7 @@ async function selectChapter(chapterId, { editMode = false } = {}) {
    renderTree();
    replacePageRoute({ view: "editor", workId: state.work.id, chapterId: state.chapter.id });
    await loadChapterForeshadowReminders();
@@ -756,7 +754,7 @@ index d4c1dd86..e3340414 100644
    return true;
  }
 
-@@ -8479,7 +8841,7 @@ async function saveChapter() {
+@@ -8479,7 +8839,7 @@ async function saveChapter() {
    const dismissSavingToast = persistentToast("正在保存中");
    try {
      const saved = await persistChapter({ automatic: false });
@@ -765,7 +763,7 @@ index d4c1dd86..e3340414 100644
      return saved;
    } finally {
      dismissSavingToast();
-@@ -8578,8 +8940,15 @@ async function showModule(module) {
+@@ -8578,8 +8938,15 @@ async function showModule(module) {
    $("#module-header-actions").querySelectorAll("[data-module-header-action]").forEach((action) => action.remove());
    $("#module-create-button").textContent = meta[3];
    $("#module-create-button").classList.toggle("hidden", module === "ai-settings" || module === "comments" || !canEditModule(module));
@@ -781,7 +779,7 @@ index d4c1dd86..e3340414 100644
    try {
      if (module === "drafts") await renderDrafts();
      if (module === "settings") await renderSettings();
-@@ -11406,30 +11775,7 @@ function openTaskDetailDialog(task, trace) {
+@@ -11406,30 +11773,7 @@ function openTaskDetailDialog(task, trace) {
  }
 
  function renderProviderCards(providers, models, protocolOptions) {
@@ -813,7 +811,7 @@ index d4c1dd86..e3340414 100644
  }
 
  async function deletePlatformModel(item) {
-@@ -11612,6 +11958,7 @@ function updateBackgroundTaskCenterVisibility() {
+@@ -11612,6 +11956,7 @@ function updateBackgroundTaskCenterVisibility() {
    if (!button) return;
    const visible = Boolean(state.user);
    button.classList.toggle("hidden", !visible);
@@ -821,7 +819,7 @@ index d4c1dd86..e3340414 100644
    if (!visible) {
      $("#background-task-count")?.classList.add("hidden");
      return;
-@@ -11625,7 +11972,7 @@ function updateBackgroundTaskCenterVisibility() {
+@@ -11625,7 +11970,7 @@ function updateBackgroundTaskCenterVisibility() {
    badge.classList.toggle("hidden", activityCount === 0);
    button.classList.toggle("is-active", activityCount > 0);
    button.setAttribute("aria-label", activityCount > 0 ? `后台任务中心，${activityCount} 项进行中` : "后台任务中心");
@@ -830,7 +828,7 @@ index d4c1dd86..e3340414 100644
  }
 
  function backgroundProductUpdateMarkup() {
-@@ -12569,17 +12916,39 @@ async function loadModels() {
+@@ -12569,17 +12914,39 @@ async function loadModels() {
    const workId = state.work?.id;
    if (!workId) return;
    const generation = workScopedUiGeneration;
@@ -873,7 +871,7 @@ index d4c1dd86..e3340414 100644
      : '<option value="">请先配置模型</option>';
    if (state.aiConversationModelId && state.models.some((model) => model.id === state.aiConversationModelId)) {
      select.value = state.aiConversationModelId;
-@@ -12590,6 +12959,20 @@ function applyAiModels(models) {
+@@ -12590,6 +12957,20 @@ function applyAiModels(models) {
  }
 
  async function ensureAiModelsLoaded() {
@@ -894,7 +892,7 @@ index d4c1dd86..e3340414 100644
    const workId = state.work?.id;
    if (!workId || loadedAiModelsWorkId === workId) return;
    if (aiModelsLoadPromise && aiModelsLoadWorkId === workId) return aiModelsLoadPromise;
-@@ -13255,6 +13638,10 @@ function openWorkSettingsDialog(work) {
+@@ -13255,6 +13636,10 @@ function openWorkSettingsDialog(work) {
      <div><strong id="work-access-title">成员权限</strong><small>选择成员后，可为每个作品模块单独设置无权限、只读或可编辑。</small><div class="work-access-options" aria-label="成员权限配置方式"><span>按成员配置</span><span>按模块授权</span><span>读写分离</span></div></div>
      ${canManageAccess ? '<button id="work-access-manage" class="ghost-button" type="button">配置成员权限</button>' : '<small>仅作品创建者或系统管理员可以调整访问权限。</small>'}
    </section>`;
@@ -905,7 +903,7 @@ index d4c1dd86..e3340414 100644
    const importHistoryField = `<section class="work-access-field" aria-labelledby="import-history-settings-title">
      <div><strong id="import-history-settings-title">正文导入历史</strong><small>查看导入前快照并恢复被覆盖的分卷、章节标题和正文；大纲、伏笔等章节关联资料不在快照中。</small></div>
      <button id="import-history-button" class="ghost-button" type="button" aria-controls="import-history-dialog" aria-haspopup="dialog" ${canOpenImportHistory ? "" : "disabled"}>${importHistoryAction}</button>
-@@ -13276,7 +13663,7 @@ function openWorkSettingsDialog(work) {
+@@ -13276,7 +13661,7 @@ function openWorkSettingsDialog(work) {
      <button id="toggle-whitespace-settings" class="ghost-button" data-toggle-whitespace type="button" aria-pressed="${chapterWhitespaceVisible}" title="用点标记半角空格，用方框标记全角空格，用箭头标记 Tab">${chapterWhitespaceVisible ? "隐藏空白符" : "显示空白符"}</button>
    </section>` : "";
    openDialog("作品信息",
@@ -914,7 +912,7 @@ index d4c1dd86..e3340414 100644
      async (form) => {
        await api(`/api/works/${work.id}`, { method: "PATCH", body: { title: form.get("title"), author: form.get("author"), description: form.get("description") } });
        state.works = (await apiPage("/api/works")).items;
-@@ -13315,6 +13702,39 @@ function openWorkSettingsDialog(work) {
+@@ -13315,6 +13700,39 @@ function openWorkSettingsDialog(work) {
      $("#form-dialog").close();
      openMembersDialog(work);
    });
@@ -954,7 +952,7 @@ index d4c1dd86..e3340414 100644
  }
 
  async function deleteWork(work) {
-@@ -13349,6 +13769,7 @@ async function deleteWork(work) {
+@@ -13349,6 +13767,7 @@ async function deleteWork(work) {
 
  async function openChapterDialog(volumeId = null) {
    if (!state.work) return openWorkDialog();
@@ -962,7 +960,7 @@ index d4c1dd86..e3340414 100644
    if (!canEditProse()) return toast("当前权限只能编辑设定资料，正文为只读", "error");
    if (!state.work.volumes.length) {
      await api(`/api/works/${state.work.id}/volumes`, { method: "POST", body: { title: "正文", kind: "main" } });
-@@ -13365,6 +13786,7 @@ async function openChapterDialog(volumeId = null) {
+@@ -13365,6 +13784,7 @@ async function openChapterDialog(volumeId = null) {
 
  function openVolumeDialog(item) {
    if (!state.work) return openWorkDialog();
@@ -970,7 +968,7 @@ index d4c1dd86..e3340414 100644
    if (!canEditProse()) return toast("当前权限只能编辑设定资料，不能修改分卷", "error");
    const kindOptions = [["main", "正文卷"], ["prequel", "前传"], ["extra", "番外"], ["epilogue", "后记"], ["appendix", "附录"]];
    const nextStoryOrder = Math.max(-1, ...state.work.volumes.map((volume) => Number(volume.storyOrder)).filter(Number.isInteger)) + 1;
-@@ -13427,7 +13849,7 @@ function syncSettingEditorChrome(viewOnly) {
+@@ -13427,7 +13847,7 @@ function syncSettingEditorChrome(viewOnly) {
    $("#setting-editor-version").textContent = item ? `v${item.versionNo}` : "新档案";
    $("#setting-editor-submit").textContent = item ? "保存新版本" : "创建设定";
    $("#setting-editor-submit").classList.toggle("hidden", viewOnly);
@@ -979,7 +977,7 @@ index d4c1dd86..e3340414 100644
    $("#setting-editor-confirm").classList.toggle("hidden", !showManagementActions || item?.status !== "pending");
    $("#setting-editor-deprecate").classList.toggle("hidden", !showManagementActions || item?.status !== "pending");
    $("#setting-editor-history").classList.toggle("hidden", !showManagementActions);
-@@ -13560,7 +13982,9 @@ function openSettingEditor(item = null, { readOnly = false } = {}) {
+@@ -13560,7 +13980,9 @@ function openSettingEditor(item = null, { readOnly = false } = {}) {
          replacePageRoute(currentPageRoute());
          return {
            buttonLabel: "保存新版本",
@@ -990,7 +988,7 @@ index d4c1dd86..e3340414 100644
          };
        }
      });
-@@ -13569,6 +13993,7 @@ function openSettingEditor(item = null, { readOnly = false } = {}) {
+@@ -13569,6 +13991,7 @@ function openSettingEditor(item = null, { readOnly = false } = {}) {
    settingEditorDirtyTracker.markSaved(settingEditorSnapshot(item?.content ?? ""));
    settingEditorVditor = createVditorEditor($("#setting-editor-markdown"), item?.content ?? "", {
      onInput: (markdown) => syncSettingEditorDirty(markdown),
@@ -998,7 +996,7 @@ index d4c1dd86..e3340414 100644
      readOnly: viewOnly
    });
    (readOnly ? $("#setting-editor-back") : $("#setting-editor-name")).focus();
-@@ -13825,7 +14250,7 @@ function createVditorUploadHandler(uploadAttachment, getEditor) {
+@@ -13825,7 +14248,7 @@ function createVditorUploadHandler(uploadAttachment, getEditor) {
    };
  }
 
@@ -1007,7 +1005,7 @@ index d4c1dd86..e3340414 100644
    if (!window.Vditor) {
      toast("Markdown 编辑器资源加载失败，请刷新页面后重试", "error");
      return null;
-@@ -13844,7 +14269,7 @@ function createVditorEditor(host, value, { onInput = () => {}, uploadAttachment
+@@ -13844,7 +14267,7 @@ function createVditorEditor(host, value, { onInput = () => {}, uploadAttachment
      placeholder,
      preview: { transform: transformVditorPreview },
      cache: { enable: false },
@@ -1016,7 +1014,7 @@ index d4c1dd86..e3340414 100644
        name: "line-number",
        tip: "显示/隐藏行号",
        tipPosition: "s",
-@@ -13852,12 +14277,12 @@ function createVditorEditor(host, value, { onInput = () => {}, uploadAttachment
+@@ -13852,12 +14275,12 @@ function createVditorEditor(host, value, { onInput = () => {}, uploadAttachment
        icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h3M4 9h3M4 13h3M4 17h3M10 5h10M10 9h10M10 13h10M10 17h10" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.6"/></svg>',
        click: () => toggleVditorLineNumbers(editor)
      }, "edit-mode", "fullscreen"],
@@ -1031,7 +1029,7 @@ index d4c1dd86..e3340414 100644
      input: (markdown) => {
        normalizeVditorAttachmentImages(editor);
        updateVditorWordCount(editor, markdown);
-@@ -15991,11 +16416,368 @@ function openModelDialog(providerId, item = null, provider = null, protocolOptio
+@@ -15991,11 +16414,368 @@ function openModelDialog(providerId, item = null, provider = null, protocolOptio
    syncMultimodalFields();
  }
 
@@ -1400,7 +1398,7 @@ index d4c1dd86..e3340414 100644
    if (!state.work) return toast("请先选择作品", "error");
    const tab = activeAiChatTab();
    if (!tab) return toast("Agent 对话页签尚未就绪", "error");
-@@ -16055,6 +16837,13 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
+@@ -16055,6 +16835,13 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
      const modelId = tab.selectedModelId || state.models[0]?.id || (isActiveAiChatTab(tab) ? $("#ai-model").value : "");
      if (!modelId) return toast("请先在 AI 管理中配置并选择模型", "error");
      tab.selectedModelId = modelId;
@@ -1414,7 +1412,7 @@ index d4c1dd86..e3340414 100644
      const imageAttachmentIds = aiChatImageAttachmentIds(requestComposerSnapshot.images);
      if (imageAttachmentIds.length > 0 && !state.models.find((model) => model.id === modelId)?.multimodalEnabled) {
        return toast("当前选择的模型不是多模态模型，无法发送图片附件", "error");
-@@ -16062,6 +16851,9 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
+@@ -16062,6 +16849,9 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
      if (imageAttachmentIds.length > 0 && taskType !== "chat") {
        return toast("图片附件目前仅支持问答对话", "error");
      }
@@ -1424,7 +1422,7 @@ index d4c1dd86..e3340414 100644
      try {
        await prepareAiRequestConversation(requestHolder, selectedTaskType, requestScope.conversationScope);
      } catch (error) {
-@@ -16070,7 +16862,7 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
+@@ -16070,7 +16860,7 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
      }
      setAiChatTabStatus(tab, "streaming");
      if (retry?.message?.isConnected) retry.message.remove();
@@ -1433,7 +1431,7 @@ index d4c1dd86..e3340414 100644
        if (!retry) {
          try {
            const request = assertAiRequestCurrent(requestHolder.snapshot);
-@@ -16114,7 +16906,21 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
+@@ -16114,7 +16904,21 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
      let assistantMetadata = {};
      let persistedStreamMessage = null;
      let suggestion = null;
@@ -1456,14 +1454,13 @@ index d4c1dd86..e3340414 100644
        const streamed = await streamChat(requestHolder, aiRetryStreamRequestBody({
          instruction,
          ...(sceneDirection ? { sceneDirection } : {}),
-@@ -17313,6 +18119,23 @@ $("#home-button").addEventListener("click", async () => {
+@@ -17313,6 +18117,22 @@ $("#home-button").addEventListener("click", async () => {
  $("#settings-button").addEventListener("click", () => {
    void showSettingsHub();
  });
 +$("#desktop-sync-button").addEventListener("click", () => { void openDesktopSyncCenter(); });
 +$("#desktop-switch-button").addEventListener("click", () => { void switchDesktopWorkspace(); });
 +$("#desktop-sync-menu-button").addEventListener("click", () => { void openDesktopSyncCenter(); });
-+$("#desktop-switch-menu-button").addEventListener("click", () => { void switchDesktopWorkspace(); });
 +$("#desktop-sync-dialog-close").addEventListener("click", () => $("#desktop-sync-dialog").close());
 +$("#desktop-sync-refresh").addEventListener("click", async (event) => {
 +  const button = event.currentTarget;
@@ -1480,7 +1477,7 @@ index d4c1dd86..e3340414 100644
  $("#global-replace-button").addEventListener("click", openGlobalReplaceDialog);
  $("#account-button").addEventListener("click", () => {
    const expanded = $("#account-menu").classList.toggle("hidden") === false;
-@@ -19144,6 +19967,11 @@ $("#reader-viewport").addEventListener("scroll", () => {
+@@ -19144,6 +19964,11 @@ $("#reader-viewport").addEventListener("scroll", () => {
  }, { passive: true });
  document.addEventListener("visibilitychange", () => {
    if (document.visibilityState !== "visible") return;
@@ -1492,7 +1489,7 @@ index d4c1dd86..e3340414 100644
    if (state.user && !systemRestartDetected) scheduleSystemBootCheck(0);
    if (state.user?.role === "admin" && !systemRestartDetected) void refreshS3BackupEvents();
    void refreshSystemHealth();
-@@ -19159,10 +19987,25 @@ window.addEventListener("beforeunload", (event) => {
+@@ -19159,10 +19984,25 @@ window.addEventListener("beforeunload", (event) => {
    }
  });
  window.addEventListener("online", () => {
@@ -1520,7 +1517,7 @@ index d4c1dd86..e3340414 100644
    if ($("#reader-view").classList.contains("hidden") || readingPreferences.mode !== "paged") return;
    if (readingResizeFrame !== null) window.cancelAnimationFrame(readingResizeFrame);
 diff --git a/public/index.html b/public/index.html
-index cad6b16b..91580b5f 100644
+index cad6b16b..53819a53 100644
 --- a/public/index.html
 +++ b/public/index.html
 @@ -10,7 +10,7 @@
@@ -1532,25 +1529,35 @@ index cad6b16b..91580b5f 100644
    </head>
    <body class="auth-pending">
      <section id="auth-view" class="auth-view hidden" aria-labelledby="auth-title">
-@@ -87,6 +87,8 @@
+@@ -87,6 +87,7 @@
              <strong id="account-menu-name" class="account-menu-name"><span id="account-menu-display-name">账户</span><span id="account-menu-username" class="account-menu-username">@account</span></strong><small id="account-menu-role">普通用户</small>
              <button id="onboarding-menu-button" type="button" role="menuitem">功能导览</button>
              <button id="account-settings-button" type="button" role="menuitem">账户设置</button>
 +            <button id="desktop-sync-menu-button" class="hidden" type="button" role="menuitem">离线同步中心</button>
-+            <button id="desktop-switch-menu-button" class="hidden" type="button" role="menuitem">切换工作区</button>
              <button id="logout-button" type="button" role="menuitem">退出登录</button>
            </div>
            <button id="background-task-button" class="topbar-icon-button background-task-button hidden" type="button" aria-label="后台任务中心" title="后台任务中心" aria-haspopup="dialog" aria-controls="background-task-dialog">
-@@ -218,6 +220,8 @@
+@@ -209,7 +210,10 @@
+         <section id="settings-hub-view" class="shelf-view hidden" aria-labelledby="settings-hub-title">
+           <div class="shelf-header settings-hub-header">
+             <div><span class="eyebrow">工作台配置</span><h1 id="settings-hub-title">设置</h1><p>集中管理 AI、显示偏好、内容检索与作品导出。</p></div>
+-            <button id="settings-return" class="ghost-button" type="button">返回书架</button>
++            <div class="settings-detail-actions">
++              <button id="desktop-switch-button" class="ghost-button settings-parent-button hidden" type="button">切换工作区</button>
++              <button id="settings-return" class="ghost-button settings-parent-button" type="button">返回书架</button>
++            </div>
+           </div>
+           <div class="settings-hub-grid">
+             <button id="platform-ai-button" class="settings-hub-card hidden" type="button" data-settings-action="ai"><span class="settings-card-mark">AI</span><strong>AI 管理</strong><small>供应商、模型、上下文与全局提示词</small></button>
+@@ -218,6 +222,7 @@
              <button id="admin-ai-conversations-button" class="settings-hub-card hidden" type="button"><span class="settings-card-mark">话</span><strong>Chat 对话</strong><small>查看所有作品、所有用户的对话记录</small></button>
              <button id="platform-ui-settings-button" class="settings-hub-card hidden" type="button"><span class="settings-card-mark">界</span><strong>界面与分页</strong><small>设置通知位置、银河图性能及各模块的单页数量</small></button>
              <button id="s3-backup-button" class="settings-hub-card hidden" type="button"><span class="settings-card-mark">S3</span><strong>S3 备份</strong><small>将整个系统的数据库和图片同步到多个目标</small></button>
 +            <button id="desktop-sync-button" class="settings-hub-card hidden" type="button"><span class="settings-card-mark">D</span><strong>离线与同步</strong><small>下载加密副本、查看待同步项目并处理冲突</small></button>
-+            <button id="desktop-switch-button" class="settings-hub-card hidden" type="button"><span class="settings-card-mark">区</span><strong>切换工作区</strong><small>返回 Desktop 工作区选择页，不重启软件</small></button>
              <button id="collaboration-button" class="settings-hub-card" type="button"><span class="settings-card-mark">协</span><strong>作品协作</strong><small>邀请注册用户共同编辑当前作品</small></button>
              <button id="writing-progress-button" class="settings-hub-card" type="button"><span class="settings-card-mark">字</span><strong>写作目标</strong><small>每日目标、总字数目标与近 30 天趋势</small></button>
              <button id="work-audit-button" class="settings-hub-card" type="button"><span class="settings-card-mark">录</span><strong>操作记录</strong><small>查看作品修改、操作者、对象与时间</small></button>
-@@ -323,6 +327,7 @@
+@@ -323,6 +328,7 @@
            </div>
            <div id="module-content" class="module-content"></div>
          </section>
@@ -1558,7 +1565,7 @@ index cad6b16b..91580b5f 100644
        </main>
 
        <aside id="ai-panel" class="ai-panel">
-@@ -1255,9 +1260,27 @@
+@@ -1255,9 +1261,27 @@
        </section>
      </dialog>
 

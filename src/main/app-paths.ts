@@ -39,11 +39,11 @@ export function expandDesktopPath(input: string, homeDirectory = homedir()): str
 export function defaultDesktopRoot(options: DefaultDesktopRootOptions = {}): string {
   const platform = options.platform ?? process.platform;
   const homeDirectory = options.homeDirectory ?? homedir();
-  if (platform === "darwin") return posix.join(homeDirectory, "Library", "Application Support", "Scriverse Desktop");
+  if (platform === "darwin") return posix.join(homeDirectory, "Library", "Application Support", "Scriverse Desktop", "data");
   if (platform === "win32") {
-    return win32.join(options.localAppData ?? win32.join(homeDirectory, "AppData", "Local"), "Scriverse Desktop");
+    return win32.join(options.localAppData ?? win32.join(homeDirectory, "AppData", "Local"), "Scriverse Desktop", "data");
   }
-  return posix.join(options.xdgDataHome ?? posix.join(homeDirectory, ".local", "share"), "scriverse-desktop");
+  return posix.join(options.xdgDataHome ?? posix.join(homeDirectory, ".local", "share"), "scriverse-desktop", "data");
 }
 
 export function resolveDesktopPaths(rootInput: string): DesktopPaths {

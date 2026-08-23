@@ -3,9 +3,9 @@ import { defaultDesktopRoot, expandDesktopPath, resolveDesktopPaths } from "../.
 
 describe("Desktop 路径", () => {
   it("按平台解析默认数据根目录", () => {
-    expect(defaultDesktopRoot({ platform: "darwin", homeDirectory: "/Users/author" })).toBe("/Users/author/Library/Application Support/Scriverse Desktop");
-    expect(defaultDesktopRoot({ platform: "win32", homeDirectory: "C:\\Users\\author", localAppData: "C:\\Users\\author\\AppData\\Local" })).toBe("C:\\Users\\author\\AppData\\Local\\Scriverse Desktop");
-    expect(defaultDesktopRoot({ platform: "linux", homeDirectory: "/home/author", xdgDataHome: "/data/author" })).toBe("/data/author/scriverse-desktop");
+    expect(defaultDesktopRoot({ platform: "darwin", homeDirectory: "/Users/author" })).toBe("/Users/author/Library/Application Support/Scriverse Desktop/data");
+    expect(defaultDesktopRoot({ platform: "win32", homeDirectory: "C:\\Users\\author", localAppData: "C:\\Users\\author\\AppData\\Local" })).toBe("C:\\Users\\author\\AppData\\Local\\Scriverse Desktop\\data");
+    expect(defaultDesktopRoot({ platform: "linux", homeDirectory: "/home/author", xdgDataHome: "/data/author" })).toBe("/data/author/scriverse-desktop/data");
   });
 
   it("显式展开波浪号并生成隔离子路径", () => {

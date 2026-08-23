@@ -360,7 +360,6 @@ function openLocalWorkspace(origin: string): Promise<void> {
       activeWorkspaceKind = null;
       activeRemoteProfileId = null;
       if (quitAfterLocalShutdown) return;
-      void localServerManager?.stop();
     }
   }).then((window) => {
     workspaceWindow = window;

@@ -46,7 +46,8 @@ const user = {
   status: "active" as const,
   createdAt: "2026-08-23T00:00:00.000Z",
   avatarUrl: null,
-  onboardingCompleted: true
+  onboardingCompleted: true,
+  isSystemAdmin: true
 };
 
 describe("Desktop 远端登录安全存储", () => {

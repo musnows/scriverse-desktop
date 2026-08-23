@@ -60,6 +60,7 @@ export type LocalProvisionedUser = {
   createdAt: string;
   avatarUrl: string | null;
   onboardingCompleted: boolean;
+  isSystemAdmin: boolean;
 };
 
 export type LocalServerProvisionedMessage = {
@@ -252,7 +253,7 @@ export function parseLocalServerUtilityMessage(value: unknown): LocalServerUtili
       throw new LocalServerContractError("LOCAL_MESSAGE_INVALID", "本地初始化 session token 无效");
     }
     if (!isRecord(value.user)) throw new LocalServerContractError("LOCAL_MESSAGE_INVALID", "本地初始化用户无效");
-    assertExactKeys(value.user, ["userId", "username", "displayName", "role", "status", "createdAt", "avatarUrl", "onboardingCompleted"]);
+    assertExactKeys(value.user, ["userId", "username", "displayName", "role", "status", "createdAt", "avatarUrl", "onboardingCompleted", "isSystemAdmin"]);
     if (
       typeof value.user.userId !== "string"
       || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value.user.userId)
@@ -264,6 +265,8 @@ export function parseLocalServerUtilityMessage(value: unknown): LocalServerUtili
       || !Number.isFinite(Date.parse(value.user.createdAt))
       || (value.user.avatarUrl !== null && (typeof value.user.avatarUrl !== "string" || value.user.avatarUrl.length > 2_048))
       || typeof value.user.onboardingCompleted !== "boolean"
+      || typeof value.user.isSystemAdmin !== "boolean"
+      || value.user.isSystemAdmin !== (value.user.role === "admin")
     ) throw new LocalServerContractError("LOCAL_MESSAGE_INVALID", "本地初始化用户字段无效");
     return {
       type: "provisioned",

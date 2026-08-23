@@ -122,9 +122,26 @@ describe("Desktop 本地服务消息契约", () => {
         status: "active",
         createdAt: "2026-08-23T00:00:00.000Z",
         avatarUrl: null,
-        onboardingCompleted: false
+        onboardingCompleted: false,
+        isSystemAdmin: true
       }
-    })).toMatchObject({ type: "provisioned", requestId, user: { role: "admin" } });
+    })).toMatchObject({ type: "provisioned", requestId, user: { role: "admin", isSystemAdmin: true } });
+    expect(() => parseLocalServerUtilityMessage({
+      type: "provisioned",
+      requestId,
+      sessionToken: "a".repeat(43),
+      user: {
+        userId: "44444444-4444-4444-8444-444444444444",
+        username: "author",
+        displayName: "author",
+        role: "admin",
+        status: "active",
+        createdAt: "2026-08-23T00:00:00.000Z",
+        avatarUrl: null,
+        onboardingCompleted: false,
+        isSystemAdmin: false
+      }
+    })).toThrowError(/用户字段/u);
     expect(() => parseLocalServerUtilityMessage({
       type: "provision-failed",
       requestId,

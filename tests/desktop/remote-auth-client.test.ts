@@ -24,7 +24,8 @@ const user = {
   status: "active",
   createdAt: "2026-08-23T00:00:00.000Z",
   avatarUrl: null,
-  onboardingCompleted: true
+  onboardingCompleted: true,
+  isSystemAdmin: true
 };
 
 describe("Desktop 直连 Server 登录客户端", () => {

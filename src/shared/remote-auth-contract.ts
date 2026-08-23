@@ -11,6 +11,7 @@ export type RemoteAuthUser = {
   createdAt: string;
   avatarUrl: string | null;
   onboardingCompleted: boolean;
+  isSystemAdmin: boolean;
 };
 
 export type RemoteLoginChallenge = {
@@ -68,7 +69,7 @@ function assertUuid(value: unknown, label: string): string {
 
 export function parseRemoteAuthUser(value: unknown): RemoteAuthUser {
   if (!isRecord(value)) throw new RemoteAuthContractError("REMOTE_AUTH_RESPONSE_INVALID", "Server 返回的用户信息无效");
-  assertExactKeys(value, ["userId", "username", "displayName", "role", "status", "createdAt", "avatarUrl", "onboardingCompleted"], "Server 用户信息");
+  assertExactKeys(value, ["userId", "username", "displayName", "role", "status", "createdAt", "avatarUrl", "onboardingCompleted", "isSystemAdmin"], "Server 用户信息");
   if (
     typeof value.userId !== "string"
     || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value.userId)
@@ -79,6 +80,8 @@ export function parseRemoteAuthUser(value: unknown): RemoteAuthUser {
     || typeof value.createdAt !== "string" || !Number.isFinite(Date.parse(value.createdAt))
     || (value.avatarUrl !== null && (typeof value.avatarUrl !== "string" || value.avatarUrl.length > 2_048))
     || typeof value.onboardingCompleted !== "boolean"
+    || typeof value.isSystemAdmin !== "boolean"
+    || value.isSystemAdmin !== (value.role === "admin")
   ) throw new RemoteAuthContractError("REMOTE_AUTH_RESPONSE_INVALID", "Server 返回的用户字段无效");
   return value as RemoteAuthUser;
 }

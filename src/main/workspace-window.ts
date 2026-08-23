@@ -2,6 +2,7 @@ import { app, BrowserWindow } from "electron";
 import { join } from "node:path";
 import { LOCAL_PROFILE_PARTITION } from "../shared/contracts.js";
 import { isAllowedWorkspaceNavigation, normalizeLocalWorkspaceOrigin } from "../shared/workspace-url.js";
+import { applyWindowPlacement, type DesktopWindowPlacement } from "./window-placement.js";
 
 export async function createLocalWorkspaceWindow(options: {
   origin: string;
@@ -10,6 +11,7 @@ export async function createLocalWorkspaceWindow(options: {
   onClosed: () => void;
   onCreated?: (window: BrowserWindow) => void;
   enableLocalAiBridge?: boolean;
+  placement?: DesktopWindowPlacement;
   show?: boolean;
 }): Promise<BrowserWindow> {
   const origin = normalizeLocalWorkspaceOrigin(options.origin);
@@ -18,6 +20,7 @@ export async function createLocalWorkspaceWindow(options: {
     height: 840,
     minWidth: 390,
     minHeight: 600,
+    ...(options.placement?.bounds ?? {}),
     show: false,
     title: "Scriverse Desktop",
     backgroundColor: "#f3efe7",
@@ -52,8 +55,9 @@ export async function createLocalWorkspaceWindow(options: {
     process.stderr.write(`Local workspace renderer stopped: ${details.reason}\n`);
   });
   window.once("ready-to-show", () => {
-    options.onReady();
+    if (options.placement) applyWindowPlacement(window, options.placement);
     if (options.show !== false) window.show();
+    options.onReady();
   });
   window.once("closed", options.onClosed);
   try {

@@ -24,4 +24,13 @@ describe("Desktop 本地工作区窗口", () => {
     expect(mainSource).toContain('error.code = "KEYCHAIN_INTERACTION_REQUIRED"');
     expect(mainSource).not.toContain("sessionToken: result.sessionToken");
   });
+
+  it("打开与切换工作区时继承当前窗口位置且先显示替代窗口", () => {
+    expect(workspaceSource).toContain("...(options.placement?.bounds ?? {})");
+    expect(workspaceSource.indexOf("window.show();")).toBeLessThan(workspaceSource.indexOf("options.onReady();"));
+    expect(mainSource).toContain("placement: captureWindowPlacement(mainWindow)");
+    expect(mainSource).toContain("applyWindowPlacement(selector, captureWindowPlacement(window))");
+    expect(mainSource).toContain("showSelectorFromWorkspace(window);\n    window.destroy();");
+    expect(mainSource).toContain("showSelectorFromWorkspace(window);\n  window.close();");
+  });
 });

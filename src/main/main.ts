@@ -28,6 +28,7 @@ import { registerDownloadPolicy } from "./download-policy.js";
 import { installDesktopMenu } from "./native-menu.js";
 import { DesktopUpdater } from "./desktop-updater.js";
 import { handleSquirrelStartup } from "./squirrel-startup.js";
+import { applyWindowPlacement, captureWindowPlacement } from "./window-placement.js";
 import { LOCAL_PROFILE_PARTITION, type RemoteWorkspaceProfile } from "../shared/contracts.js";
 import type { WorkspaceLeaveState } from "../shared/workspace-contract.js";
 import {
@@ -303,6 +304,21 @@ function createDesktopSecretStorage(): DesktopSecretStorage {
   };
 }
 
+function showSelectorFromWorkspace(window: BrowserWindow): void {
+  const selector = mainWindow;
+  if (!selector || selector.isDestroyed() || window.isDestroyed()) return;
+  applyWindowPlacement(selector, captureWindowPlacement(window));
+  selector.show();
+  selector.focus();
+  window.hide();
+}
+
+function bindWorkspaceReplacement(window: BrowserWindow): void {
+  window.on("close", () => {
+    if (!quitAfterLocalShutdown) showSelectorFromWorkspace(window);
+  });
+}
+
 function openLocalWorkspace(origin: string): Promise<void> {
   if (workspaceWindow && !workspaceWindow.isDestroyed()) {
     if (workspaceWindow.isMinimized()) workspaceWindow.restore();
@@ -315,10 +331,12 @@ function openLocalWorkspace(origin: string): Promise<void> {
   localWorkspaceOpenPromise = createLocalWorkspaceWindow({
     origin,
     desktopRoot,
+    ...(mainWindow && !mainWindow.isDestroyed() ? { placement: captureWindowPlacement(mainWindow) } : {}),
     onCreated: (window) => {
       workspaceWindow = window;
       activeWorkspaceKind = "local";
       activeRemoteProfileId = null;
+      bindWorkspaceReplacement(window);
       disposeWorkspaceIpc = registerLocalWorkspaceIpc(window, new URL(origin).origin, {
         isActive: () => activeWorkspaceKind === "local" && workspaceWindow === window,
         getLocalAiCatalog: () => localAiRequestCoordinator!.catalog(),
@@ -337,9 +355,7 @@ function openLocalWorkspace(origin: string): Promise<void> {
       activeWorkspaceKind = null;
       activeRemoteProfileId = null;
       if (quitAfterLocalShutdown) return;
-      void localServerManager?.stop().finally(() => {
-        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.show();
-      });
+      void localServerManager?.stop();
     }
   }).then((window) => {
     workspaceWindow = window;
@@ -382,10 +398,12 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
     connectionMode,
     desktopRoot,
     offlineShellRoot: join(applicationRoot, "dist", "public"),
+    ...(mainWindow && !mainWindow.isDestroyed() ? { placement: captureWindowPlacement(mainWindow) } : {}),
     onCreated: (window) => {
       workspaceWindow = window;
       disposeWorkspaceDownloadPolicy?.();
       disposeWorkspaceDownloadPolicy = registerDownloadPolicy(window.webContents.session, () => workspaceWindow === window ? window : null);
+      bindWorkspaceReplacement(window);
       disposeWorkspaceIpc = registerWorkspaceIpc(window, profile, {
         activeProfileId: () => activeRemoteProfileId,
         getCachedUser: () => remoteAuthCoordinator!.cachedUser(profile),
@@ -418,7 +436,6 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
       activeWorkspaceKind = null;
       activeRemoteProfileId = null;
       activeRemoteLeaveState = { dirty: false, activeAiRequests: 0, pendingMutations: 0, conflicts: 0, rejected: 0 };
-      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.show();
     }
   }).then((window) => {
     workspaceWindow = window;
@@ -461,9 +478,18 @@ async function requestWorkspaceSwitch(): Promise<void> {
       noLink: true
     });
     if (result.response !== 1) return;
+    showSelectorFromWorkspace(window);
     window.destroy();
     return;
   }
+  const restoreWorkspace = (): void => {
+    if (window.isDestroyed()) return;
+    mainWindow?.hide();
+    window.show();
+    window.focus();
+  };
+  window.webContents.once("will-prevent-unload", restoreWorkspace);
+  showSelectorFromWorkspace(window);
   window.close();
 }
 

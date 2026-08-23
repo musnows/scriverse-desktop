@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { RemoteWorkspaceProfile } from "../shared/contracts.js";
 import { isAllowedRemoteWorkspaceNavigation } from "../shared/remote-workspace-url.js";
 import { registerBundledOfflineShell } from "./offline-shell-protocol.js";
+import { applyWindowPlacement, type DesktopWindowPlacement } from "./window-placement.js";
 
 export async function createRemoteWorkspaceWindow(options: {
   profile: RemoteWorkspaceProfile;
@@ -11,6 +12,7 @@ export async function createRemoteWorkspaceWindow(options: {
   onClosed: () => void;
   desktopRoot: string;
   offlineShellRoot: string;
+  placement?: DesktopWindowPlacement;
   onCreated?: (window: BrowserWindow) => void;
   show?: boolean;
 }): Promise<BrowserWindow> {
@@ -19,6 +21,7 @@ export async function createRemoteWorkspaceWindow(options: {
     height: 840,
     minWidth: 390,
     minHeight: 600,
+    ...(options.placement?.bounds ?? {}),
     show: false,
     title: `${options.profile.name} - Scriverse Desktop`,
     backgroundColor: "#f3efe7",
@@ -51,8 +54,9 @@ export async function createRemoteWorkspaceWindow(options: {
     process.stderr.write(`Remote workspace renderer stopped for profile ${options.profile.id}: ${details.reason}\n`);
   });
   window.once("ready-to-show", () => {
-    options.onReady();
+    if (options.placement) applyWindowPlacement(window, options.placement);
     if (options.show !== false) window.show();
+    options.onReady();
   });
   let disposeOfflineShell: (() => void) | null = null;
   window.once("closed", () => {

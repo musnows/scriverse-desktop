@@ -39,4 +39,9 @@ describe("Desktop 远端工作区窗口", () => {
     expect(sessionSource).toContain("remoteResponseHeaders");
     expect(sessionSource).not.toContain("cookies.set");
   });
+
+  it("在 Selector 所在显示器创建并显示工作区窗口", () => {
+    expect(windowSource).toContain("...(options.placement?.bounds ?? {})");
+    expect(windowSource.indexOf("window.show();")).toBeLessThan(windowSource.indexOf("options.onReady();"));
+  });
 });

@@ -15,4 +15,14 @@ describe("Desktop Web runtime overlay", () => {
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-workspace.js"))).toBe(true);
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-local-ai-offline.js"))).toBe(true);
   });
+
+  it("merges local models into every workspace picker and marks them with a computer icon", () => {
+    const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
+
+    expect(overlayPatch).toContain("loadDesktopLocalAiCatalog()");
+    expect(overlayPatch).toContain("...localCatalog.models.filter");
+    expect(overlayPatch).toContain("function aiModelLocalIconMarkup()");
+    expect(overlayPatch).toContain('icon.setAttribute("aria-label", "Desktop 本地模型")');
+    expect(overlayPatch).toContain("ai-model-option-image is-local");
+  });
 });

@@ -10,6 +10,7 @@ export class BackgroundTray {
 
   constructor(iconPath: string, private readonly actions: {
     show: () => void;
+    refresh: () => void | Promise<void>;
     quit: () => void;
   }) {
     const icon = nativeImage.createFromPath(iconPath);
@@ -38,6 +39,10 @@ export class BackgroundTray {
       {
         label: this.status.localServerRunning ? "本地工作区正在运行" : "本地工作区尚未启动",
         enabled: false
+      },
+      {
+        label: "清理缓存并强制刷新",
+        click: () => { void this.actions.refresh(); }
       },
       { type: "separator" },
       {

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, shell, utilityProcess, type UtilityProcess } from "electron";
+import { app, BrowserWindow, dialog, shell, utilityProcess, type Session, type UtilityProcess } from "electron";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -296,6 +296,34 @@ function hideDesktopToBackground(): void {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.hide();
   if (process.platform === "darwin" && app.dock) app.dock.hide();
   updateBackgroundTrayStatus();
+}
+
+async function clearDesktopCachesAndReload(): Promise<void> {
+  const target = workspaceWindow && !workspaceWindow.isDestroyed() ? workspaceWindow : mainWindow;
+  const options = {
+    type: "warning" as const,
+    title: "清理缓存并强制刷新",
+    message: "确认清理缓存并刷新当前工作区？",
+    detail: "尚未保存的页面输入可能丢失。登录状态、离线作品和待同步数据不会被删除。",
+    buttons: ["取消", "清理并刷新"],
+    defaultId: 1,
+    cancelId: 0,
+    noLink: true
+  };
+  const confirmation = target
+    ? await dialog.showMessageBox(target, options)
+    : await dialog.showMessageBox(options);
+  if (confirmation.response !== 1) return;
+  const sessions = new Set<Session>();
+  if (mainWindow && !mainWindow.isDestroyed()) sessions.add(mainWindow.webContents.session);
+  if (workspaceWindow && !workspaceWindow.isDestroyed()) sessions.add(workspaceWindow.webContents.session);
+  await Promise.all([...sessions].flatMap((activeSession) => [
+    activeSession.clearCache(),
+    activeSession.clearCodeCaches({ urls: [] })
+  ]));
+  if (!target || target.isDestroyed()) return;
+  target.webContents.reloadIgnoringCache();
+  showDesktopWindow();
 }
 
 function bindWorkspaceReplacement(window: BrowserWindow): void {
@@ -629,6 +657,9 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
   if (!backgroundTray) {
     backgroundTray = new BackgroundTray(join(desktopRoot, "assets", "icon-32.png"), {
       show: showDesktopWindow,
+      refresh: () => clearDesktopCachesAndReload().catch((error) => {
+        dialog.showErrorBox("刷新失败", error instanceof Error ? error.message : "缓存清理失败");
+      }),
       quit: () => app.quit()
     });
   }

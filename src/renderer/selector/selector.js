@@ -26,6 +26,11 @@ const localPassword = document.querySelector("#local-password");
 const localPasswordConfirmation = document.querySelector("#local-password-confirmation");
 const localSetupError = document.querySelector("#local-setup-error");
 const localSetupSubmit = document.querySelector("#local-setup-submit");
+const systemSettingsDialog = document.querySelector("#system-settings-dialog");
+const systemSettingsForm = document.querySelector("#system-settings-form");
+const localServerPort = document.querySelector("#local-server-port");
+const systemSettingsError = document.querySelector("#system-settings-error");
+const systemSettingsSubmit = document.querySelector("#system-settings-submit");
 const deleteDialog = document.querySelector("#delete-dialog");
 const deleteForm = document.querySelector("#delete-form");
 const deleteMessage = document.querySelector("#delete-message");
@@ -37,6 +42,7 @@ const state = {
   profiles: [],
   profileStatuses: new Map(),
   localStatus: { phase: "stopped", setupRequired: null, errorCode: null },
+  desktopSettings: null,
   editingId: null,
   editingDiscardUnsynced: false,
   deletingId: null,
@@ -79,6 +85,11 @@ function requireElement(element, label) {
   [localPasswordConfirmation, "local-password-confirmation"],
   [localSetupError, "local-setup-error"],
   [localSetupSubmit, "local-setup-submit"],
+  [systemSettingsDialog, "system-settings-dialog"],
+  [systemSettingsForm, "system-settings-form"],
+  [localServerPort, "local-server-port"],
+  [systemSettingsError, "system-settings-error"],
+  [systemSettingsSubmit, "system-settings-submit"],
   [deleteDialog, "delete-dialog"],
   [deleteForm, "delete-form"],
   [deleteMessage, "delete-message"],
@@ -180,6 +191,9 @@ function renderProfile(profile) {
   details.append(
     detail("最近使用", formatLastUsed(profile.lastUsedAt)),
     detail("数据范围", profile.kind === "local" ? "Desktop 专属" : "独立浏览器分区"),
+    ...(profile.kind === "local" && state.desktopSettings
+      ? [detail("本地端口", `127.0.0.1:${state.desktopSettings.localServerPort}`)]
+      : []),
     ...(profile.kind === "remote" ? [detail("离线状态", offlineStatusLabel(profile))] : [])
   );
 
@@ -223,12 +237,14 @@ function renderProfiles() {
 async function loadProfiles() {
   workspaceList.setAttribute("aria-busy", "true");
   try {
-    const [profilesResult, localStatusResult] = await Promise.all([
+    const [profilesResult, localStatusResult, settingsResult] = await Promise.all([
       bridge.profiles.list(),
-      bridge.local.getStatus()
+      bridge.local.getStatus(),
+      bridge.settings.get()
     ]);
     state.profiles = unwrap(profilesResult);
     state.localStatus = unwrap(localStatusResult);
+    state.desktopSettings = unwrap(settingsResult);
     state.profileStatuses = new Map(await Promise.all(state.profiles
       .filter((profile) => profile.kind === "remote")
       .map(async (profile) => {
@@ -343,6 +359,23 @@ function closeLocalSetupDialog() {
   localPassword.value = "";
   localPasswordConfirmation.value = "";
   if (localSetupDialog.open) localSetupDialog.close();
+}
+
+async function openSystemSettingsDialog() {
+  systemSettingsError.hidden = true;
+  try {
+    state.desktopSettings = unwrap(await bridge.settings.get());
+    localServerPort.value = String(state.desktopSettings.localServerPort);
+    systemSettingsDialog.showModal();
+    window.setTimeout(() => localServerPort.focus(), 0);
+  } catch (error) {
+    showToast(error.message, true);
+  }
+}
+
+function closeSystemSettingsDialog() {
+  systemSettingsError.hidden = true;
+  if (systemSettingsDialog.open) systemSettingsDialog.close();
 }
 
 function openDeleteDialog(profile) {
@@ -467,6 +500,23 @@ localSetupForm.addEventListener("submit", async (event) => {
   }
 });
 
+systemSettingsForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  systemSettingsError.hidden = true;
+  setBusy(systemSettingsSubmit, true);
+  try {
+    state.desktopSettings = unwrap(await bridge.settings.update({ localServerPort: Number(localServerPort.value) }));
+    closeSystemSettingsDialog();
+    await loadProfiles();
+    showToast(state.localStatus.phase === "running" ? "端口设置已保存，下次启动本地工作区时生效" : "端口设置已保存");
+  } catch (error) {
+    systemSettingsError.textContent = error.message;
+    systemSettingsError.hidden = false;
+  } finally {
+    setBusy(systemSettingsSubmit, false);
+  }
+});
+
 workspaceList.addEventListener("click", async (event) => {
   const button = event.target.closest("button[data-action]");
   if (!button) return;
@@ -516,6 +566,7 @@ workspaceList.addEventListener("click", async (event) => {
 });
 
 document.querySelector("#add-profile-button").addEventListener("click", () => openProfileDialog());
+document.querySelector("#system-settings-button").addEventListener("click", () => { void openSystemSettingsDialog(); });
 document.querySelector("#refresh-button").addEventListener("click", loadProfiles);
 window.addEventListener("focus", () => { void loadProfiles(); });
 document.querySelector("#quit-button").addEventListener("click", async () => {
@@ -528,6 +579,7 @@ document.querySelector("#quit-button").addEventListener("click", async () => {
 document.querySelectorAll("[data-dialog-close]").forEach((button) => button.addEventListener("click", closeProfileDialog));
 document.querySelectorAll("[data-remote-login-close]").forEach((button) => button.addEventListener("click", closeRemoteLoginDialog));
 document.querySelectorAll("[data-local-setup-close]").forEach((button) => button.addEventListener("click", closeLocalSetupDialog));
+document.querySelectorAll("[data-system-settings-close]").forEach((button) => button.addEventListener("click", closeSystemSettingsDialog));
 document.querySelectorAll("[data-delete-close]").forEach((button) => button.addEventListener("click", closeDeleteDialog));
 profileOrigin.addEventListener("input", updateOriginPreview);
 document.addEventListener("keydown", (event) => {
@@ -542,6 +594,11 @@ document.addEventListener("keydown", (event) => {
     closeLocalSetupDialog();
     return;
   }
+  if (systemSettingsDialog.open) {
+    event.preventDefault();
+    closeSystemSettingsDialog();
+    return;
+  }
   if (deleteDialog.open) {
     event.preventDefault();
     closeDeleteDialog();
@@ -554,7 +611,7 @@ document.addEventListener("keydown", (event) => {
 });
 
 async function initialize() {
-  if (!bridge?.profiles || !bridge?.local || !bridge?.remote || !bridge?.app) {
+  if (!bridge?.profiles || !bridge?.local || !bridge?.remote || !bridge?.settings || !bridge?.app) {
     workspaceList.replaceChildren(element("p", "empty-state", "Desktop 安全桥接未加载，无法读取工作区。"));
     profileSummary.textContent = "Desktop 初始化失败";
     workspaceList.setAttribute("aria-busy", "false");

@@ -29,6 +29,7 @@ import { installDesktopMenu } from "./native-menu.js";
 import { DesktopUpdater } from "./desktop-updater.js";
 import { handleSquirrelStartup } from "./squirrel-startup.js";
 import { applyWindowPlacement, captureWindowPlacement } from "./window-placement.js";
+import { DesktopSettingsStore } from "./desktop-settings-store.js";
 import { LOCAL_PROFILE_ID, LOCAL_PROFILE_PARTITION, type RemoteWorkspaceProfile } from "../shared/contracts.js";
 import type { WorkspaceLeaveState } from "../shared/workspace-contract.js";
 import {
@@ -63,6 +64,7 @@ let disposeSelectorIpc: (() => void) | null = null;
 let disposeWorkspaceIpc: (() => void) | null = null;
 let disposeWorkspaceDownloadPolicy: (() => void) | null = null;
 let localServerManager: LocalServerManager | null = null;
+let desktopSettingsStore: DesktopSettingsStore | null = null;
 let remoteAuthCoordinator: RemoteAuthCoordinator | null = null;
 let remoteSyncStatusStore: RemoteSyncStatusStore | null = null;
 let offlineKeyStore: OfflineKeyStore | null = null;
@@ -175,13 +177,14 @@ async function runRuntimeGate(): Promise<void> {
   });
 }
 
-function createLocalServerManager(environment: DesktopEnvironment): LocalServerManager {
+function createLocalServerManager(environment: DesktopEnvironment, settings: DesktopSettingsStore): LocalServerManager {
   return new LocalServerManager({
     paths: environment.paths,
     desktopId: environment.desktopId,
     applicationRoot,
     desktopRoot,
-    utilityWorkingDirectory
+    utilityWorkingDirectory,
+    getPreferredPort: () => settings.get().localServerPort
   });
 }
 
@@ -626,6 +629,8 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
   disposeSelectorIpc = registerSelectorIpc(mainWindow, profileStore, {
     desktopVersion,
     getLocalStatus: () => manager.getStatus(),
+    getDesktopSettings: () => desktopSettingsStore!.get(),
+    updateDesktopSettings: (input) => desktopSettingsStore!.update(input),
     openLocal: async () => {
       const ready = await manager.start();
       if (!ready.setupRequired) await openLocalWorkspace(ready.url);
@@ -692,7 +697,8 @@ if (handleSquirrelStartup()) {
     }
     if (desktopStartupError) throw desktopStartupError;
     if (!desktopEnvironment) throw new Error("Desktop data paths are unavailable");
-    localServerManager = createLocalServerManager(desktopEnvironment);
+    desktopSettingsStore = new DesktopSettingsStore(desktopEnvironment.paths.desktopSettings);
+    localServerManager = createLocalServerManager(desktopEnvironment, desktopSettingsStore);
     if (localServerGateRequested) {
       await runLocalServerGate(localServerManager);
       return;

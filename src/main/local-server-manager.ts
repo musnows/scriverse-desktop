@@ -47,6 +47,7 @@ type LocalServerManagerOptions = {
   applicationRoot: string;
   desktopRoot: string;
   utilityWorkingDirectory: string;
+  getPreferredPort: () => number;
   environment?: NodeJS.ProcessEnv;
 };
 
@@ -272,6 +273,7 @@ export class LocalServerManager {
         databasePath: join(this.options.paths.localRuntime, "novel.db"),
         publicPath: join(this.options.applicationRoot, "dist", "public"),
         vditorPath: join(this.options.applicationRoot, "dist", "public", "vendor", "vditor", "dist"),
+        preferredPort: this.options.getPreferredPort(),
         envAllowlist: filterLocalServerEnvironment(this.options.environment ?? process.env)
       };
       const ready = await new Promise<LocalServerReady>((resolve, reject) => {

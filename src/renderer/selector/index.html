@@ -15,6 +15,7 @@
           <span><strong>叙界</strong><small>Scriverse Desktop</small></span>
         </a>
         <div class="header-actions">
+          <button id="system-settings-button" class="ghost-button" type="button" aria-haspopup="dialog" aria-controls="system-settings-dialog">系统设置</button>
           <a id="local-ai-config-button" class="ghost-button" href="app://desktop/local-ai/index.html">本地 AI 配置</a>
           <button id="quit-button" class="text-button" type="button">退出</button>
         </div>
@@ -143,6 +144,30 @@
         <div class="dialog-actions">
           <button class="ghost-button" type="button" data-local-setup-close>稍后设置</button>
           <button id="local-setup-submit" class="primary-button" type="submit">创建管理员并进入</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="system-settings-dialog" class="dialog" aria-labelledby="system-settings-title">
+      <form id="system-settings-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <span class="eyebrow">Desktop 系统设置</span>
+            <h2 id="system-settings-title">本地工作区端口</h2>
+          </div>
+          <button class="dialog-close" type="button" data-system-settings-close aria-label="关闭">×</button>
+        </div>
+        <div class="dialog-fields">
+          <label>
+            <span>首选端口</span>
+            <input id="local-server-port" class="mono" name="localServerPort" type="number" min="20001" max="65516" step="1" inputmode="numeric" required>
+          </label>
+          <p class="field-note">本地工作区仅绑定 127.0.0.1。若首选端口被占用，Desktop 会从该端口开始依次尝试最多 20 个端口。</p>
+          <p id="system-settings-error" class="form-error" role="alert" hidden></p>
+        </div>
+        <div class="dialog-actions">
+          <button class="ghost-button" type="button" data-system-settings-close>取消</button>
+          <button id="system-settings-submit" class="primary-button" type="submit">保存设置</button>
         </div>
       </form>
     </dialog>

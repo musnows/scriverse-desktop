@@ -13,6 +13,9 @@ describe("Desktop Selector UI", () => {
     expect(html).toContain("选择工作区");
     expect(html).toContain("新增 Server");
     expect(html).toContain('id="local-ai-config-button"');
+    expect(html).toContain('id="system-settings-button"');
+    expect(html).toContain('id="local-server-port"');
+    expect(html).toContain('min="20001" max="65516"');
     expect(html).toContain("app://desktop/local-ai/index.html");
     expect(html).toContain("id=\"profile-dialog\"");
     expect(html).toContain("id=\"local-setup-dialog\"");
@@ -28,6 +31,7 @@ describe("Desktop Selector UI", () => {
     expect(script).toContain("永久更换并删除本机副本");
     expect(script).toContain("bridge.profiles.status(profile.id)");
     expect(script).toContain('window.addEventListener("focus", () => { void loadProfiles(); });');
+    expect(script).toContain("bridge.settings.update({ localServerPort: Number(localServerPort.value) })");
   });
 
   it("使用 DOM textContent 渲染 profile 并覆盖窄屏", () => {
@@ -48,6 +52,8 @@ describe("Desktop Selector UI", () => {
     expect(preload).toContain("selector:profiles:probe");
     expect(preload).toContain("selector:local:get-status");
     expect(preload).toContain("selector:local:setup");
+    expect(preload).toContain("selector:settings:get");
+    expect(preload).toContain("selector:settings:update");
     expect(preload).toContain("selector:remote:refresh-captcha");
     expect(preload).toContain("selector:remote:login");
     expect(preload).toContain("localAi: Object.freeze");

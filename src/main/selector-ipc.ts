@@ -37,6 +37,7 @@ import {
 import type { RemoteCapabilitySnapshot, RemoteWorkspaceProfile } from "../shared/contracts.js";
 import { normalizeProfileOrigin } from "../shared/profile-url.js";
 import type { RemoteSyncStatusSummary } from "./remote-sync-status-store.js";
+import type { DesktopSettingsSummary } from "../shared/desktop-settings-contract.js";
 
 type IpcSuccess<T> = { ok: true; data: T };
 type IpcFailure = { ok: false; error: { code: string; message: string } };
@@ -52,6 +53,8 @@ const channels = [
   "selector:profiles:probe",
   "selector:local:get-status",
   "selector:local:setup",
+  "selector:settings:get",
+  "selector:settings:update",
   "selector:remote:refresh-captcha",
   "selector:remote:login",
   "selector:local-ai:configuration",
@@ -140,6 +143,8 @@ function handle<T>(
 export function registerSelectorIpc(selectorWindow: BrowserWindow, profileStore: ProfileStore, options: {
   desktopVersion: string;
   getLocalStatus: () => LocalServerPublicStatus;
+  getDesktopSettings: () => DesktopSettingsSummary;
+  updateDesktopSettings: (input: unknown) => DesktopSettingsSummary;
   openLocal: () => Promise<unknown>;
   setupLocal: (input: { username: string; password: string }) => Promise<unknown>;
   openRemote: (profile: RemoteWorkspaceProfile) => Promise<RemoteProfileOpenResult>;
@@ -219,6 +224,8 @@ export function registerSelectorIpc(selectorWindow: BrowserWindow, profileStore:
   });
   handle("selector:local:get-status", selectorWindow, () => options.getLocalStatus());
   handle("selector:local:setup", selectorWindow, (_event, input) => options.setupLocal(parseLocalSetupInput(input)));
+  handle("selector:settings:get", selectorWindow, () => options.getDesktopSettings());
+  handle("selector:settings:update", selectorWindow, (_event, input) => options.updateDesktopSettings(input));
   handle("selector:remote:refresh-captcha", selectorWindow, (_event, input) => {
     const profile = profileStore.get(parseProfileId(input));
     if (profile.kind !== "remote") throw new Error("远端工作区 profile 不存在");

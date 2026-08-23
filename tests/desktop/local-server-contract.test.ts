@@ -63,14 +63,16 @@ describe("Desktop 本地服务消息契约", () => {
       databasePath: join(root, "novel.db"),
       publicPath,
       vditorPath: join(publicPath, "vendor", "vditor", "dist"),
+      preferredPort: 23_241,
       envAllowlist: { NODE_ENV: "production", APP_ALLOW_PRIVATE_AI_ENDPOINTS: "true" }
-    })).toMatchObject({ type: "start", dataDirectory: root, databasePath: join(root, "novel.db") });
+    })).toMatchObject({ type: "start", dataDirectory: root, databasePath: join(root, "novel.db"), preferredPort: 23_241 });
     expect(() => parseLocalServerParentMessage({
       type: "start",
       dataDirectory: root,
       databasePath: join(root, "..", "server.db"),
       publicPath,
       vditorPath: join(publicPath, "vendor", "vditor", "dist"),
+      preferredPort: 23_241,
       envAllowlist: { NODE_ENV: "production", APP_ALLOW_PRIVATE_AI_ENDPOINTS: "true" }
     })).toThrowError(/runtime 目录/u);
   });
@@ -78,15 +80,15 @@ describe("Desktop 本地服务消息契约", () => {
   it("拒绝非回环 ready 响应和未知 fatal 字段", () => {
     expect(parseLocalServerUtilityMessage({
       type: "ready",
-      url: "http://127.0.0.1:14321",
-      port: 14321,
+      url: "http://127.0.0.1:24321",
+      port: 24321,
       bootId: "11111111-1111-4111-8111-111111111111",
       schemaVersion: 114
-    })).toMatchObject({ type: "ready", port: 14321, schemaVersion: 114 });
+    })).toMatchObject({ type: "ready", port: 24321, schemaVersion: 114 });
     expect(() => parseLocalServerUtilityMessage({
       type: "ready",
-      url: "http://192.168.1.20:14321",
-      port: 14321,
+      url: "http://192.168.1.20:24321",
+      port: 24321,
       bootId: "11111111-1111-4111-8111-111111111111",
       schemaVersion: 114
     })).toThrowError(/回环/u);

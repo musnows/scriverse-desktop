@@ -1,4 +1,5 @@
 import { isAbsolute, join, normalize } from "node:path";
+import { parseLocalServerPort } from "./desktop-settings-contract.js";
 
 export const LOCAL_SERVER_START_TIMEOUT_MS = 30_000;
 export const LOCAL_SERVER_SHUTDOWN_TIMEOUT_MS = 10_000;
@@ -32,6 +33,7 @@ export type LocalServerStartMessage = {
   databasePath: string;
   publicPath: string;
   vditorPath: string;
+  preferredPort: number;
   envAllowlist: LocalServerEnvironment;
 };
 
@@ -207,7 +209,7 @@ export function parseLocalServerParentMessage(value: unknown): LocalServerParent
     };
   }
   if (value.type !== "start") throw new LocalServerContractError("LOCAL_MESSAGE_INVALID", "本地服务消息类型无效");
-  assertExactKeys(value, ["type", "dataDirectory", "databasePath", "publicPath", "vditorPath", "envAllowlist"]);
+  assertExactKeys(value, ["type", "dataDirectory", "databasePath", "publicPath", "vditorPath", "preferredPort", "envAllowlist"]);
   const dataDirectory = assertAbsolutePath(value.dataDirectory, "本地数据目录");
   const databasePath = assertAbsolutePath(value.databasePath, "本地数据库路径");
   if (databasePath !== join(dataDirectory, "novel.db")) {
@@ -219,6 +221,7 @@ export function parseLocalServerParentMessage(value: unknown): LocalServerParent
     databasePath,
     publicPath: assertAbsolutePath(value.publicPath, "本地页面资源路径"),
     vditorPath: assertAbsolutePath(value.vditorPath, "Vditor 资源路径"),
+    preferredPort: parseLocalServerPort(value.preferredPort),
     envAllowlist: parseLocalServerEnvironment(value.envAllowlist)
   };
 }

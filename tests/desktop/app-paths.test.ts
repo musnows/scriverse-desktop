@@ -17,6 +17,7 @@ describe("Desktop 路径", () => {
       remoteAuth: "/Users/author/Scriverse/client-meta/remote-auth",
       offlineKeys: "/Users/author/Scriverse/client-meta/offline-keys",
       localAiProviders: "/Users/author/Scriverse/client-meta/local-ai-providers",
+      desktopSettings: "/Users/author/Scriverse/client-meta/desktop-settings.json",
       localRuntime: "/Users/author/Scriverse/local-vault/runtime",
       localVaultLock: "/Users/author/Scriverse/local-vault/desktop-vault.lock",
       browserSessions: "/Users/author/Scriverse/browser-sessions"

@@ -10,6 +10,7 @@ export type DesktopPaths = {
   remoteAuth: string;
   offlineKeys: string;
   localAiProviders: string;
+  desktopSettings: string;
   localVault: string;
   localRuntime: string;
   localVaultLock: string;
@@ -59,6 +60,7 @@ export function resolveDesktopPaths(rootInput: string): DesktopPaths {
     remoteAuth: join(clientMeta, "remote-auth"),
     offlineKeys: join(clientMeta, "offline-keys"),
     localAiProviders: join(clientMeta, "local-ai-providers"),
+    desktopSettings: join(clientMeta, "desktop-settings.json"),
     localVault,
     localRuntime: join(localVault, "runtime"),
     localVaultLock: join(localVault, "desktop-vault.lock"),

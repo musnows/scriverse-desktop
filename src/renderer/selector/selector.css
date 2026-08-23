@@ -55,8 +55,8 @@ button:focus-visible, input:focus-visible, a:focus-visible {
   align-items: center;
 }
 
-.app-header { min-height: 44px; justify-content: space-between; }
-.header-actions { gap: 8px; }
+.app-header { min-height: 44px; justify-content: space-between; gap: 10px; }
+.header-actions { justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
 .header-actions a { text-decoration: none; }
 
 .brand {
@@ -279,6 +279,9 @@ button:disabled { cursor: wait; opacity: .56; transform: none !important; }
 @media (max-width: 430px) {
   .selector-shell { padding-inline: 14px; }
   .brand small { font-size: 8px; }
+  .app-header { align-items: flex-start; }
+  .header-actions { width: 100%; }
+  .header-actions > * { flex: 1 1 auto; min-height: 36px; padding: 7px 9px; font-size: 10px; text-align: center; }
   .selector-hero { padding-top: 26px; }
   .selector-hero h1 { font-size: 29px; }
   .selector-hero .primary-button { width: 100%; }

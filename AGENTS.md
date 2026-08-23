@@ -1,0 +1,105 @@
+# Scriverse Desktop 开发指南
+
+本文件适用于 Scriverse Desktop 仓库全部目录。子目录存在更具体的 `AGENTS.md` 时，以其补充约束为准。
+
+## 1. 项目边界
+
+Scriverse Desktop 是 Scriverse 的 Electron 桌面客户端，当前版本为 `0.0.1`。仓库只维护桌面壳、本地工作区编排、远端 Server 连接、软件内登录、本地 AI、离线同步和打包安装能力。
+
+- Scriverse Server 与 Web 源码由 `musnows/Scriverse` 维护，禁止复制前后端、showcase 或 demo 源码到本仓库。
+- Desktop 通过 `scripts/prepare-runtime.mjs` 引入已构建 Server runtime，并通过 `runtime-overlay/` 维护必要的 Desktop Web 差异。
+- 禁止把 Desktop 源码提交到 Scriverse 前后端仓库。
+- 工作区选择只存在于最外层 Selector；进入工作区后的页面应尽量与对应 Server Web 保持一致。
+
+## 2. 目录职责
+
+```text
+src/main/                 Electron Main、窗口、认证、存储和本地服务编排
+src/preload/              最小化、具名、只读边界清晰的 contextBridge
+src/renderer/selector/    工作区选择、软件内登录和系统设置
+src/renderer/local-ai/    本地 AI 配置入口
+src/shared/               Main、Preload 与 Renderer 共用的严格契约
+src/utility/              Electron UtilityProcess 中运行的本地 Server
+runtime-overlay/          Desktop Web patch 与离线同步模块
+tests/desktop/            Desktop 单元、契约和静态集成测试
+scripts/                  runtime 准备、打包和产物验证
+```
+
+## 3. 认证与凭据存储硬约束
+
+### 禁止操作系统凭据存储
+
+所有平台均禁止调用或依赖操作系统凭据存储：
+
+- macOS Keychain、Electron `safeStorage`；
+- Windows DPAPI、Credential Manager；
+- Linux Secret Service、GNOME Keyring、KWallet；
+- 任何会弹出系统密码、钥匙串或凭据授权提示的实现。
+
+`FuseV1Options.EnableCookieEncryption` 必须保持 `false`。禁止以安全加固为由重新开启。
+
+### 允许的本地 `master.key`
+
+Desktop 使用与 Scriverse Server `CredentialVault` 一致的方式保存有限的敏感字段：
+
+1. 在 Desktop 私有数据目录生成权限为 `0600` 的 `master.key`；
+2. 对主密钥字符串做 SHA-256；
+3. 使用 AES-256-GCM，并分别保存 `encrypted`、`iv`、`tag`。
+
+只允许以下内容使用该加密：
+
+- 本地或远端 Server 的 Desktop 登录令牌或等价登录凭据；
+- AI 供应商 API Key，包括 Desktop 本地 AI Key。
+
+禁止加密作品、章节、设定、离线快照、冲突记录、IndexedDB、缓存、窗口状态、工作区配置或其他客户端数据。本项目不考虑终端被同一用户权限恶意读取的攻击模型，不得增加新的客户端静态加密层。
+
+### 禁止浏览器 Cookie 登录
+
+- 本地和远端工作区都必须使用 Scriverse Desktop Bearer 会话。
+- 登录由软件内 UI 和 Main/UtilityProcess 直接完成，禁止依赖 Safari、Chrome 或其他外部浏览器。
+- 工作区 partition 只能按精确 origin 注入 `Authorization: Bearer ...`，并剥离请求 Cookie 与响应 `Set-Cookie`。
+- 禁止在 Main、Preload、Renderer 或 Web overlay 中调用 `cookies.set` 保存登录态。
+
+## 4. 数据与测试边界
+
+- 默认数据目录包含真实用户数据，禁止用于写入型测试、删除、覆盖或重建。
+- Desktop 原生验收必须设置独立的 `SCRIVERSE_DESKTOP_DATA_DIR`；结束后只清理本次明确创建的目录。
+- 离线内容按 profile 与用户隔离，但不加密；不得重新引入离线密钥桥接或 AES-GCM 快照字段。
+- 文件写入使用原子替换和受控权限；不得把密码、Bearer Token 或 AI API Key 写入日志、错误消息或测试快照。
+- 禁止使用 `rm`，清理临时文件使用 `rmtrash`。数据库 `DROP`、`DELETE` 仅可针对本次构造的测试数据库，否则必须先征得用户同意。
+
+## 5. 窗口、端口与 UI
+
+- 本地 Server 端口必须大于 `20000`；首选端口占用时向上探测最多 20 个端口。
+- 涉及 bind port 的开发服务使用 tmux 启动，并显式指定有效工作目录或独立 socket。
+- 切换工作区不得表现为软件重启，窗口必须保持在原显示器。
+- 新 UI 复用现有 Selector 或 Server Web 的组件、字体、尺寸和交互，不另起一套视觉语言。
+- 前端修改必须使用 Computer Use 或内置浏览器检查真实截图；至少覆盖桌面和 `390×844` 窄屏、控制台错误、溢出、遮挡和可访问名称。
+- 不使用 Emoji；中文使用非衬线字体，英文和标识符使用等宽字体。
+
+## 6. 构建与验证
+
+常用命令：
+
+```bash
+npm run typecheck
+npm test
+npm run build
+SCRIVERSE_SOURCE_DIR=/absolute/path/to/Scriverse npm run runtime:prepare
+SCRIVERSE_SOURCE_DIR=/absolute/path/to/Scriverse npm run package
+npm run verify:package
+```
+
+- Vitest 默认使用 8 workers。
+- 每次变更至少运行直接相关测试、类型检查和构建。
+- runtime overlay 变更必须验证 `runtime:prepare` 可对最新兼容 Server runtime 正向应用。
+- 最终安装前必须运行 `verify:package`、`codesign --verify --deep --strict`，并使用 Computer Use 验证安装后的 App。
+- 本地维护和安装只要求 Apple Silicon Mac；不在本机尝试 Intel Mac 打包。不得因此删除 CI。
+
+## 7. Git 规范
+
+- Commit message 使用 Angular 格式：`<type>(<scope>): <subject>`，subject 使用英文祈使语气。
+- 每个独立功能或缺陷修复完成测试后立即单独提交，禁止把多个问题堆进同一个 commit。
+- 提交前运行 `git diff --check` 并确认没有混入用户原有改动。
+- 未经用户明确要求不得 bump 版本、创建 `main` 合入 PR、创建 tag 或发布 Release。
+- Desktop 仓库要求的提交必须推送；Scriverse 主项目变更通过以 `develop` 为目标的 PR 集成。

@@ -39,6 +39,9 @@ describe("Desktop Selector UI", () => {
     expect(script).toContain("bridge.profiles.status(profile.id)");
     expect(script).toContain('window.addEventListener("focus", () => { void loadProfiles(); });');
     expect(script).toContain("bridge.settings.update({ localServerPort: Number(localServerPort.value) })");
+    expect(script).toContain('return { label: "本地", className: "idle" };');
+    expect(css).toContain(".status-badge.idle {");
+    expect(css).not.toContain(".status-badge.local {");
   });
 
   it("使用 DOM textContent 渲染 profile 并覆盖窄屏", () => {

@@ -178,8 +178,8 @@ button:disabled { cursor: wait; opacity: .56; transform: none !important; }
 }
 
 .status-badge::before { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); content: ""; }
-.status-badge.local { border-color: color-mix(in srgb, var(--accent) 28%, var(--line)); background: var(--accent-soft); color: var(--accent-dark); }
-.status-badge.local::before { background: var(--accent); }
+.status-badge.idle { border-color: var(--line); background: var(--surface-soft); color: var(--muted); }
+.status-badge.idle::before { background: var(--muted); }
 .status-badge.compatible { border-color: color-mix(in srgb, var(--green) 35%, var(--line)); color: var(--green); }
 .status-badge.compatible::before { background: var(--green); }
 .status-badge.warning { border-color: color-mix(in srgb, var(--accent) 38%, var(--line)); color: var(--accent-dark); }

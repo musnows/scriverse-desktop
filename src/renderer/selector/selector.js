@@ -152,7 +152,7 @@ function profileStatus(profile) {
     if (state.localStatus.phase === "starting") return { label: "启动中", className: "starting" };
     if (state.localStatus.phase === "running") return { label: "运行中", className: "compatible" };
     if (state.localStatus.phase === "failed") return { label: "启动失败", className: "failed" };
-    return { label: "本地", className: "local" };
+    return { label: "本地", className: "idle" };
   }
   if (profile.capabilities?.compatibility === "compatible") return { label: "可用", className: "compatible" };
   if (profile.capabilities?.compatibility === "online-only") return { label: "仅在线使用", className: "warning" };

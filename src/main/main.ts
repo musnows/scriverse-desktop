@@ -29,7 +29,7 @@ import { installDesktopMenu } from "./native-menu.js";
 import { DesktopUpdater } from "./desktop-updater.js";
 import { handleSquirrelStartup } from "./squirrel-startup.js";
 import { applyWindowPlacement, captureWindowPlacement } from "./window-placement.js";
-import { LOCAL_PROFILE_PARTITION, type RemoteWorkspaceProfile } from "../shared/contracts.js";
+import { LOCAL_PROFILE_ID, LOCAL_PROFILE_PARTITION, type RemoteWorkspaceProfile } from "../shared/contracts.js";
 import type { WorkspaceLeaveState } from "../shared/workspace-contract.js";
 import {
   LOCAL_COOKIE_OPERATION_TIMEOUT_MS,
@@ -339,6 +339,8 @@ function openLocalWorkspace(origin: string): Promise<void> {
       bindWorkspaceReplacement(window);
       disposeWorkspaceIpc = registerLocalWorkspaceIpc(window, new URL(origin).origin, {
         isActive: () => activeWorkspaceKind === "local" && workspaceWindow === window,
+        getWorkspaceIdentity: () => ({ profileId: LOCAL_PROFILE_ID, profileName: "本地工作区", profileKind: "local" }),
+        requestSwitch: requestWorkspaceSwitch,
         getLocalAiCatalog: () => localAiRequestCoordinator!.catalog(),
         completeLocalAi: (input) => localAiRequestCoordinator!.complete(input),
         cancelLocalAi: (requestId) => localAiRequestCoordinator!.cancel(requestId)

@@ -1,0 +1,73 @@
+{
+  "name": "@musnows/scriverse-desktop",
+  "version": "0.0.1",
+  "description": "Scriverse desktop client",
+  "license": "AGPL-3.0-only",
+  "author": "musnows",
+  "homepage": "https://scriverse.top/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/musnows/Scriverse-Desktop.git"
+  },
+  "bugs": {
+    "url": "https://github.com/musnows/Scriverse-Desktop/issues"
+  },
+  "keywords": [
+    "scriverse",
+    "desktop",
+    "electron",
+    "novel",
+    "writing"
+  ],
+  "type": "module",
+  "private": true,
+  "main": "build/main/main.js",
+  "scriverseServerVersion": "0.8.7",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.main.json && tsc -p tsconfig.preload.json && node scripts/copy-renderer.mjs",
+    "runtime:prepare": "node scripts/prepare-runtime.mjs",
+    "start": "npm run runtime:prepare && npm run build && electron build/main/main.js",
+    "package": "npm run runtime:prepare && npm run build && electron-forge package",
+    "make": "npm run runtime:prepare && npm run build && electron-forge make",
+    "verify:package": "node scripts/verify-package.mjs",
+    "verify:artifacts": "node scripts/verify-artifacts.mjs",
+    "gate": "npm run runtime:prepare && npm run build && electron build/main/main.js --runtime-gate",
+    "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.preload.json --noEmit",
+    "test": "vitest run --maxWorkers=8",
+    "check": "npm run typecheck && npm test && npm run build"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1102.0",
+    "@smithy/node-http-handler": "^4.9.13",
+    "docx": "^9.7.1",
+    "express": "^5.1.0",
+    "jszip": "^3.10.1",
+    "mammoth": "^1.10.0",
+    "multer": "^2.0.2",
+    "pinyin-pro": "^3.28.2",
+    "sharp": "^0.35.3",
+    "undici": "^7.29.0",
+    "vditor": "^3.11.2",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "7.11.2",
+    "@electron-forge/maker-deb": "7.11.2",
+    "@electron-forge/maker-dmg": "7.11.2",
+    "@electron-forge/maker-rpm": "7.11.2",
+    "@electron-forge/maker-squirrel": "7.11.2",
+    "@electron-forge/maker-zip": "7.11.2",
+    "@electron-forge/plugin-auto-unpack-natives": "7.11.2",
+    "@electron-forge/plugin-fuses": "7.11.2",
+    "@electron-forge/shared-types": "7.11.2",
+    "@electron/fuses": "1.8.0",
+    "@types/node": "^24.10.0",
+    "electron": "43.4.1",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.8"
+  }
+}

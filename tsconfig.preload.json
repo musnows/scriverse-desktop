@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src/preload",
+    "outDir": "build/preload",
+    "types": ["node", "electron"]
+  },
+  "include": ["src/preload/**/*.cts"],
+  "exclude": ["build"]
+}

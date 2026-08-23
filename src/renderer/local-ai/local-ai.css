@@ -1,0 +1,16 @@
+body { background: var(--paper); }
+.local-ai-config-view { width: min(1280px, 100%); margin: 0 auto; }
+.local-ai-config-view .module-header-actions a { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+#local-ai-form-dialog { color: var(--ink); }
+#local-ai-form-dialog > form { display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; max-height: 88vh; }
+#local-ai-form-dialog .dialog-fields { min-height: 0; max-height: none; }
+.local-ai-form-error { margin: 0 24px 14px; padding: 10px 12px; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); color: var(--accent-dark); font-size: 11px; line-height: 1.55; }
+#local-ai-dialog-danger { margin-right: auto; }
+#local-ai-toast { position: fixed; z-index: 100; right: 24px; bottom: 24px; }
+.local-ai-purpose-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; padding: 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface-soft); }
+.local-ai-purpose-options label { display: flex; align-items: center; gap: 7px; color: var(--ink); }
+.local-ai-purpose-options input { flex: 0 0 auto; width: 16px; }
+@media (max-width: 760px) {
+  .local-ai-purpose-options { grid-template-columns: minmax(0, 1fr); }
+  #local-ai-toast { right: 16px; bottom: 16px; left: 16px; max-width: none; }
+}

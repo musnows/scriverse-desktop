@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <title>选择工作区 - Scriverse Desktop</title>
+    <link rel="stylesheet" href="./selector.css">
+  </head>
+  <body>
+    <main class="selector-shell">
+      <header class="app-header">
+        <a class="brand" href="app://desktop/selector/index.html" aria-label="Scriverse Desktop 工作区选择页">
+          <img class="brand-mark" src="./icon.svg" alt="">
+          <span><strong>叙界</strong><small>Scriverse Desktop</small></span>
+        </a>
+        <div class="header-actions">
+          <a id="local-ai-config-button" class="ghost-button" href="app://desktop/local-ai/index.html">本地 AI 配置</a>
+          <button id="quit-button" class="text-button" type="button">退出</button>
+        </div>
+      </header>
+
+      <section class="selector-hero" aria-labelledby="selector-title">
+        <div>
+          <span class="eyebrow">工作区</span>
+          <h1 id="selector-title">选择工作区</h1>
+          <p>在本机独立创作，或连接你信任的 Scriverse Server。每个 Server 的登录态与离线数据相互隔离。</p>
+        </div>
+        <button id="add-profile-button" class="primary-button" type="button" aria-haspopup="dialog" aria-controls="profile-dialog">
+          <span aria-hidden="true">＋</span> 新增 Server
+        </button>
+      </section>
+
+      <section class="workspace-section" aria-labelledby="workspace-list-title">
+        <div class="section-heading">
+          <div>
+            <h2 id="workspace-list-title">可用工作区</h2>
+            <p id="profile-summary">正在读取工作区……</p>
+          </div>
+          <button id="refresh-button" class="ghost-button" type="button">刷新</button>
+        </div>
+        <div id="workspace-list" class="workspace-grid" aria-live="polite" aria-busy="true">
+          <article class="workspace-card skeleton-card" aria-hidden="true"><span></span><span></span><span></span></article>
+          <article class="workspace-card skeleton-card" aria-hidden="true"><span></span><span></span><span></span></article>
+        </div>
+      </section>
+
+      <footer class="app-footer">
+        <span>本地数据与独立部署 Server 完全隔离</span>
+        <span id="runtime-meta" class="runtime-meta">Desktop v—</span>
+      </footer>
+    </main>
+
+    <dialog id="profile-dialog" class="dialog" aria-labelledby="profile-dialog-title">
+      <form id="profile-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <span id="profile-dialog-eyebrow" class="eyebrow">远端工作区</span>
+            <h2 id="profile-dialog-title">新增 Server</h2>
+          </div>
+          <button class="dialog-close" type="button" data-dialog-close aria-label="关闭">×</button>
+        </div>
+        <div class="dialog-fields">
+          <label>
+            <span>显示名</span>
+            <input id="profile-name" name="name" type="text" minlength="1" maxlength="80" autocomplete="off" required placeholder="例如：创作主站">
+          </label>
+          <label>
+            <span>Server URL</span>
+            <input id="profile-origin" class="mono" name="origin" type="url" maxlength="2048" inputmode="url" autocomplete="url" required placeholder="https://example.com">
+          </label>
+          <p id="origin-preview" class="field-note" aria-live="polite">只填写 HTTP(S) origin，不要包含路径、查询参数、用户名或密码。</p>
+          <p id="profile-form-error" class="form-error" role="alert" hidden></p>
+        </div>
+        <div class="dialog-actions">
+          <button class="ghost-button" type="button" data-dialog-close>取消</button>
+          <button id="profile-submit" class="primary-button" type="submit">保存 Server</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="remote-login-dialog" class="dialog" aria-labelledby="remote-login-title">
+      <form id="remote-login-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <span class="eyebrow">Server 登录</span>
+            <h2 id="remote-login-title">登录远端工作区</h2>
+          </div>
+          <button class="dialog-close" type="button" data-remote-login-close aria-label="关闭">×</button>
+        </div>
+        <div class="dialog-fields">
+          <p id="remote-login-origin" class="field-note mono"></p>
+          <label>
+            <span>用户名</span>
+            <input id="remote-username" name="username" type="text" maxlength="100" autocomplete="username" required>
+          </label>
+          <label>
+            <span>密码</span>
+            <input id="remote-password" name="password" type="password" maxlength="200" autocomplete="current-password" required>
+          </label>
+          <div class="captcha-field">
+            <span>验证码</span>
+            <div class="captcha-row">
+              <img id="remote-captcha-image" class="captcha-image" alt="Server 验证码">
+              <button id="remote-captcha-refresh" class="ghost-button" type="button">换一张</button>
+            </div>
+            <input id="remote-captcha-answer" name="captchaAnswer" type="text" maxlength="16" autocomplete="off" required aria-label="验证码答案">
+          </div>
+          <p id="remote-login-error" class="form-error" role="alert" hidden></p>
+        </div>
+        <div class="dialog-actions">
+          <button class="ghost-button" type="button" data-remote-login-close>取消</button>
+          <button id="remote-login-submit" class="primary-button" type="submit">登录并进入</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="local-setup-dialog" class="dialog" aria-labelledby="local-setup-title">
+      <form id="local-setup-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <span class="eyebrow">首次使用</span>
+            <h2 id="local-setup-title">初始化本地工作区</h2>
+          </div>
+          <button class="dialog-close" type="button" data-local-setup-close aria-label="关闭">×</button>
+        </div>
+        <div class="dialog-fields">
+          <p class="setup-safety-note">创建这台设备上的首位管理员。凭据只通过 Desktop 安全进程通道提交，本机不会保存明文密码。</p>
+          <label>
+            <span>管理员用户名</span>
+            <input id="local-username" name="username" type="text" minlength="3" maxlength="40" autocomplete="username" required placeholder="3–40 个文字、数字或 . _ -">
+          </label>
+          <label>
+            <span>密码</span>
+            <input id="local-password" name="password" type="password" minlength="10" maxlength="200" autocomplete="new-password" required placeholder="至少 10 个字符">
+          </label>
+          <label>
+            <span>确认密码</span>
+            <input id="local-password-confirmation" name="passwordConfirmation" type="password" minlength="10" maxlength="200" autocomplete="new-password" required placeholder="再次输入密码">
+          </label>
+          <p id="local-setup-error" class="form-error" role="alert" hidden></p>
+        </div>
+        <div class="dialog-actions">
+          <button class="ghost-button" type="button" data-local-setup-close>稍后设置</button>
+          <button id="local-setup-submit" class="primary-button" type="submit">创建管理员并进入</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="delete-dialog" class="dialog confirm-dialog" aria-labelledby="delete-dialog-title">
+      <form id="delete-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <span class="eyebrow">删除配置</span>
+            <h2 id="delete-dialog-title">删除这个 Server？</h2>
+          </div>
+          <button class="dialog-close" type="button" data-delete-close aria-label="关闭">×</button>
+        </div>
+        <div class="dialog-fields">
+          <p id="delete-message" class="confirm-copy"></p>
+          <p class="field-note">本地工作区不会受影响。待上传、冲突或只读修改会先阻止删除；再次确认才会清除该 Server 的登录、Cookie、IndexedDB、缓存、离线密钥和本机副本。</p>
+          <p id="delete-error" class="form-error" role="alert" hidden></p>
+        </div>
+        <div class="dialog-actions">
+          <button class="ghost-button" type="button" data-delete-close>保留</button>
+          <button id="delete-submit" class="danger-button" type="submit">删除 Server</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <script type="module" src="./selector.js"></script>
+  </body>
+</html>

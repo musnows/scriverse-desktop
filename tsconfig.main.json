@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "build",
+    "types": ["node", "electron"]
+  },
+  "include": [
+    "src/main/**/*.ts",
+    "src/shared/**/*.ts",
+    "src/utility/**/*.mts"
+  ],
+  "exclude": ["build"]
+}

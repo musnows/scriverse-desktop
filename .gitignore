@@ -1,0 +1,10 @@
+.DS_Store
+node_modules/
+build/
+dist/
+out/
+coverage/
+.data/
+.ai-docs/
+scriverse-runtime-source/
+*.log

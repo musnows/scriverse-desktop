@@ -1,0 +1,124 @@
+name: Desktop checks
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      scriverse_ref:
+        description: Compatible Scriverse commit or tag used for package verification
+        required: false
+        default: develop
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Desktop tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout Desktop repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Desktop checks
+        run: npm run check
+
+  package:
+    name: Package ${{ matrix.label }}
+    if: github.event_name == 'workflow_dispatch'
+    needs: test
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: macos-arm64
+            runner: macos-15
+            arch: arm64
+          - label: macos-x64
+            runner: macos-15-intel
+            arch: x64
+          - label: windows-x64
+            runner: windows-2025
+            arch: x64
+          - label: linux-x64
+            runner: ubuntu-24.04
+            arch: x64
+
+    steps:
+      - name: Checkout Desktop repository
+        uses: actions/checkout@v6
+
+      - name: Checkout compatible Scriverse runtime source
+        uses: actions/checkout@v6
+        with:
+          repository: musnows/Scriverse
+          ref: ${{ inputs.scriverse_ref }}
+          path: scriverse-runtime-source
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install Linux maker dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes fakeroot rpm xvfb
+
+      - name: Build Scriverse runtime
+        working-directory: scriverse-runtime-source
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install Desktop dependencies
+        run: npm ci
+
+      - name: Package Desktop
+        env:
+          SCRIVERSE_RUNTIME_DIR: ${{ github.workspace }}/scriverse-runtime-source/dist
+        run: npm run make -- --arch=${{ matrix.arch }}
+
+      - name: Verify packaged runtime
+        if: runner.os != 'Linux'
+        run: npm run verify:package -- ${{ matrix.arch }}
+
+      - name: Verify packaged runtime on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run --auto-servernum npm run verify:package -- ${{ matrix.arch }}
+
+      - name: Verify artifact matrix
+        run: npm run verify:artifacts
+
+      - name: Upload Desktop artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: scriverse-desktop-${{ matrix.label }}
+          path: out/make/**
+          if-no-files-found: error
+          retention-days: 14

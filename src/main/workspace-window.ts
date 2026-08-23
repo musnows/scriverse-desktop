@@ -1,0 +1,66 @@
+import { app, BrowserWindow } from "electron";
+import { join } from "node:path";
+import { LOCAL_PROFILE_PARTITION } from "../shared/contracts.js";
+import { isAllowedWorkspaceNavigation, normalizeLocalWorkspaceOrigin } from "../shared/workspace-url.js";
+
+export async function createLocalWorkspaceWindow(options: {
+  origin: string;
+  desktopRoot: string;
+  onReady: () => void;
+  onClosed: () => void;
+  onCreated?: (window: BrowserWindow) => void;
+  enableLocalAiBridge?: boolean;
+  show?: boolean;
+}): Promise<BrowserWindow> {
+  const origin = normalizeLocalWorkspaceOrigin(options.origin);
+  const window = new BrowserWindow({
+    width: 1_320,
+    height: 840,
+    minWidth: 390,
+    minHeight: 600,
+    show: false,
+    title: "Scriverse Desktop",
+    backgroundColor: "#f3efe7",
+    autoHideMenuBar: true,
+    webPreferences: {
+      ...(options.enableLocalAiBridge === false ? {} : { preload: join(options.desktopRoot, "preload", "local-workspace-preload.cjs") }),
+      partition: LOCAL_PROFILE_PARTITION,
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+      webviewTag: false,
+      devTools: !app.isPackaged
+    }
+  });
+  options.onCreated?.(window);
+  const workspaceSession = window.webContents.session;
+  workspaceSession.setPermissionCheckHandler(() => false);
+  workspaceSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
+  window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  window.webContents.on("will-navigate", (event, target) => {
+    if (!isAllowedWorkspaceNavigation(target, origin)) event.preventDefault();
+  });
+  window.webContents.on("will-redirect", (event, target) => {
+    if (!isAllowedWorkspaceNavigation(target, origin)) event.preventDefault();
+  });
+  window.webContents.on("did-fail-load", (_event, errorCode, errorDescription, _validatedUrl, isMainFrame) => {
+    if (isMainFrame) process.stderr.write(`Local workspace load failed (${errorCode}): ${errorDescription}\n`);
+  });
+  window.webContents.on("render-process-gone", (_event, details) => {
+    process.stderr.write(`Local workspace renderer stopped: ${details.reason}\n`);
+  });
+  window.once("ready-to-show", () => {
+    options.onReady();
+    if (options.show !== false) window.show();
+  });
+  window.once("closed", options.onClosed);
+  try {
+    await window.loadURL(origin);
+  } catch (error) {
+    if (!window.isDestroyed()) window.destroy();
+    throw error;
+  }
+  return window;
+}

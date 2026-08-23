@@ -41,10 +41,19 @@ describe("Desktop 本地服务消息契约", () => {
       APP_UPDATE_CHECK_RETRIES: "2"
     })).toEqual({
       NODE_ENV: "production",
+      APP_ALLOW_PRIVATE_AI_ENDPOINTS: "true",
       SCRIVERSE_AI_RETRY_COUNT: "4",
       APP_UPDATE_CHECK_RETRIES: "2"
     });
-    expect(() => parseLocalServerEnvironment({ NODE_ENV: "production", DATA_DIR: "/server-data" })).toThrowError(/允许列表/u);
+    expect(() => parseLocalServerEnvironment({
+      NODE_ENV: "production",
+      APP_ALLOW_PRIVATE_AI_ENDPOINTS: "true",
+      DATA_DIR: "/server-data"
+    })).toThrowError(/允许列表/u);
+    expect(() => parseLocalServerEnvironment({
+      NODE_ENV: "production",
+      APP_ALLOW_PRIVATE_AI_ENDPOINTS: "false"
+    })).toThrowError(/局域网 AI/u);
   });
 
   it("要求数据库和静态资源使用绝对受控路径", () => {
@@ -54,7 +63,7 @@ describe("Desktop 本地服务消息契约", () => {
       databasePath: join(root, "novel.db"),
       publicPath,
       vditorPath: join(publicPath, "vendor", "vditor", "dist"),
-      envAllowlist: { NODE_ENV: "production" }
+      envAllowlist: { NODE_ENV: "production", APP_ALLOW_PRIVATE_AI_ENDPOINTS: "true" }
     })).toMatchObject({ type: "start", dataDirectory: root, databasePath: join(root, "novel.db") });
     expect(() => parseLocalServerParentMessage({
       type: "start",
@@ -62,7 +71,7 @@ describe("Desktop 本地服务消息契约", () => {
       databasePath: join(root, "..", "server.db"),
       publicPath,
       vditorPath: join(publicPath, "vendor", "vditor", "dist"),
-      envAllowlist: { NODE_ENV: "production" }
+      envAllowlist: { NODE_ENV: "production", APP_ALLOW_PRIVATE_AI_ENDPOINTS: "true" }
     })).toThrowError(/runtime 目录/u);
   });
 

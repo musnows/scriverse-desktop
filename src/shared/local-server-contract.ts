@@ -21,7 +21,10 @@ export const LOCAL_SERVER_ALLOWED_ENVIRONMENT_KEYS = [
   "SCRIVERSE_AI_STREAM_IDLE_TIMEOUT_SECONDS"
 ] as const;
 
-export type LocalServerEnvironment = Record<string, string> & { NODE_ENV: "production" };
+export type LocalServerEnvironment = Record<string, string> & {
+  NODE_ENV: "production";
+  APP_ALLOW_PRIVATE_AI_ENDPOINTS: "true";
+};
 
 export type LocalServerStartMessage = {
   type: "start";
@@ -151,7 +154,10 @@ export function parseLocalSetupInput(value: unknown): { username: string; passwo
 }
 
 export function filterLocalServerEnvironment(environment: NodeJS.ProcessEnv): LocalServerEnvironment {
-  const filtered: LocalServerEnvironment = { NODE_ENV: "production" };
+  const filtered: LocalServerEnvironment = {
+    NODE_ENV: "production",
+    APP_ALLOW_PRIVATE_AI_ENDPOINTS: "true"
+  };
   for (const key of LOCAL_SERVER_ALLOWED_ENVIRONMENT_KEYS) {
     const value = environment[key];
     if (typeof value === "string" && value.length <= 256) filtered[key] = value;
@@ -161,12 +167,18 @@ export function filterLocalServerEnvironment(environment: NodeJS.ProcessEnv): Lo
 
 export function parseLocalServerEnvironment(value: unknown): LocalServerEnvironment {
   if (!isRecord(value)) throw new LocalServerContractError("LOCAL_ENV_INVALID", "本地服务环境变量无效");
-  const allowed = new Set<string>(["NODE_ENV", ...LOCAL_SERVER_ALLOWED_ENVIRONMENT_KEYS]);
+  const allowed = new Set<string>(["NODE_ENV", "APP_ALLOW_PRIVATE_AI_ENDPOINTS", ...LOCAL_SERVER_ALLOWED_ENVIRONMENT_KEYS]);
   if (Object.keys(value).some((key) => !allowed.has(key))) {
     throw new LocalServerContractError("LOCAL_ENV_FORBIDDEN", "本地服务环境变量不在允许列表中");
   }
   if (value.NODE_ENV !== "production") throw new LocalServerContractError("LOCAL_ENV_INVALID", "本地服务必须使用 production 环境");
-  const parsed: LocalServerEnvironment = { NODE_ENV: "production" };
+  if (value.APP_ALLOW_PRIVATE_AI_ENDPOINTS !== "true") {
+    throw new LocalServerContractError("LOCAL_ENV_INVALID", "本地工作区必须允许连接本机与局域网 AI 供应商");
+  }
+  const parsed: LocalServerEnvironment = {
+    NODE_ENV: "production",
+    APP_ALLOW_PRIVATE_AI_ENDPOINTS: "true"
+  };
   for (const key of LOCAL_SERVER_ALLOWED_ENVIRONMENT_KEYS) {
     const candidate = value[key];
     if (candidate === undefined) continue;

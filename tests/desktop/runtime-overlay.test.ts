@@ -40,6 +40,14 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain("workspaceName ? `${workspaceName} · Scriverse Desktop`");
   });
 
+  it("preserves the upstream system administrator account identity UI", () => {
+    const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
+
+    expect(overlayPatch).toContain("feature=admin-account-identity-v1&feature=desktop-same-workspace-v1");
+    expect(overlayPatch).not.toContain('-          <button id="account-button"');
+    expect(overlayPatch).not.toContain("-  const isSystemAdmin = session.user.isSystemAdmin === true;");
+  });
+
   it("hides the online presence banner until more than one distinct user is present", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 

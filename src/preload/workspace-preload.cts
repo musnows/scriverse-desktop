@@ -1,27 +1,6 @@
 const { contextBridge, ipcRenderer } = require("electron") as typeof import("electron");
-const { ensureRemoteWorkspaceShellUi } = require("./remote-workspace-shell-ui.cjs") as typeof import("./remote-workspace-shell-ui.cjs");
 
 const menuCommands = new Set(["open-sync-center"]);
-let remoteShellUiObserver: MutationObserver | null = null;
-
-async function installRemoteWorkspaceShellUi(): Promise<void> {
-  const result = await ipcRenderer.invoke("workspace:shell:get-capabilities") as {
-    ok?: boolean;
-    data?: { profileName?: unknown; connectionMode?: unknown };
-  } | null;
-  const profileName = typeof result?.data?.profileName === "string" ? result.data.profileName.trim() : "";
-  if (result?.ok !== true || result.data?.connectionMode !== "online" || !profileName) return;
-  const render = (): void => ensureRemoteWorkspaceShellUi(
-    document,
-    profileName,
-    () => ipcRenderer.invoke("workspace:shell:request-switch")
-  );
-  render();
-  remoteShellUiObserver?.disconnect();
-  remoteShellUiObserver = new MutationObserver(() => queueMicrotask(render));
-  remoteShellUiObserver.observe(document.documentElement, { childList: true, subtree: true });
-  window.addEventListener("beforeunload", () => remoteShellUiObserver?.disconnect(), { once: true });
-}
 
 contextBridge.exposeInMainWorld("scriverseDesktopWorkspace", Object.freeze({
   shellProtocol: 1,
@@ -47,15 +26,3 @@ contextBridge.exposeInMainWorld("scriverseDesktopWorkspace", Object.freeze({
     cancelAgentRound: (input: unknown) => ipcRenderer.invoke("workspace:local-ai:agent-round-cancel", input)
   })
 }));
-
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", () => {
-    void installRemoteWorkspaceShellUi().catch((error: unknown) => {
-      console.error("Failed to install remote workspace shell UI", error);
-    });
-  }, { once: true });
-} else {
-  void installRemoteWorkspaceShellUi().catch((error: unknown) => {
-    console.error("Failed to install remote workspace shell UI", error);
-  });
-}

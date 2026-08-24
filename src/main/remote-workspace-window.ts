@@ -4,6 +4,7 @@ import { DESKTOP_DISPLAY_NAME } from "../shared/branding.js";
 import type { RemoteWorkspaceProfile } from "../shared/contracts.js";
 import { isAllowedRemoteWorkspaceNavigation } from "../shared/remote-workspace-url.js";
 import { registerBundledOfflineShell } from "./offline-shell-protocol.js";
+import { remoteWorkspaceShellScript } from "./remote-workspace-shell.js";
 import { applyWindowPlacement, type DesktopWindowPlacement } from "./window-placement.js";
 
 export async function createRemoteWorkspaceWindow(options: {
@@ -53,6 +54,12 @@ export async function createRemoteWorkspaceWindow(options: {
   });
   window.webContents.on("render-process-gone", (_event, details) => {
     process.stderr.write(`Remote workspace renderer stopped for profile ${options.profile.id}: ${details.reason}\n`);
+  });
+  window.webContents.on("did-finish-load", () => {
+    if (options.connectionMode !== "online") return;
+    void window.webContents.executeJavaScript(remoteWorkspaceShellScript(options.profile.name)).catch((error: unknown) => {
+      process.stderr.write(`Remote workspace shell injection failed for profile ${options.profile.id}: ${error instanceof Error ? error.message : String(error)}\n`);
+    });
   });
   window.once("ready-to-show", () => {
     if (options.placement) applyWindowPlacement(window, options.placement);

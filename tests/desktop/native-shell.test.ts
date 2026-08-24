@@ -37,7 +37,7 @@ describe("Desktop 原生菜单与下载", () => {
   it("向远端页面提供已选择的 Server 工作区名称", () => {
     expect(workspaceIpcSource).toContain("profileName: profile.name");
     expect(workspaceIpcSource).toContain('profileKind: "remote"');
-    expect(preloadSource).toContain("ensureRemoteWorkspaceShellUi(");
+    expect(readFileSync(join(root, "src/main/remote-workspace-window.ts"), "utf8")).toContain("remoteWorkspaceShellScript(options.profile.name)");
     expect(preloadSource).toContain('ipcRenderer.invoke("workspace:shell:request-switch")');
   });
 

@@ -6,6 +6,7 @@ const root = process.cwd();
 const checks = readFileSync(join(root, ".github/workflows/desktop-checks.yml"), "utf8");
 const release = readFileSync(join(root, ".github/workflows/desktop-release.yml"), "utf8");
 const forge = readFileSync(join(root, "forge.config.ts"), "utf8");
+const artifactVerifier = readFileSync(join(root, "scripts/verify-artifacts.mjs"), "utf8");
 
 describe("Desktop 发布链路", () => {
   it("覆盖 macOS、Windows 和 Linux 双架构", () => {
@@ -42,6 +43,7 @@ describe("Desktop 发布链路", () => {
     expect(release).toContain("scriverse-desktop-win32-${{ matrix.arch }}-$packageVersion-Setup.exe");
     expect(release).toContain("scriverse-desktop-win32-${{ matrix.arch }}-$packageVersion-full.nupkg");
     expect(release).toContain("scriverse-desktop-win32-${{ matrix.arch }}-$packageVersion-RELEASES");
+    expect(artifactVerifier).toContain('/(?:[\\\\/]|-)RELEASES$/u');
     expect(release).toContain('codesign --verify --deep --strict "$app_path"');
     expect(release).toContain('grep -F "Signature=adhoc"');
     expect(release).toContain('if: ${{ always() && !cancelled() }}');

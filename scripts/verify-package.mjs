@@ -27,8 +27,14 @@ if (!reportLine) {
   throw new Error(`Packaged runtime gate did not report JSON: ${result.stderr || result.stdout || "no process output"}`);
 }
 const report = JSON.parse(reportLine);
-for (const field of ["ok", "sqlite", "sharp", "vditor", "localServer"]) {
+for (const field of ["ok", "sqlite", "sharp", "vditor"]) {
   if (report[field] !== true) throw new Error(`Packaged runtime gate field failed: ${field}`);
+}
+const localServerSkipped = process.platform === "win32"
+  && process.env.SCRIVERSE_DESKTOP_GATE_SKIP_LOCAL_SERVER === "true"
+  && report.localServerSkipped === true;
+if (report.localServer !== true && !localServerSkipped) {
+  throw new Error("Packaged runtime gate field failed: localServer");
 }
 if (process.platform === "darwin") {
   const appPath = join(packageDirectory, "叙界.app");

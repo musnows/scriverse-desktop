@@ -35,6 +35,8 @@ describe("Desktop 发布链路", () => {
     expect(release).toContain('codesign --verify --deep --strict "$app_path"');
     expect(release).toContain('grep -F "Signature=adhoc"');
     expect(release).toContain('if: ${{ always() && !cancelled() }}');
+    expect(checks).toContain("SCRIVERSE_DESKTOP_GATE_SKIP_LOCAL_SERVER");
+    expect(release).toContain("SCRIVERSE_DESKTOP_GATE_SKIP_LOCAL_SERVER");
     expect(release).not.toContain("secrets.DESKTOP_");
     expect(release).not.toContain("spctl --assess");
     expect(release).not.toContain("stapler validate");

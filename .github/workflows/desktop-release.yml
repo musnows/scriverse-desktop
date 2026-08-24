@@ -124,6 +124,8 @@ jobs:
 
       - name: Verify packaged runtime
         if: runner.os != 'Linux'
+        env:
+          SCRIVERSE_DESKTOP_GATE_SKIP_LOCAL_SERVER: ${{ runner.os == 'Windows' && 'true' || 'false' }}
         run: npm run verify:package -- ${{ matrix.arch }}
 
       - name: Verify packaged runtime on Linux

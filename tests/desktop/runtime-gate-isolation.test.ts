@@ -14,4 +14,14 @@ describe("Desktop runtime gate isolation", () => {
     expect(source).toContain("port: gatePort");
     expect(source).not.toContain("port: 0");
   });
+
+  it("allows Windows CI to skip only the local bind check", () => {
+    const mainSource = readFileSync(join(process.cwd(), "src/main/main.ts"), "utf8");
+    const utilitySource = readFileSync(join(process.cwd(), "src/utility/runtime-gate.mts"), "utf8");
+    const verifierSource = readFileSync(join(process.cwd(), "scripts/verify-package.mjs"), "utf8");
+    expect(mainSource).toContain("SCRIVERSE_DESKTOP_GATE_SKIP_LOCAL_SERVER");
+    expect(utilitySource).toContain('process.env.SCRIVERSE_DESKTOP_GATE_SKIP_LOCAL_SERVER === "true"');
+    expect(verifierSource).toContain('process.platform === "win32"');
+    expect(verifierSource).toContain("report.localServerSkipped === true");
+  });
 });

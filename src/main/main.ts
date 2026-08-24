@@ -46,6 +46,7 @@ type RuntimeGateResult = {
   sharp: boolean;
   vditor: boolean;
   localServer: boolean;
+  localServerSkipped?: boolean;
   error?: string;
 };
 
@@ -97,7 +98,8 @@ function runtimeGateEnvironment(): NodeJS.ProcessEnv {
     NODE_ENV: "production",
     SCRIVERSE_DESKTOP_APP_ROOT: applicationRoot,
     SCRIVERSE_DESKTOP_GATE_DATA_DIR: process.env.SCRIVERSE_DESKTOP_GATE_DATA_DIR
-      ?? join(app.getPath("userData"), "runtime-gate")
+      ?? join(app.getPath("userData"), "runtime-gate"),
+    SCRIVERSE_DESKTOP_GATE_SKIP_LOCAL_SERVER: process.env.SCRIVERSE_DESKTOP_GATE_SKIP_LOCAL_SERVER
   };
 }
 

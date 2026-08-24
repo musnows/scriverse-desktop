@@ -26,6 +26,7 @@ type RuntimeGateResult = {
   sharp: boolean;
   vditor: boolean;
   localServer: boolean;
+  localServerSkipped?: boolean;
   error?: string;
 };
 
@@ -90,6 +91,12 @@ async function inspectRuntime(): Promise<RuntimeGateResult> {
     const runtimeModule = await import(pathToFileURL(join(appRoot, "dist", "server-runtime.js")).href) as {
       startLocalServer: StartLocalServer;
     };
+    if (process.env.SCRIVERSE_DESKTOP_GATE_SKIP_LOCAL_SERVER === "true") {
+      result.localServerSkipped = true;
+      result.ok = result.sqlite && result.sharp && result.vditor;
+      process.stdout.write("Desktop runtime gate skipped local server startup\n");
+      return result;
+    }
     const gatePort = await selectLocalServerPort(MIN_LOCAL_SERVER_PORT, canBindLoopbackPort);
     running = await runtimeModule.startLocalServer({
       host: "127.0.0.1",

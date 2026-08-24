@@ -5,6 +5,7 @@ import type { RemoteWorkspaceProfile } from "../shared/contracts.js";
 import { isAllowedRemoteWorkspaceNavigation } from "../shared/remote-workspace-url.js";
 import { registerBundledOfflineShell } from "./offline-shell-protocol.js";
 import { remoteWorkspaceShellScript } from "./remote-workspace-shell.js";
+import { createWorkspaceLoadingCover } from "./workspace-loading-cover.js";
 import { applyWindowPlacement, type DesktopWindowPlacement } from "./window-placement.js";
 
 export async function createRemoteWorkspaceWindow(options: {
@@ -40,6 +41,7 @@ export async function createRemoteWorkspaceWindow(options: {
       devTools: !app.isPackaged
     }
   });
+  const loadingCover = createWorkspaceLoadingCover(window);
   options.onCreated?.(window);
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   window.webContents.on("will-attach-webview", (event) => event.preventDefault());
@@ -62,12 +64,17 @@ export async function createRemoteWorkspaceWindow(options: {
     });
   });
   window.once("ready-to-show", () => {
-    if (options.placement) applyWindowPlacement(window, options.placement);
-    if (options.show !== false) window.show();
-    options.onReady();
+    void loadingCover.prepare().catch(() => undefined).finally(() => {
+      if (window.isDestroyed()) return;
+      if (options.placement) applyWindowPlacement(window, options.placement);
+      if (options.show !== false) window.show();
+      options.onReady();
+      void loadingCover.revealWhenReady();
+    });
   });
   let disposeOfflineShell: (() => void) | null = null;
   window.once("closed", () => {
+    loadingCover.dispose();
     disposeOfflineShell?.();
     options.onClosed();
   });

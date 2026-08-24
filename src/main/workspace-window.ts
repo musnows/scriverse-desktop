@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { DESKTOP_DISPLAY_NAME } from "../shared/branding.js";
 import { LOCAL_PROFILE_PARTITION } from "../shared/contracts.js";
 import { isAllowedWorkspaceNavigation, normalizeLocalWorkspaceOrigin } from "../shared/workspace-url.js";
+import { createWorkspaceLoadingCover } from "./workspace-loading-cover.js";
 import { applyWindowPlacement, type DesktopWindowPlacement } from "./window-placement.js";
 
 export async function createLocalWorkspaceWindow(options: {
@@ -38,6 +39,7 @@ export async function createLocalWorkspaceWindow(options: {
       devTools: !app.isPackaged
     }
   });
+  const loadingCover = createWorkspaceLoadingCover(window);
   options.onCreated?.(window);
   const workspaceSession = window.webContents.session;
   workspaceSession.setPermissionCheckHandler(() => false);
@@ -56,11 +58,18 @@ export async function createLocalWorkspaceWindow(options: {
     process.stderr.write(`Local workspace renderer stopped: ${details.reason}\n`);
   });
   window.once("ready-to-show", () => {
-    if (options.placement) applyWindowPlacement(window, options.placement);
-    if (options.show !== false) window.show();
-    options.onReady();
+    void loadingCover.prepare().catch(() => undefined).finally(() => {
+      if (window.isDestroyed()) return;
+      if (options.placement) applyWindowPlacement(window, options.placement);
+      if (options.show !== false) window.show();
+      options.onReady();
+      void loadingCover.revealWhenReady();
+    });
   });
-  window.once("closed", options.onClosed);
+  window.once("closed", () => {
+    loadingCover.dispose();
+    options.onClosed();
+  });
   try {
     await window.loadURL(origin);
   } catch (error) {

@@ -123,7 +123,7 @@ jobs:
       - name: Verify packaged runtime on Linux
         if: runner.os == 'Linux'
         run: |
-          package_dir="out/Scriverse Desktop-linux-${{ matrix.arch }}"
+          package_dir="out/scriverse-desktop-linux-${{ matrix.arch }}"
           sudo chown root:root "$package_dir/chrome-sandbox"
           sudo chmod 4755 "$package_dir/chrome-sandbox"
           xvfb-run --auto-servernum npm run verify:package -- ${{ matrix.arch }}

@@ -5,8 +5,8 @@ describe("Desktop Forge configuration", () => {
   it("packages an ASAR app with supported platform makers and hardened fuses", () => {
     expect(config.packagerConfig?.asar).toMatchObject({ unpackDir: "node_modules/@img" });
     expect(config.packagerConfig).toMatchObject({
-      name: process.platform === "darwin" ? "scriverse-desktop" : "Scriverse Desktop",
-      executableName: "Scriverse Desktop",
+      name: process.platform === "win32" ? "Scriverse Desktop" : "scriverse-desktop",
+      executableName: process.platform === "linux" ? "scriverse-desktop" : "Scriverse Desktop",
       appBundleId: "top.scriverse.desktop",
       extendInfo: {
         CFBundleDevelopmentRegion: "zh-Hans"
@@ -48,7 +48,7 @@ describe("Desktop Forge configuration", () => {
   it("keeps an English macOS package directory and renames only the app bundle", async () => {
     const hook = config.hooks?.postPackage;
     expect(hook).toBeTypeOf("function");
-    expect(config.packagerConfig?.name).toBe(process.platform === "darwin" ? "scriverse-desktop" : "Scriverse Desktop");
+    expect(config.packagerConfig?.name).toBe(process.platform === "win32" ? "Scriverse Desktop" : "scriverse-desktop");
   });
 
   it("passes the localized app bundle name to macOS artifact makers", () => {

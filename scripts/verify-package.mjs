@@ -4,13 +4,13 @@ import { spawnSync } from "node:child_process";
 
 const root = resolve(import.meta.dirname, "..");
 const arch = process.argv[2] ?? process.arch;
-const packageName = process.platform === "darwin" ? "scriverse-desktop" : "Scriverse Desktop";
+const packageName = process.platform === "win32" ? "Scriverse Desktop" : "scriverse-desktop";
 const packageDirectory = join(root, "out", `${packageName}-${process.platform}-${arch}`);
 const executable = process.platform === "darwin"
   ? join(packageDirectory, "叙界.app", "Contents", "MacOS", "Scriverse Desktop")
   : process.platform === "win32"
     ? join(packageDirectory, "Scriverse Desktop.exe")
-    : join(packageDirectory, "Scriverse Desktop");
+    : join(packageDirectory, "scriverse-desktop");
 const gateDataDirectory = join(root, ".ai-docs", `packaged-runtime-gate-${process.platform}-${arch}`);
 mkdirSync(gateDataDirectory, { recursive: true });
 

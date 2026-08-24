@@ -10,7 +10,8 @@ import { DESKTOP_DISPLAY_NAME } from "./src/shared/branding.js";
 const desktopMainEntry = "build/main/main.js";
 const desktopAssets = "assets";
 const internalApplicationName = "Scriverse Desktop";
-const packagedApplicationName = process.platform === "darwin" ? "scriverse-desktop" : internalApplicationName;
+const packagedApplicationName = process.platform === "win32" ? internalApplicationName : "scriverse-desktop";
+const packagedExecutableName = process.platform === "linux" ? "scriverse-desktop" : internalApplicationName;
 const macSigningIdentity = process.env.APPLE_SIGN_IDENTITY?.trim() || null;
 const macNotarization = process.env.APPLE_API_KEY?.trim()
   && process.env.APPLE_API_KEY_ID?.trim()
@@ -50,7 +51,7 @@ const linuxMakerOptions = {
   genericName: "Long-form Fiction Workspace",
   description: "Local AI workspace for long-form fiction",
   productDescription: "叙界 manages long-form fiction, settings, timelines, relationships and isolated AI-assisted writing workspaces.",
-  bin: internalApplicationName,
+  bin: packagedExecutableName,
   icon: join(process.cwd(), desktopAssets, "icon-512.png"),
   categories: ["Office" as const],
   homepage: "https://scriverse.top/"
@@ -90,7 +91,7 @@ const config: ForgeConfig = {
       }
     } : {}),
     name: packagedApplicationName,
-    executableName: internalApplicationName,
+    executableName: packagedExecutableName,
     appBundleId: "top.scriverse.desktop",
     appCategoryType: "public.app-category.productivity",
     appCopyright: "Copyright musnows",

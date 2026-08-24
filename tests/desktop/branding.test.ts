@@ -30,7 +30,7 @@ describe("叙界桌面端品牌显示", () => {
     const localizedInfo = readFileSync(join(root, "assets/zh-Hans.lproj/InfoPlist.strings"), "utf8");
     expect(forge).toContain('const internalApplicationName = "Scriverse Desktop"');
     expect(forge).toContain('name: packagedApplicationName');
-    expect(forge).toContain('executableName: internalApplicationName');
+    expect(forge).toContain('executableName: packagedExecutableName');
     expect(paths).toContain('"Application Support", "Scriverse Desktop", "data"');
     expect(verifier).toContain('"scriverse-desktop"');
     expect(verifier).toContain('"叙界.app"');

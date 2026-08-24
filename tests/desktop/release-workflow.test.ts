@@ -16,8 +16,10 @@ describe("Desktop 发布链路", () => {
     expect(checks).toContain("verify:package");
     expect(checks).toContain("verify:artifacts");
     expect(checks).toContain("repository: musnows/Scriverse");
+    expect(checks).toContain('package_dir="out/scriverse-desktop-linux-${{ matrix.arch }}"');
     expect(checks).toContain('sudo chown root:root "$package_dir/chrome-sandbox"');
     expect(checks).toContain('sudo chmod 4755 "$package_dir/chrome-sandbox"');
+    expect(release).toContain('package_dir="out/scriverse-desktop-linux-${{ matrix.arch }}"');
     expect(release).toContain('sudo chown root:root "$package_dir/chrome-sandbox"');
     expect(release).toContain('sudo chmod 4755 "$package_dir/chrome-sandbox"');
   });

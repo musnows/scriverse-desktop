@@ -33,6 +33,7 @@ index 03b2f488..58c76e8d 100644
 +let desktopOfflineLocalAiModelsLoaded = false;
 +let desktopOfflineLocalAiModelsPromise = null;
 +let desktopInitialOfflineDownloadTask = null;
++let desktopInitialOfflineDownloadProgress = null;
 +let desktopWorkspaceIdentity = null;
 +let desktopWorkspaceIdentityPromise = null;
 +const desktopOfflineLocalAiMessagesByEntity = new Map();
@@ -143,6 +144,7 @@ index 03b2f488..58c76e8d 100644
 +      $("#desktop-switch-button").classList.remove("hidden");
 +      void controller.reportDirty(false).catch(() => undefined);
 +      void renderDesktopShelfBadges();
++      void renderDesktopSyncStatus();
 +      return controller;
 +    })
 +    .catch((error) => {
@@ -161,7 +163,8 @@ index 03b2f488..58c76e8d 100644
 +  try {
 +    const controller = await ensureDesktopWorkspace();
 +    if (!controller) return;
-+    await controller.openSyncCenter({ serverWorks: desktopOfflineMode ? [] : state.works, toast });
++    const serverWorks = desktopOfflineMode ? [] : await apiAllPages("/api/works", 100);
++    await controller.openSyncCenter({ serverWorks, toast });
 +  } catch (error) {
 +    toast(error?.message ?? desktopWorkspaceError?.message ?? "离线同步不可用", "error");
 +  }
@@ -200,6 +203,33 @@ index 03b2f488..58c76e8d 100644
 +  }
 +}
 +
++async function renderDesktopSyncStatus() {
++  const button = $("#desktop-sync-status-button");
++  const label = $("#desktop-sync-status-label");
++  if (!(button instanceof HTMLButtonElement) || !(label instanceof HTMLElement) || !desktopWorkspaceController) return;
++  const aggregate = await desktopWorkspaceController.aggregateStatus();
++  let text = "未离线";
++  let status = "empty";
++  if (desktopInitialOfflineDownloadProgress) {
++    text = `下载中 ${desktopInitialOfflineDownloadProgress.completed}/${desktopInitialOfflineDownloadProgress.total}`;
++    status = "downloading";
++  } else if (aggregate.conflicts > 0) {
++    text = `同步冲突 ${aggregate.conflicts}`;
++    status = "attention";
++  } else if (aggregate.pendingMutations > 0 || aggregate.rejected > 0) {
++    text = `待同步 ${aggregate.pendingMutations + aggregate.rejected}`;
++    status = "attention";
++  } else if (aggregate.works > 0) {
++    text = `已离线 ${aggregate.works} 部`;
++    status = "ready";
++  }
++  label.textContent = text;
++  button.dataset.status = status;
++  button.title = `离线同步：${text}，点击查看详情`;
++  button.setAttribute("aria-label", button.title);
++  button.classList.remove("hidden");
++}
++
 +async function maybeOfferInitialDesktopOfflineDownload() {
 +  if (desktopOfflineMode || !isDesktopWorkspaceRuntime()) return null;
 +  if (desktopInitialOfflineDownloadTask) return desktopInitialOfflineDownloadTask;
@@ -225,7 +255,17 @@ index 03b2f488..58c76e8d 100644
 +    const dismiss = persistentToast("正在保存全部可离线作品");
 +    try {
 +      const works = await apiAllPages("/api/works", 100);
-+      const result = await controller.downloadAllWorks(works);
++      desktopInitialOfflineDownloadProgress = { completed: 0, total: works.length };
++      await renderDesktopSyncStatus();
++      const result = await controller.downloadAllWorks(works, {
++        onProgress: async (progress) => {
++          desktopInitialOfflineDownloadProgress = {
++            completed: progress.downloaded + progress.alreadyCached + progress.skipped.length + progress.failed.length,
++            total: progress.total
++          };
++          await renderDesktopSyncStatus();
++        }
++      });
 +      const completed = result.failed.length === 0;
 +      await controller.store.setInitialOfflineDownloadState({ decision: "accepted", completed });
 +      await renderDesktopShelfBadges();
@@ -241,6 +281,8 @@ index 03b2f488..58c76e8d 100644
 +      toast(`全量离线未完成：${error.message}；下次连接会继续`, "error");
 +      return null;
 +    } finally {
++      desktopInitialOfflineDownloadProgress = null;
++      await renderDesktopSyncStatus();
 +      dismiss();
 +    }
 +  })().finally(() => {
@@ -1508,6 +1550,7 @@ index 03b2f488..58c76e8d 100644
    void showSettingsHub();
  });
 +$("#desktop-sync-button").addEventListener("click", () => { void openDesktopSyncCenter(); });
++$("#desktop-sync-status-button").addEventListener("click", () => { void openDesktopSyncCenter(); });
 +$("#desktop-switch-button").addEventListener("click", () => { void switchDesktopWorkspace(); });
 +$("#desktop-sync-menu-button").addEventListener("click", () => { void openDesktopSyncCenter(); });
 +$("#desktop-sync-dialog-close").addEventListener("click", () => $("#desktop-sync-dialog").close());
@@ -1576,6 +1619,7 @@ index 03b2f488..58c76e8d 100644
 +  else if (pending > 0) setSaveState(`本机已保存，待同步 ${pending} 项`);
 +  else if (desktopOfflineMode) setSaveState("本机已保存");
 +  void renderDesktopShelfBadges();
++  void renderDesktopSyncStatus();
 +});
  window.addEventListener("resize", () => {
    if ($("#reader-view").classList.contains("hidden") || readingPreferences.mode !== "paged") return;
@@ -1589,7 +1633,7 @@ index be0fea35..78e661ed 100644
      <link rel="manifest" href="/site.webmanifest">
      <link rel="stylesheet" href="/vendor/vditor/dist/index.css?v=3.11.2">
 -    <link rel="stylesheet" href="/styles.css?v=20260816-task-scope-volume-collapse-v2&feature=ai-tool-call-copy-feedback-v2&feature=ai-send-control-v3&feature=character-gender-v1&feature=character-filter-state-v1&feature=relationship-canvas-scale-v1&feature=relationship-table-scroll-v1&feature=galaxy-compact-controls-v2&feature=galaxy-motion-mode-v2&feature=chapter-search-replace-v3&feature=task-auto-run-ring-center-v3&feature=character-relationship-delete-v1&feature=ai-assistant-workspace-v2&feature=mobile-module-tab-position-v1&feature=volume-detail-icon-v1&feature=editor-actions-flow-v1&feature=reader-controls-subpanel-v1&feature=reader-focus-ring-v1&feature=ai-message-actions-v1&feature=assistant-responsive-navigation-v2&feature=ai-composer-square-controls-v2&feature=annotation-line-counts-v1&feature=line-number-gutter-fill-v1&feature=ai-relationship-roleplay-v1&feature=ai-model-picker-v1&feature=markdown-word-count-five-digit-v2&feature=ai-stream-character-count-stable-v1&feature=annotation-marker-offset-v1&feature=mobile-ai-entry-hidden-v1&feature=phone-client-entry-v1&feature=ai-stream-idle-timeout-v1&feature=ai-user-message-width-v2&feature=ai-chat-image-attachments-v9&feature=ai-message-image-preview-v1&feature=ai-thinking-scroll-v2&feature=toast-click-dismiss-v3&feature=character-avatar-v6&feature=admin-ai-conversations-v1&feature=ai-usage-pricing-v1&feature=ai-usage-pricing-badge-v2&feature=ai-token-quota-positive-v5&feature=ai-token-usage-details-v1&feature=ai-token-usage-details-centered-v1&feature=ai-stream-connection-seconds-v1&feature=ai-token-usage-estimated-price-v1&feature=record-favorites-v1&feature=entity-detail-favorites-v1&feature=character-persona-summary-v1&feature=ai-roleplay-scene-turn-v1&feature=admin-account-identity-v2&feature=task-detail-failure-orange-v1">
-+    <link rel="stylesheet" href="/styles.css?v=20260816-task-scope-volume-collapse-v2&feature=ai-tool-call-copy-feedback-v2&feature=ai-send-control-v3&feature=character-gender-v1&feature=character-filter-state-v1&feature=relationship-canvas-scale-v1&feature=relationship-table-scroll-v1&feature=galaxy-compact-controls-v2&feature=galaxy-motion-mode-v2&feature=chapter-search-replace-v3&feature=task-auto-run-ring-center-v3&feature=character-relationship-delete-v1&feature=ai-assistant-workspace-v2&feature=mobile-module-tab-position-v1&feature=volume-detail-icon-v1&feature=editor-actions-flow-v1&feature=reader-controls-subpanel-v1&feature=reader-focus-ring-v1&feature=ai-message-actions-v1&feature=assistant-responsive-navigation-v2&feature=ai-composer-square-controls-v2&feature=annotation-line-counts-v1&feature=line-number-gutter-fill-v1&feature=ai-relationship-roleplay-v1&feature=ai-model-picker-v1&feature=markdown-word-count-five-digit-v2&feature=ai-stream-character-count-stable-v1&feature=annotation-marker-offset-v1&feature=mobile-ai-entry-hidden-v1&feature=phone-client-entry-v1&feature=ai-stream-idle-timeout-v1&feature=ai-user-message-width-v2&feature=ai-chat-image-attachments-v9&feature=ai-message-image-preview-v1&feature=ai-thinking-scroll-v2&feature=toast-click-dismiss-v3&feature=character-avatar-v6&feature=admin-ai-conversations-v1&feature=ai-usage-pricing-v1&feature=ai-usage-pricing-badge-v2&feature=ai-token-quota-positive-v5&feature=ai-token-usage-details-v1&feature=ai-token-usage-details-centered-v1&feature=ai-stream-connection-seconds-v1&feature=ai-token-usage-estimated-price-v1&feature=record-favorites-v1&feature=entity-detail-favorites-v1&feature=character-persona-summary-v1&feature=ai-roleplay-scene-turn-v1&feature=admin-account-identity-v2&feature=task-detail-failure-orange-v1&feature=desktop-same-workspace-v1&feature=shelf-compact-scale-v1&feature=shelf-mobile-settings-v1&feature=desktop-local-ai-shared-ui-v1&feature=desktop-local-ai-workspace-v1&feature=desktop-local-ai-offline-v1&feature=desktop-local-model-badge-only-v1">
++    <link rel="stylesheet" href="/styles.css?v=20260816-task-scope-volume-collapse-v2&feature=ai-tool-call-copy-feedback-v2&feature=ai-send-control-v3&feature=character-gender-v1&feature=character-filter-state-v1&feature=relationship-canvas-scale-v1&feature=relationship-table-scroll-v1&feature=galaxy-compact-controls-v2&feature=galaxy-motion-mode-v2&feature=chapter-search-replace-v3&feature=task-auto-run-ring-center-v3&feature=character-relationship-delete-v1&feature=ai-assistant-workspace-v2&feature=mobile-module-tab-position-v1&feature=volume-detail-icon-v1&feature=editor-actions-flow-v1&feature=reader-controls-subpanel-v1&feature=reader-focus-ring-v1&feature=ai-message-actions-v1&feature=assistant-responsive-navigation-v2&feature=ai-composer-square-controls-v2&feature=annotation-line-counts-v1&feature=line-number-gutter-fill-v1&feature=ai-relationship-roleplay-v1&feature=ai-model-picker-v1&feature=markdown-word-count-five-digit-v2&feature=ai-stream-character-count-stable-v1&feature=annotation-marker-offset-v1&feature=mobile-ai-entry-hidden-v1&feature=phone-client-entry-v1&feature=ai-stream-idle-timeout-v1&feature=ai-user-message-width-v2&feature=ai-chat-image-attachments-v9&feature=ai-message-image-preview-v1&feature=ai-thinking-scroll-v2&feature=toast-click-dismiss-v3&feature=character-avatar-v6&feature=admin-ai-conversations-v1&feature=ai-usage-pricing-v1&feature=ai-usage-pricing-badge-v2&feature=ai-token-quota-positive-v5&feature=ai-token-usage-details-v1&feature=ai-token-usage-details-centered-v1&feature=ai-stream-connection-seconds-v1&feature=ai-token-usage-estimated-price-v1&feature=record-favorites-v1&feature=entity-detail-favorites-v1&feature=character-persona-summary-v1&feature=ai-roleplay-scene-turn-v1&feature=admin-account-identity-v2&feature=task-detail-failure-orange-v1&feature=desktop-same-workspace-v1&feature=shelf-compact-scale-v1&feature=shelf-mobile-settings-v1&feature=desktop-local-ai-shared-ui-v1&feature=desktop-local-ai-workspace-v1&feature=desktop-local-ai-offline-v1&feature=desktop-local-model-badge-only-v1&feature=desktop-sync-status-v1">
    </head>
    <body class="auth-pending">
      <section id="auth-view" class="auth-view hidden" aria-labelledby="auth-title">
@@ -1600,6 +1644,10 @@ index be0fea35..78e661ed 100644
 +            <button id="desktop-sync-menu-button" class="hidden" type="button" role="menuitem">离线同步中心</button>
              <button id="logout-button" type="button" role="menuitem">退出登录</button>
            </div>
++          <button id="desktop-sync-status-button" class="desktop-sync-status-button hidden" type="button" aria-label="离线同步状态" title="离线同步状态" aria-haspopup="dialog" aria-controls="desktop-sync-dialog">
++            <svg class="desktop-sync-status-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 15v4h14v-4"/></svg>
++            <span id="desktop-sync-status-label">未离线</span>
++          </button>
            <button id="background-task-button" class="topbar-icon-button background-task-button hidden" type="button" aria-label="后台任务中心" title="后台任务中心" aria-haspopup="dialog" aria-controls="background-task-dialog">
 @@ -209,7 +210,10 @@
          <section id="settings-hub-view" class="shelf-view hidden" aria-labelledby="settings-hub-title">
@@ -1647,7 +1695,7 @@ index be0fea35..78e661ed 100644
      <script id="vditorIconScript" src="/vendor/vditor/dist/js/icons/ant.js?v=3.11.2"></script>
      <script src="/vendor/vditor/dist/index.min.js?v=3.11.2"></script>
 -    <script type="module" src="/app.js?v=20260816-extended-thinking-effort-v1&feature=ai-tool-call-copy-feedback-v2&feature=ai-send-control-v2&feature=analysis-task-queue-refresh-v1&feature=character-gender-v1&feature=character-filter-state-v1&feature=relationship-canvas-scale-v1&feature=relationship-table-scroll-v1&feature=ai-session-id-copy-v2&feature=galaxy-motion-mode-v3&feature=galaxy-edge-label-threshold-v1&feature=calculate-time-tool-v2&feature=analysis-task-expired-toast-v1&feature=global-replace-volume-v1&feature=chapter-search-replace-v1&feature=chapter-save-toast-v1&feature=character-relationship-delete-v1&feature=character-relationship-group-v1&feature=analysis-task-stability-delay-v1&feature=ai-assistant-workspace-v2&feature=volume-detail-icon-v1&feature=volume-story-order-v1&feature=reader-manual-chapter-navigation-v1&feature=ai-message-reference-badges-v1&feature=ai-message-actions-v1&feature=assistant-responsive-navigation-v3&feature=annotation-permissions-v1&feature=annotation-line-counts-v1&feature=ai-relationship-roleplay-v1&feature=ai-roleplay-user-character-visibility-v1&feature=ai-roleplay-story-recall-v1&feature=ai-model-picker-v1&feature=ai-fork-model-unlock-v1&feature=context-percent-format-v1&feature=annotation-precise-locate-v1&feature=markdown-word-count-stable-v1&feature=ai-stream-character-count-stable-v2&feature=ai-process-empty-intermediate-v1&feature=ai-feed-scroll-follow-v1&feature=ai-message-retry-v1&feature=ai-stream-idle-timeout-v2&feature=ai-config-delete-v1&feature=ai-provider-protocol-options-v1&feature=ai-provider-thinking-type-v1&feature=ai-chat-image-attachments-v8&feature=ai-message-image-preview-v1&feature=ai-thinking-scroll-v2&feature=ai-image-conversation-model-lock-v1&feature=toast-click-dismiss-v2&feature=system-restart-dialog-delay-v1&feature=character-avatar-v6&feature=character-death-position-v1&feature=admin-ai-conversations-v1&feature=ai-usage-pricing-v1&feature=ai-usage-pricing-badge-v2&feature=ai-usage-pricing-label-v1&feature=ai-usage-token-breakdown-v1&feature=ai-usage-pricing-cache-v2&feature=ai-usage-pricing-manual-refresh-v1&feature=ai-monthly-token-quota-v1&feature=ai-provider-token-quota-v1&feature=ai-token-quota-positive-v6&feature=ai-model-thinking-label-v1&feature=ai-model-picker-focus-v1&feature=ai-provider-model-import-v1&feature=ai-assistant-brain-icon-v1&feature=ai-token-usage-details-v1&feature=ai-token-usage-details-centered-v1&feature=ai-token-usage-raw-input-v1&feature=ai-stream-connection-seconds-v1&feature=phone-client-entry-v1&feature=ai-usage-pricing-cache-v1&feature=ai-model-thinking-label-v3&feature=ai-roleplay-speaker-label-v1&feature=toast-modal-host-v1&feature=api-key-copy-existing-v1&feature=character-favorite-v1&feature=record-favorites-v1&feature=ai-token-usage-estimated-price-v1&feature=entity-detail-favorites-v1&feature=roleplay-favorite-label-v1&feature=ai-roleplay-knowledge-tools-v1&feature=character-persona-summary-v1&feature=ai-roleplay-scene-turn-v2&feature=admin-account-identity-v2&feature=ai-provider-analysis-timeout-v1&feature=task-detail-failure-orange-v1"></script>
-+    <script type="module" src="/app.js?v=20260816-extended-thinking-effort-v1&feature=ai-tool-call-copy-feedback-v2&feature=ai-send-control-v2&feature=analysis-task-queue-refresh-v1&feature=character-gender-v1&feature=character-filter-state-v1&feature=relationship-canvas-scale-v1&feature=relationship-table-scroll-v1&feature=ai-session-id-copy-v2&feature=galaxy-motion-mode-v3&feature=galaxy-edge-label-threshold-v1&feature=calculate-time-tool-v2&feature=analysis-task-expired-toast-v1&feature=global-replace-volume-v1&feature=chapter-search-replace-v1&feature=chapter-save-toast-v1&feature=character-relationship-delete-v1&feature=character-relationship-group-v1&feature=analysis-task-stability-delay-v1&feature=ai-assistant-workspace-v2&feature=volume-detail-icon-v1&feature=volume-story-order-v1&feature=reader-manual-chapter-navigation-v1&feature=ai-message-reference-badges-v1&feature=ai-message-actions-v1&feature=assistant-responsive-navigation-v3&feature=annotation-permissions-v1&feature=annotation-line-counts-v1&feature=ai-relationship-roleplay-v1&feature=ai-roleplay-user-character-visibility-v1&feature=ai-roleplay-story-recall-v1&feature=ai-model-picker-v1&feature=ai-fork-model-unlock-v1&feature=context-percent-format-v1&feature=annotation-precise-locate-v1&feature=markdown-word-count-stable-v1&feature=ai-stream-character-count-stable-v2&feature=ai-process-empty-intermediate-v1&feature=ai-feed-scroll-follow-v1&feature=ai-message-retry-v1&feature=ai-stream-idle-timeout-v2&feature=ai-config-delete-v1&feature=ai-provider-protocol-options-v1&feature=ai-provider-thinking-type-v1&feature=ai-chat-image-attachments-v8&feature=ai-message-image-preview-v1&feature=ai-thinking-scroll-v2&feature=ai-image-conversation-model-lock-v1&feature=toast-click-dismiss-v2&feature=system-restart-dialog-delay-v1&feature=character-avatar-v6&feature=character-death-position-v1&feature=admin-ai-conversations-v1&feature=ai-usage-pricing-v1&feature=ai-usage-pricing-badge-v2&feature=ai-usage-pricing-label-v1&feature=ai-usage-token-breakdown-v1&feature=ai-usage-pricing-cache-v2&feature=ai-usage-pricing-manual-refresh-v1&feature=ai-monthly-token-quota-v1&feature=ai-provider-token-quota-v1&feature=ai-token-quota-positive-v6&feature=ai-model-thinking-label-v1&feature=ai-model-picker-focus-v1&feature=ai-provider-model-import-v1&feature=ai-assistant-brain-icon-v1&feature=ai-token-usage-details-v1&feature=ai-token-usage-details-centered-v1&feature=ai-token-usage-raw-input-v1&feature=ai-stream-connection-seconds-v1&feature=phone-client-entry-v1&feature=ai-usage-pricing-cache-v1&feature=ai-model-thinking-label-v3&feature=ai-roleplay-speaker-label-v1&feature=toast-modal-host-v1&feature=api-key-copy-existing-v1&feature=character-favorite-v1&feature=record-favorites-v1&feature=ai-token-usage-estimated-price-v1&feature=entity-detail-favorites-v1&feature=roleplay-favorite-label-v1&feature=ai-roleplay-knowledge-tools-v1&feature=character-persona-summary-v1&feature=ai-roleplay-scene-turn-v2&feature=admin-account-identity-v2&feature=ai-provider-analysis-timeout-v1&feature=task-detail-failure-orange-v1&feature=desktop-same-workspace-v1&feature=desktop-sync-fetch-brand-v1&feature=desktop-offline-worker-ready-v1&feature=desktop-local-ai-shared-ui-v1&feature=desktop-local-ai-workspace-v1&feature=desktop-local-ai-offline-v1&feature=desktop-rescue-export-v1&feature=desktop-profile-removal-guard-v1&feature=desktop-initial-offline-download-v2&feature=desktop-local-model-badge-only-v1"></script>
++    <script type="module" src="/app.js?v=20260816-extended-thinking-effort-v1&feature=ai-tool-call-copy-feedback-v2&feature=ai-send-control-v2&feature=analysis-task-queue-refresh-v1&feature=character-gender-v1&feature=character-filter-state-v1&feature=relationship-canvas-scale-v1&feature=relationship-table-scroll-v1&feature=ai-session-id-copy-v2&feature=galaxy-motion-mode-v3&feature=galaxy-edge-label-threshold-v1&feature=calculate-time-tool-v2&feature=analysis-task-expired-toast-v1&feature=global-replace-volume-v1&feature=chapter-search-replace-v1&feature=chapter-save-toast-v1&feature=character-relationship-delete-v1&feature=character-relationship-group-v1&feature=analysis-task-stability-delay-v1&feature=ai-assistant-workspace-v2&feature=volume-detail-icon-v1&feature=volume-story-order-v1&feature=reader-manual-chapter-navigation-v1&feature=ai-message-reference-badges-v1&feature=ai-message-actions-v1&feature=assistant-responsive-navigation-v3&feature=annotation-permissions-v1&feature=annotation-line-counts-v1&feature=ai-relationship-roleplay-v1&feature=ai-roleplay-user-character-visibility-v1&feature=ai-roleplay-story-recall-v1&feature=ai-model-picker-v1&feature=ai-fork-model-unlock-v1&feature=context-percent-format-v1&feature=annotation-precise-locate-v1&feature=markdown-word-count-stable-v1&feature=ai-stream-character-count-stable-v2&feature=ai-process-empty-intermediate-v1&feature=ai-feed-scroll-follow-v1&feature=ai-message-retry-v1&feature=ai-stream-idle-timeout-v2&feature=ai-config-delete-v1&feature=ai-provider-protocol-options-v1&feature=ai-provider-thinking-type-v1&feature=ai-chat-image-attachments-v8&feature=ai-message-image-preview-v1&feature=ai-thinking-scroll-v2&feature=ai-image-conversation-model-lock-v1&feature=toast-click-dismiss-v2&feature=system-restart-dialog-delay-v1&feature=character-avatar-v6&feature=character-death-position-v1&feature=admin-ai-conversations-v1&feature=ai-usage-pricing-v1&feature=ai-usage-pricing-badge-v2&feature=ai-usage-pricing-label-v1&feature=ai-usage-token-breakdown-v1&feature=ai-usage-pricing-cache-v2&feature=ai-usage-pricing-manual-refresh-v1&feature=ai-monthly-token-quota-v1&feature=ai-provider-token-quota-v1&feature=ai-token-quota-positive-v6&feature=ai-model-thinking-label-v1&feature=ai-model-picker-focus-v1&feature=ai-provider-model-import-v1&feature=ai-assistant-brain-icon-v1&feature=ai-token-usage-details-v1&feature=ai-token-usage-details-centered-v1&feature=ai-token-usage-raw-input-v1&feature=ai-stream-connection-seconds-v1&feature=phone-client-entry-v1&feature=ai-usage-pricing-cache-v1&feature=ai-model-thinking-label-v3&feature=ai-roleplay-speaker-label-v1&feature=toast-modal-host-v1&feature=api-key-copy-existing-v1&feature=character-favorite-v1&feature=record-favorites-v1&feature=ai-token-usage-estimated-price-v1&feature=entity-detail-favorites-v1&feature=roleplay-favorite-label-v1&feature=ai-roleplay-knowledge-tools-v1&feature=character-persona-summary-v1&feature=ai-roleplay-scene-turn-v2&feature=admin-account-identity-v2&feature=ai-provider-analysis-timeout-v1&feature=task-detail-failure-orange-v1&feature=desktop-same-workspace-v1&feature=desktop-sync-fetch-brand-v1&feature=desktop-offline-worker-ready-v1&feature=desktop-local-ai-shared-ui-v1&feature=desktop-local-ai-workspace-v1&feature=desktop-local-ai-offline-v1&feature=desktop-rescue-export-v1&feature=desktop-profile-removal-guard-v1&feature=desktop-initial-offline-download-v2&feature=desktop-local-model-badge-only-v1&feature=desktop-sync-status-v1"></script>
    </body>
  </html>
 diff --git a/public/styles.css b/public/styles.css
@@ -1668,6 +1716,12 @@ index bdaa6213..89d7da11 100644
  .settings-hub-card strong { align-self: end; font-size: 16px; }
  .settings-hub-card small { align-self: start; color: var(--muted); font-size: 10px; line-height: 1.5; }
 +.book-offline-badge { border-color: color-mix(in srgb, var(--green) 45%, var(--line)); color: var(--green); }
++.desktop-sync-status-button { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 6px; height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 18px; background: transparent; color: var(--muted); font: 9px/1 var(--font-latin), var(--font-cjk), sans-serif; white-space: nowrap; }
++.desktop-sync-status-button:hover, .desktop-sync-status-button:focus-visible { border-color: var(--accent); color: var(--accent-dark); }
++.desktop-sync-status-button[data-status="downloading"] { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); color: var(--accent-dark); }
++.desktop-sync-status-button[data-status="ready"] { border-color: color-mix(in srgb, var(--green) 48%, var(--line)); color: var(--green); }
++.desktop-sync-status-button[data-status="attention"] { border-color: color-mix(in srgb, #d67b45 58%, var(--line)); color: #b85f2f; }
++.desktop-sync-status-icon { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
 +.work-offline-actions { display: flex; flex: 0 0 auto; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
 +.work-offline-actions .ghost-button { flex: 0 0 auto; }
 +.desktop-sync-dialog { width: min(980px, 94vw); }
@@ -1694,6 +1748,8 @@ index bdaa6213..89d7da11 100644
 +.desktop-conflict-final header button { min-height: 30px; padding: 5px 8px; font-size: 9px; }
 +.desktop-conflict-final textarea { width: 100%; min-height: min(28vh, 280px); padding: 12px; resize: vertical; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); font: 10px/1.55 var(--font-latin), monospace; }
 +@media (max-width: 760px) {
++  .desktop-sync-status-button { width: 36px; padding: 0; justify-content: center; }
++  #desktop-sync-status-label { display: none; }
 +  .desktop-sync-row { align-items: stretch; flex-direction: column; }
 +  .desktop-sync-row-actions { justify-content: stretch; }
 +  .desktop-sync-row-actions button { flex: 1 1 140px; }

@@ -20,16 +20,21 @@ describe("Desktop 远端工作区窗口", () => {
     expect(sessionSource).toContain("setPermissionRequestHandler");
   });
 
-  it("导航只能停留在 profile 精确 origin", () => {
+  it("导航只能停留在精确工作区 origin", () => {
     expect(isAllowedRemoteWorkspaceNavigation("https://server.example/app?work=1", "https://server.example")).toBe(true);
+    expect(isAllowedRemoteWorkspaceNavigation("app://workspace-profile/#view=shelf", "app://workspace-profile/")).toBe(true);
     expect(isAllowedRemoteWorkspaceNavigation("https://evil.example/", "https://server.example")).toBe(false);
+    expect(isAllowedRemoteWorkspaceNavigation("app://workspace-other/", "app://workspace-profile/")).toBe(false);
     expect(isAllowedRemoteWorkspaceNavigation("file:///etc/passwd", "https://server.example")).toBe(false);
     expect(isAllowedRemoteWorkspaceNavigation("https://user:pass@server.example/", "https://server.example")).toBe(false);
   });
 
-  it("在线与离线启动都加载当前随包 Web 资源", () => {
-    expect(windowSource).toContain("registerBundledOfflineShell");
-    expect(windowSource).not.toContain('if (options.connectionMode === "offline")');
+  it("在线与离线都加载随包 Web，并只通过同源 API 转发访问 Server", () => {
+    expect(windowSource).toContain("registerBundledWorkspaceShell");
+    expect(windowSource).toContain("remoteWorkspaceShellUrl(options.profile.id)");
+    expect(windowSource).toContain("await window.loadURL(shellUrl)");
+    expect(windowSource).not.toContain("loadURL(options.profile.origin)");
+    expect(windowSource).not.toContain("executeJavaScript");
     expect(windowSource).not.toContain("serviceWorkers.startWorkerForScope");
     expect(windowSource).not.toContain("clearStorageData");
   });
@@ -42,7 +47,7 @@ describe("Desktop 远端工作区窗口", () => {
 
   it("在 Selector 所在显示器创建并显示工作区窗口", () => {
     expect(windowSource).toContain('title: `${options.profile.name} - ${DESKTOP_DISPLAY_NAME}`');
-    expect(windowSource).toContain("executeJavaScript(remoteWorkspaceShellScript(options.profile.name))");
+    expect(windowSource).toContain("await window.loadURL(shellUrl)");
     expect(windowSource).toContain("...(options.placement?.bounds ?? {})");
     expect(windowSource.indexOf("window.show();")).toBeLessThan(windowSource.indexOf("options.onReady();"));
   });

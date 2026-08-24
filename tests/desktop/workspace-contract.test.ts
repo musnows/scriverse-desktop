@@ -38,7 +38,7 @@ describe("Desktop 工作区最小 bridge", () => {
     expect(preloadSource).not.toContain("ipcRenderer,");
     expect(preloadSource).not.toContain("send:");
     expect(ipcSource).toContain("event.sender.session !== workspaceWindow.webContents.session");
-    expect(ipcSource).toContain("senderOrigin !== profile.origin");
+    expect(ipcSource).toContain('isRemoteWorkspaceShellUrl(event.senderFrame?.url ?? "", profile.id)');
     expect(ipcSource).toContain("activeProfileId() !== profile.id");
     expect(ipcSource).toContain("user: options.getCachedUser()");
     expect(ipcSource).toContain("connectionMode: options.getConnectionMode()");

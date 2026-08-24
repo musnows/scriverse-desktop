@@ -16,6 +16,7 @@ import {
   parseWorkspaceLeaveState,
   type WorkspaceLeaveState
 } from "../shared/workspace-contract.js";
+import { isRemoteWorkspaceShellUrl } from "./workspace-shell-protocol.js";
 
 type IpcSuccess<T> = { ok: true; data: T };
 type IpcFailure = { ok: false; error: { code: string; message: string } };
@@ -56,17 +57,11 @@ function assertWorkspaceSender(
   profile: RemoteWorkspaceProfile,
   activeProfileId: () => string | null
 ): void {
-  let senderOrigin = "";
-  try {
-    senderOrigin = new URL(event.senderFrame?.url ?? "").origin;
-  } catch {
-    senderOrigin = "";
-  }
   if (
     workspaceWindow.isDestroyed()
     || event.sender.id !== workspaceWindow.webContents.id
     || event.sender.session !== workspaceWindow.webContents.session
-    || senderOrigin !== profile.origin
+    || !isRemoteWorkspaceShellUrl(event.senderFrame?.url ?? "", profile.id)
     || activeProfileId() !== profile.id
   ) {
     const error = new Error("已拒绝非当前远端工作区调用 Desktop 能力") as Error & { code: string };

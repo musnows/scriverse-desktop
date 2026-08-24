@@ -3,8 +3,7 @@ import { join } from "node:path";
 import { DESKTOP_DISPLAY_NAME } from "../shared/branding.js";
 import type { RemoteWorkspaceProfile } from "../shared/contracts.js";
 import { isAllowedRemoteWorkspaceNavigation } from "../shared/remote-workspace-url.js";
-import { registerBundledOfflineShell } from "./offline-shell-protocol.js";
-import { remoteWorkspaceShellScript } from "./remote-workspace-shell.js";
+import { registerBundledWorkspaceShell, remoteWorkspaceShellUrl } from "./workspace-shell-protocol.js";
 import { createWorkspaceLoadingCover } from "./workspace-loading-cover.js";
 import { applyWindowPlacement, type DesktopWindowPlacement } from "./window-placement.js";
 
@@ -19,6 +18,7 @@ export async function createRemoteWorkspaceWindow(options: {
   onCreated?: (window: BrowserWindow) => void;
   show?: boolean;
 }): Promise<BrowserWindow> {
+  const shellUrl = remoteWorkspaceShellUrl(options.profile.id);
   const window = new BrowserWindow({
     width: 1_320,
     height: 840,
@@ -46,22 +46,16 @@ export async function createRemoteWorkspaceWindow(options: {
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   window.webContents.on("will-attach-webview", (event) => event.preventDefault());
   window.webContents.on("will-navigate", (event, target) => {
-    if (!isAllowedRemoteWorkspaceNavigation(target, options.profile.origin)) event.preventDefault();
+    if (!isAllowedRemoteWorkspaceNavigation(target, shellUrl)) event.preventDefault();
   });
   window.webContents.on("will-redirect", (event, target) => {
-    if (!isAllowedRemoteWorkspaceNavigation(target, options.profile.origin)) event.preventDefault();
+    if (!isAllowedRemoteWorkspaceNavigation(target, shellUrl)) event.preventDefault();
   });
   window.webContents.on("did-fail-load", (_event, errorCode, errorDescription, _validatedUrl, isMainFrame) => {
     if (isMainFrame) process.stderr.write(`Remote workspace load failed for profile ${options.profile.id} (${errorCode}): ${errorDescription}\n`);
   });
   window.webContents.on("render-process-gone", (_event, details) => {
     process.stderr.write(`Remote workspace renderer stopped for profile ${options.profile.id}: ${details.reason}\n`);
-  });
-  window.webContents.on("did-finish-load", () => {
-    if (options.connectionMode !== "online") return;
-    void window.webContents.executeJavaScript(remoteWorkspaceShellScript(options.profile.name)).catch((error: unknown) => {
-      process.stderr.write(`Remote workspace shell injection failed for profile ${options.profile.id}: ${error instanceof Error ? error.message : String(error)}\n`);
-    });
   });
   window.once("ready-to-show", () => {
     void loadingCover.prepare().catch(() => undefined).finally(() => {
@@ -72,19 +66,20 @@ export async function createRemoteWorkspaceWindow(options: {
       void loadingCover.revealWhenReady();
     });
   });
-  let disposeOfflineShell: (() => void) | null = null;
+  let disposeWorkspaceShell: (() => void) | null = null;
   window.once("closed", () => {
     loadingCover.dispose();
-    disposeOfflineShell?.();
+    disposeWorkspaceShell?.();
     options.onClosed();
   });
   try {
-    disposeOfflineShell = registerBundledOfflineShell(
+    disposeWorkspaceShell = registerBundledWorkspaceShell(
       window.webContents.session,
-      options.profile.origin,
-      options.offlineShellRoot
+      options.profile,
+      options.offlineShellRoot,
+      options.connectionMode
     );
-    await window.loadURL(options.profile.origin);
+    await window.loadURL(shellUrl);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`Remote workspace startup failed for profile ${options.profile.id}: ${message}\n`);

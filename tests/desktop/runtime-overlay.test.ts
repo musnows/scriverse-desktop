@@ -6,6 +6,7 @@ describe("Desktop Web runtime overlay", () => {
   it("keeps Desktop Web modules outside the Scriverse runtime source", () => {
     const prepareSource = readFileSync(join(process.cwd(), "scripts/prepare-runtime.mjs"), "utf8");
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
+    const gitAttributes = readFileSync(join(process.cwd(), ".gitattributes"), "utf8");
 
     expect(prepareSource).not.toContain('"public/desktop-workspace.js",\n  "public/vendor');
     expect(prepareSource).toContain('gitApply("--check")');
@@ -13,6 +14,7 @@ describe("Desktop Web runtime overlay", () => {
     expect(prepareSource).toContain("cpSync(overlayPublic");
     expect(overlayPatch).toContain("diff --git a/public/app.js b/public/app.js");
     expect(overlayPatch).toContain("createDesktopWorkspaceController");
+    expect(gitAttributes).toContain("runtime-overlay/*.patch text eol=lf");
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-workspace.js"))).toBe(true);
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-local-ai-offline.js"))).toBe(true);
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-local-ai-catalog.js"))).toBe(true);

@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 
 const root = resolve(import.meta.dirname, "..");
 const arch = process.argv[2] ?? process.arch;
-const packageName = process.platform === "darwin" ? "叙界" : "Scriverse Desktop";
+const packageName = process.platform === "darwin" ? "scriverse-desktop" : "Scriverse Desktop";
 const packageDirectory = join(root, "out", `${packageName}-${process.platform}-${arch}`);
 const executable = process.platform === "darwin"
   ? join(packageDirectory, "叙界.app", "Contents", "MacOS", "Scriverse Desktop")

@@ -1,14 +1,14 @@
 import { FuseV1Options, FuseVersion } from "@electron/fuses";
 import { FusesPlugin } from "@electron-forge/plugin-fuses";
 import type { ForgeConfig } from "@electron-forge/shared-types";
-import { existsSync } from "node:fs";
+import { existsSync, renameSync } from "node:fs";
 import { join } from "node:path";
 import { DESKTOP_DISPLAY_NAME } from "./src/shared/branding.js";
 
 const desktopMainEntry = "build/main/main.js";
 const desktopAssets = "assets";
 const internalApplicationName = "Scriverse Desktop";
-const packagedApplicationName = process.platform === "darwin" ? DESKTOP_DISPLAY_NAME : internalApplicationName;
+const packagedApplicationName = process.platform === "darwin" ? "scriverse-desktop" : internalApplicationName;
 const macSigningIdentity = process.env.APPLE_SIGN_IDENTITY?.trim() || null;
 const macNotarization = process.env.APPLE_API_KEY?.trim()
   && process.env.APPLE_API_KEY_ID?.trim()
@@ -109,6 +109,19 @@ const config: ForgeConfig = {
   hooks: {
     prePackage: async (_forgeConfig, platform, arch) => {
       assertTargetNativeDependencies(String(platform), String(arch));
+    },
+    postPackage: async (_forgeConfig, packageResult) => {
+      if (packageResult.platform !== "darwin") return;
+      for (const outputPath of packageResult.outputPaths) {
+        const packagedBundle = join(outputPath, `${packagedApplicationName}.app`);
+        const displayBundle = join(outputPath, `${DESKTOP_DISPLAY_NAME}.app`);
+        if (!existsSync(packagedBundle)) {
+          if (existsSync(displayBundle)) continue;
+          throw new Error(`Packaged macOS application is missing: ${packagedBundle}`);
+        }
+        if (existsSync(displayBundle)) throw new Error(`Packaged macOS display application already exists: ${displayBundle}`);
+        renameSync(packagedBundle, displayBundle);
+      }
     },
     readPackageJson: async (_forgeConfig, packageJson) => ({
       ...packageJson,

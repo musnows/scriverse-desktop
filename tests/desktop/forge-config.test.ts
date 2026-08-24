@@ -5,7 +5,7 @@ describe("Desktop Forge configuration", () => {
   it("packages an ASAR app with supported platform makers and hardened fuses", () => {
     expect(config.packagerConfig?.asar).toMatchObject({ unpackDir: "node_modules/@img" });
     expect(config.packagerConfig).toMatchObject({
-      name: process.platform === "darwin" ? "叙界" : "Scriverse Desktop",
+      name: process.platform === "darwin" ? "scriverse-desktop" : "Scriverse Desktop",
       executableName: "Scriverse Desktop",
       appBundleId: "top.scriverse.desktop",
       extendInfo: {
@@ -43,5 +43,11 @@ describe("Desktop Forge configuration", () => {
     const missingArch = process.arch === "arm64" ? "x64" : "arm64";
     await expect(hook?.({} as never, process.platform, missingArch)).rejects.toThrow(/native target dependencies/u);
     await expect(hook?.({} as never, process.platform, process.arch)).resolves.toBeUndefined();
+  });
+
+  it("keeps an English macOS package directory and renames only the app bundle", async () => {
+    const hook = config.hooks?.postPackage;
+    expect(hook).toBeTypeOf("function");
+    expect(config.packagerConfig?.name).toBe(process.platform === "darwin" ? "scriverse-desktop" : "Scriverse Desktop");
   });
 });

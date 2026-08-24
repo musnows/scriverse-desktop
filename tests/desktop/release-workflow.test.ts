@@ -24,7 +24,7 @@ describe("Desktop 发布链路", () => {
     expect(forge).toContain("windowsSign");
     expect(release).toContain("secrets.DESKTOP_APPLE_CERTIFICATE_BASE64");
     expect(release).toContain("secrets.DESKTOP_WINDOWS_CERTIFICATE_BASE64");
-    expect(release).toContain('app_path="out/叙界-darwin-${{ matrix.arch }}/叙界.app"');
+    expect(release).toContain('app_path="out/scriverse-desktop-darwin-${{ matrix.arch }}/叙界.app"');
     expect(release).not.toMatch(/BEGIN (?:RSA )?PRIVATE KEY/u);
   });
 

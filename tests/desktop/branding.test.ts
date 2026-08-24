@@ -32,6 +32,7 @@ describe("叙界桌面端品牌显示", () => {
     expect(forge).toContain('name: packagedApplicationName');
     expect(forge).toContain('executableName: internalApplicationName');
     expect(paths).toContain('"Application Support", "Scriverse Desktop", "data"');
+    expect(verifier).toContain('"scriverse-desktop"');
     expect(verifier).toContain('"叙界.app"');
     expect(localizedInfo).toContain('"CFBundleDisplayName" = "叙界";');
   });

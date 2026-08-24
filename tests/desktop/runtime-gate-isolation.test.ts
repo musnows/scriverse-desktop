@@ -19,7 +19,7 @@ describe("Desktop runtime gate isolation", () => {
     const mainSource = readFileSync(join(process.cwd(), "src/main/main.ts"), "utf8");
     const utilitySource = readFileSync(join(process.cwd(), "src/utility/runtime-gate.mts"), "utf8");
     const verifierSource = readFileSync(join(process.cwd(), "scripts/verify-package.mjs"), "utf8");
-    expect(mainSource).toContain("SCRIVERSE_DESKTOP_GATE_SKIP_LOCAL_SERVER");
+    expect(mainSource).toContain('SCRIVERSE_DESKTOP_GATE_SKIP_LOCAL_SERVER === "true" ? "true" : "false"');
     expect(utilitySource).toContain('process.env.SCRIVERSE_DESKTOP_GATE_SKIP_LOCAL_SERVER === "true"');
     expect(verifierSource).toContain('process.platform === "win32"');
     expect(verifierSource).toContain("report.localServerSkipped === true");

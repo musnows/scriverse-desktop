@@ -79,13 +79,11 @@ export async function createRemoteWorkspaceWindow(options: {
     options.onClosed();
   });
   try {
-    if (options.connectionMode === "offline") {
-      disposeOfflineShell = registerBundledOfflineShell(
-        window.webContents.session,
-        options.profile.origin,
-        options.offlineShellRoot
-      );
-    }
+    disposeOfflineShell = registerBundledOfflineShell(
+      window.webContents.session,
+      options.profile.origin,
+      options.offlineShellRoot
+    );
     await window.loadURL(options.profile.origin);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

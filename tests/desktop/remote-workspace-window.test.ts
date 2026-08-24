@@ -27,9 +27,9 @@ describe("Desktop 远端工作区窗口", () => {
     expect(isAllowedRemoteWorkspaceNavigation("https://user:pass@server.example/", "https://server.example")).toBe(false);
   });
 
-  it("离线启动时直接加载当前随包 Web 资源", () => {
-    expect(windowSource).toContain('options.connectionMode === "offline"');
+  it("在线与离线启动都加载当前随包 Web 资源", () => {
     expect(windowSource).toContain("registerBundledOfflineShell");
+    expect(windowSource).not.toContain('if (options.connectionMode === "offline")');
     expect(windowSource).not.toContain("serviceWorkers.startWorkerForScope");
     expect(windowSource).not.toContain("clearStorageData");
   });

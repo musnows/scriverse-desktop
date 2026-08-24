@@ -30,6 +30,7 @@ describe("Desktop 发布链路", () => {
     expect(forge).toContain("windowsSign");
     expect(forge).not.toContain("release builds require signing");
     expect(release).toContain("New-SelfSignedCertificate");
+    expect(release).not.toContain("Import-Certificate");
     expect(release).toContain('codesign --verify --deep --strict "$app_path"');
     expect(release).toContain('grep -F "Signature=adhoc"');
     expect(release).toContain('if: ${{ always() && !cancelled() }}');

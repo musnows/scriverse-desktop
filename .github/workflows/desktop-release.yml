@@ -87,7 +87,6 @@ jobs:
         shell: pwsh
         run: |
           $certificatePath = Join-Path $env:RUNNER_TEMP "desktop-certificate.pfx"
-          $publicCertificatePath = Join-Path $env:RUNNER_TEMP "desktop-certificate.cer"
           $certificatePassword = [Guid]::NewGuid().ToString("N")
           $securePassword = ConvertTo-SecureString -String $certificatePassword -AsPlainText -Force
           $certificate = New-SelfSignedCertificate `
@@ -96,8 +95,6 @@ jobs:
             -CertStoreLocation "Cert:\CurrentUser\My" `
             -NotAfter (Get-Date).AddYears(3)
           Export-PfxCertificate -Cert $certificate -FilePath $certificatePath -Password $securePassword | Out-Null
-          Export-Certificate -Cert $certificate -FilePath $publicCertificatePath | Out-Null
-          Import-Certificate -FilePath $publicCertificatePath -CertStoreLocation "Cert:\CurrentUser\Root" | Out-Null
           Write-Output "::add-mask::$certificatePassword"
           "WINDOWS_CERTIFICATE_FILE=$certificatePath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "WINDOWS_CERTIFICATE_PASSWORD=$certificatePassword" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
@@ -151,7 +148,8 @@ jobs:
           )
           foreach ($file in $files) {
             $signature = Get-AuthenticodeSignature $file
-            if ($signature.Status -ne "Valid" -or -not $signature.SignerCertificate) { throw "Invalid signature: $file" }
+            if (-not $signature.SignerCertificate) { throw "Missing signature: $file" }
+            if ($signature.Status -in @("NotSigned", "HashMismatch")) { throw "Invalid signature: $file" }
             if ($signature.SignerCertificate.Subject -ne "CN=Scriverse Desktop") { throw "Unexpected signer: $file" }
           }
 

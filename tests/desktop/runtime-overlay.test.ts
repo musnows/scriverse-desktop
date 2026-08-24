@@ -54,7 +54,8 @@ describe("Desktop Web runtime overlay", () => {
   it("preserves the upstream system administrator account identity UI", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 
-    expect(overlayPatch).toContain("feature=admin-account-identity-v2&feature=ai-provider-analysis-timeout-v1&feature=desktop-same-workspace-v1");
+    expect(overlayPatch).toContain("feature=admin-account-identity-v2&feature=ai-provider-analysis-timeout-v1&feature=task-detail-failure-orange-v1&feature=desktop-same-workspace-v1");
+    expect(overlayPatch.match(/feature=task-detail-failure-orange-v1/g)).toHaveLength(4);
     expect(overlayPatch).not.toContain('-          <button id="account-button"');
     expect(overlayPatch).not.toContain("-  const isSystemAdmin = session.user.isSystemAdmin === true;");
   });

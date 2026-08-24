@@ -77,12 +77,16 @@ describe("Desktop Web runtime overlay", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 
     expect(overlayPatch).toContain('id="desktop-sync-status-button"');
-    expect(overlayPatch).toContain('id="desktop-sync-status-label"');
+    expect(overlayPatch).toContain('class="topbar-icon-button desktop-sync-status-button hidden"');
+    expect(overlayPatch).not.toContain('id="desktop-sync-status-label"');
+    expect(overlayPatch).not.toContain("+.desktop-sync-status-button {");
+    expect(overlayPatch).toContain("+.desktop-sync-status-icon {");
     expect(overlayPatch).toContain("下载中 ${desktopInitialOfflineDownloadProgress.completed}/${desktopInitialOfflineDownloadProgress.total}");
     expect(overlayPatch).toContain("已离线 ${aggregate.works} 部");
     expect(overlayPatch).toContain('$("#desktop-sync-status-button").addEventListener("click", () => { void openDesktopSyncCenter(); });');
     expect(overlayPatch).toContain('const serverWorks = desktopOfflineMode ? [] : await apiAllPages("/api/works", 100);');
     expect(overlayPatch.match(/feature=desktop-sync-status-v1/g)).toHaveLength(2);
+    expect(overlayPatch.match(/feature=desktop-sync-icon-only-v1/g)).toHaveLength(2);
   });
 
   it("preserves the upstream system administrator account identity UI", () => {

@@ -1,5 +1,20 @@
 const { contextBridge, ipcRenderer } = require("electron") as typeof import("electron");
 
+const aiStreamChannel = "local-workspace:local-ai:stream-event";
+
+function invokeAiWithStream(channel: string, input: unknown, listener?: (event: unknown) => void): Promise<unknown> {
+  const requestId = input && typeof input === "object" && "requestId" in input && typeof input.requestId === "string"
+    ? input.requestId
+    : null;
+  if (!requestId || typeof listener !== "function") return ipcRenderer.invoke(channel, input);
+  const handler = (_event: Electron.IpcRendererEvent, payload: unknown) => {
+    if (!payload || typeof payload !== "object" || !("requestId" in payload) || payload.requestId !== requestId || !("event" in payload)) return;
+    listener(payload.event);
+  };
+  ipcRenderer.on(aiStreamChannel, handler);
+  return ipcRenderer.invoke(channel, input).finally(() => ipcRenderer.removeListener(aiStreamChannel, handler));
+}
+
 contextBridge.exposeInMainWorld("scriverseDesktopLocalShell", Object.freeze({
   getCapabilities: () => ipcRenderer.invoke("local-workspace:shell:get-capabilities"),
   requestSwitch: () => ipcRenderer.invoke("local-workspace:shell:request-switch"),
@@ -8,8 +23,8 @@ contextBridge.exposeInMainWorld("scriverseDesktopLocalShell", Object.freeze({
 
 contextBridge.exposeInMainWorld("scriverseDesktopLocalAi", Object.freeze({
   catalog: () => ipcRenderer.invoke("local-workspace:local-ai:catalog"),
-  complete: (input: unknown) => ipcRenderer.invoke("local-workspace:local-ai:complete", input),
+  complete: (input: unknown, listener?: (event: unknown) => void) => invokeAiWithStream("local-workspace:local-ai:complete", input, listener),
   cancel: (input: unknown) => ipcRenderer.invoke("local-workspace:local-ai:cancel", input),
-  completeAgentRound: (input: unknown) => ipcRenderer.invoke("local-workspace:local-ai:agent-round", input),
+  completeAgentRound: (input: unknown, listener?: (event: unknown) => void) => invokeAiWithStream("local-workspace:local-ai:agent-round", input, listener),
   cancelAgentRound: (input: unknown) => ipcRenderer.invoke("local-workspace:local-ai:agent-round-cancel", input)
 }));

@@ -31,7 +31,7 @@ export function desktopOfflineLocalAiSystemPrompt(context) {
     lockedSettingsBudget -= contentBudget;
   }
   return [
-    "你是叙界 Desktop 的本地创作助手。当前处于远端 Server 离线状态。",
+    "你是叙界创作助手。当前处于远端 Server 离线状态。",
     "只能依据下方本机离线副本提供建议；不得声称已读取远端 AI 设置、远端最新数据或未提供的设定。",
     "输出应直接回应作者要求。续写或润色时只返回建议正文，不要自动修改作品。",
     "",

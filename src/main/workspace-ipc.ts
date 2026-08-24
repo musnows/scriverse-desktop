@@ -10,6 +10,7 @@ import {
   type LocalAiAgentRoundResult,
   type LocalAiCompletionRequestInput,
   type LocalAiCompletionResult,
+  type LocalAiStreamEvent,
   type LocalAiWorkspaceCatalog
 } from "../shared/local-ai-contract.js";
 import {
@@ -32,6 +33,7 @@ const workspaceChannels = [
   "workspace:local-ai:agent-round",
   "workspace:local-ai:agent-round-cancel"
 ] as const;
+const aiStreamEventChannel = "workspace:local-ai:stream-event";
 
 function ok<T>(data: T): IpcSuccess<T> {
   return { ok: true, data };
@@ -92,9 +94,9 @@ export function registerWorkspaceIpc(workspaceWindow: BrowserWindow, profile: Re
   getCachedUser: () => RemoteAuthUser | null;
   getConnectionMode: () => "online" | "offline" | null;
   getLocalAiCatalog: (userId: string) => LocalAiWorkspaceCatalog;
-  completeLocalAi: (userId: string, input: LocalAiCompletionRequestInput) => Promise<LocalAiCompletionResult>;
+  completeLocalAi: (userId: string, input: LocalAiCompletionRequestInput, onEvent: (event: LocalAiStreamEvent) => void) => Promise<LocalAiCompletionResult>;
   cancelLocalAi: (userId: string, requestId: string) => boolean;
-  completeLocalAiAgentRound: (userId: string, input: LocalAiAgentRoundInput) => Promise<LocalAiAgentRoundResult>;
+  completeLocalAiAgentRound: (userId: string, input: LocalAiAgentRoundInput, onEvent: (event: LocalAiStreamEvent) => void) => Promise<LocalAiAgentRoundResult>;
   cancelLocalAiAgentRound: (userId: string, requestId: string) => boolean;
   reportLeaveState: (state: WorkspaceLeaveState) => void;
   requestSwitch: () => Promise<void> | void;
@@ -127,13 +129,19 @@ export function registerWorkspaceIpc(workspaceWindow: BrowserWindow, profile: Re
     return options.getLocalAiCatalog(activeUserId());
   });
   handle("workspace:local-ai:complete", workspaceWindow, profile, options.activeProfileId, (input) => {
-    return options.completeLocalAi(activeUserId(), parseLocalAiCompletionRequestInput(input));
+    const parsed = parseLocalAiCompletionRequestInput(input);
+    return options.completeLocalAi(activeUserId(), parsed, (event) => {
+      if (!workspaceWindow.isDestroyed()) workspaceWindow.webContents.send(aiStreamEventChannel, { requestId: parsed.requestId, event });
+    });
   });
   handle("workspace:local-ai:cancel", workspaceWindow, profile, options.activeProfileId, (input) => {
     return options.cancelLocalAi(activeUserId(), parseCancelLocalAiCompletionInput(input).requestId);
   });
   handle("workspace:local-ai:agent-round", workspaceWindow, profile, options.activeProfileId, (input) => {
-    return options.completeLocalAiAgentRound(activeUserId(), parseLocalAiAgentRoundInput(input));
+    const parsed = parseLocalAiAgentRoundInput(input);
+    return options.completeLocalAiAgentRound(activeUserId(), parsed, (event) => {
+      if (!workspaceWindow.isDestroyed()) workspaceWindow.webContents.send(aiStreamEventChannel, { requestId: parsed.requestId, event });
+    });
   });
   handle("workspace:local-ai:agent-round-cancel", workspaceWindow, profile, options.activeProfileId, (input) => {
     return options.cancelLocalAiAgentRound(activeUserId(), parseCancelLocalAiAgentRoundInput(input).requestId);

@@ -10,6 +10,16 @@ function credentialVault(): CredentialVault {
   return new CredentialVault("local-ai-coordinator-test-secret-1234567890");
 }
 
+function streamResponse(frames: string[]): Response {
+  const encoder = new TextEncoder();
+  return new Response(new ReadableStream({
+    start(controller) {
+      frames.forEach((frame) => controller.enqueue(encoder.encode(frame)));
+      controller.close();
+    }
+  }), { status: 200, headers: { "Content-Type": "text/event-stream" } });
+}
+
 function configuredStore(): { store: LocalAiProviderStore; modelId: string } {
   const store = new LocalAiProviderStore(
     join(tmpdir(), `scriverse-local-ai-coordinator-${process.pid}-${crypto.randomUUID()}`),
@@ -88,18 +98,16 @@ describe("Desktop 本地 AI 请求协调器", () => {
       expect(body.model).toBe("desktop-local-model");
       expect(body.tool_choice).toBe("auto");
       expect(body.tools).toEqual([expect.objectContaining({ function: expect.objectContaining({ name: "story_index" }) })]);
+      expect(body.stream).toBe(true);
+      expect(body.stream_options).toEqual({ include_usage: true });
       expect(JSON.stringify(body.messages)).toContain("远端规则");
       expect(JSON.stringify(body.messages)).toContain("<desktop_local_ai_prompt>");
       expect(JSON.stringify(body.messages)).toContain("只在本机使用");
-      return new Response(JSON.stringify({
-        choices: [{
-          finish_reason: "tool_calls",
-          message: {
-            content: null,
-            tool_calls: [{ id: "call-1", type: "function", function: { name: "story_index", arguments: "{}" } }]
-          }
-        }]
-      }), { status: 200, headers: { "Content-Type": "application/json" } });
+      return streamResponse([
+        'data: {"id":"chatcmpl-tools","model":"desktop-local-model","choices":[{"index":0,"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"call-1","type":"function","function":{"name":"story_index","arguments":"{"}}]}}]}\n\n',
+        'data: {"id":"chatcmpl-tools","model":"desktop-local-model","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"}"}}]},"finish_reason":"tool_calls"}]}\n\n',
+        "data: [DONE]\n\n"
+      ]);
     });
     const coordinator = new LocalAiRequestCoordinator(store, new LocalAiClient(fetchImpl));
     const result = await coordinator.completeAgentRound({

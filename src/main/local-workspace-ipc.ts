@@ -8,6 +8,7 @@ import {
   type LocalAiAgentRoundResult,
   type LocalAiCompletionRequestInput,
   type LocalAiCompletionResult,
+  type LocalAiStreamEvent,
   type LocalAiWorkspaceCatalog
 } from "../shared/local-ai-contract.js";
 
@@ -25,6 +26,7 @@ const localWorkspaceChannels = [
   "local-workspace:local-ai:agent-round",
   "local-workspace:local-ai:agent-round-cancel"
 ] as const;
+const aiStreamEventChannel = "local-workspace:local-ai:stream-event";
 
 function errorResult(error: unknown): IpcFailure {
   if (error instanceof Error) {
@@ -33,11 +35,11 @@ function errorResult(error: unknown): IpcFailure {
       ok: false,
       error: {
         code,
-        message: code === "DESKTOP_INTERNAL_ERROR" ? "Desktop 本地 AI 操作失败" : error.message
+        message: code === "DESKTOP_INTERNAL_ERROR" ? "Desktop AI 操作失败" : error.message
       }
     };
   }
-  return { ok: false, error: { code: "DESKTOP_INTERNAL_ERROR", message: "Desktop 本地 AI 操作失败" } };
+  return { ok: false, error: { code: "DESKTOP_INTERNAL_ERROR", message: "Desktop AI 操作失败" } };
 }
 
 function assertLocalWorkspaceSender(
@@ -59,7 +61,7 @@ function assertLocalWorkspaceSender(
     || senderOrigin !== origin
     || !isActive()
   ) {
-    const error = new Error("已拒绝非当前本地工作区调用 Desktop 本地 AI") as Error & { code: string };
+    const error = new Error("已拒绝非当前工作区调用 Desktop AI 能力") as Error & { code: string };
     error.code = "LOCAL_WORKSPACE_SENDER_FORBIDDEN";
     throw error;
   }
@@ -88,9 +90,9 @@ export function registerLocalWorkspaceIpc(workspaceWindow: BrowserWindow, origin
   requestSwitch: () => Promise<void> | void;
   logout: () => Promise<void> | void;
   getLocalAiCatalog: () => LocalAiWorkspaceCatalog;
-  completeLocalAi: (input: LocalAiCompletionRequestInput) => Promise<LocalAiCompletionResult>;
+  completeLocalAi: (input: LocalAiCompletionRequestInput, onEvent: (event: LocalAiStreamEvent) => void) => Promise<LocalAiCompletionResult>;
   cancelLocalAi: (requestId: string) => boolean;
-  completeLocalAiAgentRound: (input: LocalAiAgentRoundInput) => Promise<LocalAiAgentRoundResult>;
+  completeLocalAiAgentRound: (input: LocalAiAgentRoundInput, onEvent: (event: LocalAiStreamEvent) => void) => Promise<LocalAiAgentRoundResult>;
   cancelLocalAiAgentRound: (requestId: string) => boolean;
 }): () => void {
   handle("local-workspace:shell:get-capabilities", workspaceWindow, origin, options.isActive, () => options.getWorkspaceIdentity());
@@ -98,13 +100,19 @@ export function registerLocalWorkspaceIpc(workspaceWindow: BrowserWindow, origin
   handle("local-workspace:shell:logout", workspaceWindow, origin, options.isActive, () => options.logout());
   handle("local-workspace:local-ai:catalog", workspaceWindow, origin, options.isActive, () => options.getLocalAiCatalog());
   handle("local-workspace:local-ai:complete", workspaceWindow, origin, options.isActive, (input) => {
-    return options.completeLocalAi(parseLocalAiCompletionRequestInput(input));
+    const parsed = parseLocalAiCompletionRequestInput(input);
+    return options.completeLocalAi(parsed, (event) => {
+      if (!workspaceWindow.isDestroyed()) workspaceWindow.webContents.send(aiStreamEventChannel, { requestId: parsed.requestId, event });
+    });
   });
   handle("local-workspace:local-ai:cancel", workspaceWindow, origin, options.isActive, (input) => {
     return options.cancelLocalAi(parseCancelLocalAiCompletionInput(input).requestId);
   });
   handle("local-workspace:local-ai:agent-round", workspaceWindow, origin, options.isActive, (input) => {
-    return options.completeLocalAiAgentRound(parseLocalAiAgentRoundInput(input));
+    const parsed = parseLocalAiAgentRoundInput(input);
+    return options.completeLocalAiAgentRound(parsed, (event) => {
+      if (!workspaceWindow.isDestroyed()) workspaceWindow.webContents.send(aiStreamEventChannel, { requestId: parsed.requestId, event });
+    });
   });
   handle("local-workspace:local-ai:agent-round-cancel", workspaceWindow, origin, options.isActive, (input) => {
     return options.cancelLocalAiAgentRound(parseCancelLocalAiAgentRoundInput(input).requestId);

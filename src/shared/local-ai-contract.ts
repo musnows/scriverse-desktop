@@ -121,6 +121,11 @@ export type LocalAiCompletionResult = {
   scope: "local";
 };
 
+export type LocalAiStreamEvent = {
+  type: "content-delta" | "reasoning-delta";
+  delta: string;
+};
+
 export type LocalAiAgentRoundInput = {
   requestId: string;
   modelId: string;
@@ -198,7 +203,7 @@ export function parseLocalAiProviderId(value: unknown): string {
 
 export function parseLocalAiModelId(value: unknown): string {
   if (typeof value !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value)) {
-    throw new LocalAiContractError("LOCAL_AI_MODEL_ID_INVALID", "本地 AI 模型 id 无效");
+    throw new LocalAiContractError("LOCAL_AI_MODEL_ID_INVALID", "AI 模型 id 无效");
   }
   return value;
 }
@@ -344,31 +349,31 @@ function parseLocalAiModelInput(value: Record<string, unknown>): LocalAiModelInp
     purposes.length === 0
     || purposes.length > LOCAL_AI_MODEL_PURPOSES.length
     || purposes.some((purpose) => typeof purpose !== "string" || !LOCAL_AI_MODEL_PURPOSES.includes(purpose as typeof LOCAL_AI_MODEL_PURPOSES[number]))
-  ) throw new LocalAiContractError("LOCAL_AI_MODEL_PURPOSES_INVALID", "本地 AI 模型用途无效");
-  if (!isRecord(value.preset)) throw new LocalAiContractError("LOCAL_AI_MODEL_PRESET_INVALID", "本地 AI 模型默认参数无效");
-  assertExactKeys(value.preset, ["temperature", "max_tokens"], "本地 AI 模型默认参数");
+  ) throw new LocalAiContractError("LOCAL_AI_MODEL_PURPOSES_INVALID", "AI 模型用途无效");
+  if (!isRecord(value.preset)) throw new LocalAiContractError("LOCAL_AI_MODEL_PRESET_INVALID", "AI 模型默认参数无效");
+  assertExactKeys(value.preset, ["temperature", "max_tokens"], "AI 模型默认参数");
   const temperature = Number(value.preset.temperature);
   if (!Number.isFinite(temperature) || temperature < 0 || temperature > 2) {
     throw new LocalAiContractError("LOCAL_AI_TEMPERATURE_INVALID", "本地 AI temperature 必须在 0 到 2 之间");
   }
   const thinkingEffort = value.thinkingEffort ?? "default";
   if (!LOCAL_AI_THINKING_EFFORTS.includes(thinkingEffort as typeof LOCAL_AI_THINKING_EFFORTS[number])) {
-    throw new LocalAiContractError("LOCAL_AI_THINKING_EFFORT_INVALID", "本地 AI 模型思考强度无效");
+    throw new LocalAiContractError("LOCAL_AI_THINKING_EFFORT_INVALID", "AI 模型思考强度无效");
   }
   for (const [key, label] of [["thinkingEnabled", "思考模式"], ["multimodalEnabled", "多模态能力"], ["imageToolDefault", "默认读图模型"], ["enabled", "启用状态"]] as const) {
-    if (typeof value[key] !== "boolean") throw new LocalAiContractError("LOCAL_AI_MODEL_INPUT_INVALID", `本地 AI 模型${label}无效`);
+    if (typeof value[key] !== "boolean") throw new LocalAiContractError("LOCAL_AI_MODEL_INPUT_INVALID", `AI 模型${label}无效`);
   }
   if (value.imageToolDefault === true && (value.multimodalEnabled !== true || value.enabled !== true)) {
-    throw new LocalAiContractError("LOCAL_AI_MODEL_IMAGE_DEFAULT_INVALID", "只有已启用的多模态本地模型才能设为默认读图模型");
+    throw new LocalAiContractError("LOCAL_AI_MODEL_IMAGE_DEFAULT_INVALID", "只有已启用的多模态模型才能设为默认读图模型");
   }
   return {
     providerId: parseLocalAiProviderId(value.providerId),
-    displayName: requiredString(value.displayName, 200, "LOCAL_AI_MODEL_NAME_INVALID", "本地 AI 模型显示名称"),
-    modelId: requiredString(value.modelId, 300, "LOCAL_AI_MODEL_NAME_INVALID", "本地 AI 模型标识符"),
+    displayName: requiredString(value.displayName, 200, "LOCAL_AI_MODEL_NAME_INVALID", "AI 模型显示名称"),
+    modelId: requiredString(value.modelId, 300, "LOCAL_AI_MODEL_NAME_INVALID", "AI 模型标识符"),
     purposes: purposes as LocalAiModelInput["purposes"],
-    contextNote: optionalString(value.contextNote ?? "", 10_000, "LOCAL_AI_MODEL_NOTE_INVALID", "本地 AI 模型上下文说明"),
-    contextWindow: boundedInteger(value.contextWindow, 32_768, 2_000_000, "LOCAL_AI_CONTEXT_WINDOW_INVALID", "本地 AI 模型上下文令牌总量"),
-    outputNote: optionalString(value.outputNote ?? "", 10_000, "LOCAL_AI_MODEL_NOTE_INVALID", "本地 AI 模型输出说明"),
+    contextNote: optionalString(value.contextNote ?? "", 10_000, "LOCAL_AI_MODEL_NOTE_INVALID", "AI 模型上下文说明"),
+    contextWindow: boundedInteger(value.contextWindow, 32_768, 2_000_000, "LOCAL_AI_CONTEXT_WINDOW_INVALID", "AI 模型上下文令牌总量"),
+    outputNote: optionalString(value.outputNote ?? "", 10_000, "LOCAL_AI_MODEL_NOTE_INVALID", "AI 模型输出说明"),
     preset: {
       temperature,
       max_tokens: boundedInteger(value.preset.max_tokens, 1, 2_000_000, "LOCAL_AI_MAX_TOKENS_INVALID", "本地 AI 默认最大输出令牌数")
@@ -378,12 +383,12 @@ function parseLocalAiModelInput(value: Record<string, unknown>): LocalAiModelInp
     multimodalEnabled: value.multimodalEnabled as boolean,
     imageToolDefault: value.imageToolDefault as boolean,
     enabled: value.enabled as boolean,
-    note: optionalString(value.note ?? "", 10_000, "LOCAL_AI_MODEL_NOTE_INVALID", "本地 AI 模型用途备注")
+    note: optionalString(value.note ?? "", 10_000, "LOCAL_AI_MODEL_NOTE_INVALID", "AI 模型用途备注")
   };
 }
 
 export function parseCreateLocalAiModelInput(value: unknown): LocalAiModelInput {
-  if (!isRecord(value)) throw new LocalAiContractError("LOCAL_AI_MODEL_INPUT_INVALID", "新增本地 AI 模型请求无效");
+  if (!isRecord(value)) throw new LocalAiContractError("LOCAL_AI_MODEL_INPUT_INVALID", "新增 AI 模型请求无效");
   assertExactKeys(value, [
     "providerId",
     "displayName",
@@ -399,12 +404,12 @@ export function parseCreateLocalAiModelInput(value: unknown): LocalAiModelInput 
     "imageToolDefault",
     "enabled",
     "note"
-  ], "新增本地 AI 模型请求");
+  ], "新增 AI 模型请求");
   return parseLocalAiModelInput(value);
 }
 
 export function parseUpdateLocalAiModelInput(value: unknown): LocalAiModelUpdateInput {
-  if (!isRecord(value)) throw new LocalAiContractError("LOCAL_AI_MODEL_INPUT_INVALID", "修改本地 AI 模型请求无效");
+  if (!isRecord(value)) throw new LocalAiContractError("LOCAL_AI_MODEL_INPUT_INVALID", "修改 AI 模型请求无效");
   assertExactKeys(value, [
     "localModelId",
     "providerId",
@@ -421,13 +426,13 @@ export function parseUpdateLocalAiModelInput(value: unknown): LocalAiModelUpdate
     "imageToolDefault",
     "enabled",
     "note"
-  ], "修改本地 AI 模型请求");
+  ], "修改 AI 模型请求");
   return { localModelId: parseLocalAiModelId(value.localModelId), ...parseLocalAiModelInput(value) };
 }
 
 export function parseRemoveLocalAiModelInput(value: unknown): { modelId: string } {
-  if (!isRecord(value)) throw new LocalAiContractError("LOCAL_AI_MODEL_INPUT_INVALID", "删除本地 AI 模型请求无效");
-  assertExactKeys(value, ["modelId"], "删除本地 AI 模型请求");
+  if (!isRecord(value)) throw new LocalAiContractError("LOCAL_AI_MODEL_INPUT_INVALID", "删除 AI 模型请求无效");
+  assertExactKeys(value, ["modelId"], "删除 AI 模型请求");
   return { modelId: parseLocalAiModelId(value.modelId) };
 }
 

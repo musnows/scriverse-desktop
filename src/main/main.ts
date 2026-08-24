@@ -387,7 +387,7 @@ function openLocalWorkspace(origin: string): Promise<void> {
     return Promise.resolve();
   }
   if (localWorkspaceOpenPromise) return localWorkspaceOpenPromise;
-  if (!localAiRequestCoordinator) return Promise.reject(new Error("Desktop 本地 AI 尚未就绪"));
+  if (!localAiRequestCoordinator) return Promise.reject(new Error("Desktop AI 供应商尚未就绪"));
   localWorkspaceOpenPromise = createLocalWorkspaceWindow({
     origin,
     desktopRoot,
@@ -408,9 +408,9 @@ function openLocalWorkspace(origin: string): Promise<void> {
           window.destroy();
         },
         getLocalAiCatalog: () => localAiRequestCoordinator!.catalog(),
-        completeLocalAi: (input) => localAiRequestCoordinator!.complete(input),
+        completeLocalAi: (input, onEvent) => localAiRequestCoordinator!.complete(input, onEvent),
         cancelLocalAi: (requestId) => localAiRequestCoordinator!.cancel(requestId),
-        completeLocalAiAgentRound: (input) => localAiRequestCoordinator!.completeAgentRound(input),
+        completeLocalAiAgentRound: (input, onEvent) => localAiRequestCoordinator!.completeAgentRound(input, onEvent),
         cancelLocalAiAgentRound: (requestId) => localAiRequestCoordinator!.cancelAgentRound(requestId)
       });
     },
@@ -478,9 +478,9 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
         getCachedUser: () => remoteAuthCoordinator!.cachedUser(profile),
         getConnectionMode: () => remoteAuthCoordinator!.connectionMode(profile),
         getLocalAiCatalog: () => localAiRequestCoordinator!.catalog(),
-        completeLocalAi: (_userId, input) => localAiRequestCoordinator!.complete(input),
+        completeLocalAi: (_userId, input, onEvent) => localAiRequestCoordinator!.complete(input, onEvent),
         cancelLocalAi: (_userId, requestId) => localAiRequestCoordinator!.cancel(requestId),
-        completeLocalAiAgentRound: (_userId, input) => localAiRequestCoordinator!.completeAgentRound(input),
+        completeLocalAiAgentRound: (_userId, input, onEvent) => localAiRequestCoordinator!.completeAgentRound(input, onEvent),
         cancelLocalAiAgentRound: (_userId, requestId) => localAiRequestCoordinator!.cancelAgentRound(requestId),
         reportLeaveState: (state) => {
           activeRemoteLeaveState = state;
@@ -601,7 +601,7 @@ async function prepareDesktopUpdateInstall(discardUnsaved: boolean): Promise<boo
 }
 
 async function testLocalAiProvider(providerId: string): Promise<{ ok: boolean; error: string | null }> {
-  if (!localAiProviderStore || !localAiClient) throw new Error("Desktop 本地 AI 尚未就绪");
+  if (!localAiProviderStore || !localAiClient) throw new Error("Desktop AI 供应商尚未就绪");
   const model = localAiProviderStore.listModels().find((item) => item.providerId === providerId && item.enabled);
   if (!model) {
     const error = new Error("请先为本地 AI 供应商添加并启用一个模型") as Error & { code: string };

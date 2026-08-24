@@ -23,13 +23,13 @@
       </header>
       <div class="module-content">
         <section class="config-section platform-system-prompt-section">
-          <div class="config-section-header"><div><h2>本地全局系统提示词</h2><p>用于补充本地模型的提示词。</p></div></div>
-          <label class="field-label"><textarea id="local-ai-system-prompt" rows="7" maxlength="100000" aria-label="本地全局系统提示词" placeholder="例如：本地模型只做草稿建议，保持简体中文。"></textarea></label>
+          <div class="config-section-header"><div><h2>平台全局系统提示词</h2><p>会追加在 Server 系统提示词之后，仅由当前设备配置的供应商使用。</p></div></div>
+          <label class="field-label"><textarea id="local-ai-system-prompt" rows="7" maxlength="100000" aria-label="全局系统提示词" placeholder="例如：默认使用简体中文，避免代替作者做最终决定。"></textarea></label>
           <div class="card-actions"><button id="local-ai-save-system-prompt" class="primary-button" type="button">保存全局提示词</button></div>
         </section>
         <section class="config-section platform-providers-section">
-          <div class="config-section-header"><div><h2>模型供应商配置</h2><p>管理本地模型服务。</p></div></div>
-          <div id="local-ai-provider-list" aria-live="polite"><div class="empty-state"><b>正在读取本地 AI 配置</b>请稍候。</div></div>
+          <div class="config-section-header"><div><h2>模型供应商配置</h2><p>管理供应商连接、模型列表和连接状态；模型的多模态能力在对应模型配置中设置。</p></div></div>
+          <div id="local-ai-provider-list" aria-live="polite"><div class="empty-state"><b>正在读取 AI 配置</b>请稍候。</div></div>
         </section>
       </div>
     </main>

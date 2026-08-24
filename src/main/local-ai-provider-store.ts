@@ -302,7 +302,7 @@ export class LocalAiProviderStore {
     const document = this.read();
     const model = this.requiredModel(document, input.localModelId);
     if (model.providerId !== input.providerId) {
-      throw new LocalAiProviderStoreError("LOCAL_AI_MODEL_PROVIDER_MISMATCH", "本地 AI 模型不能移动到其他供应商");
+      throw new LocalAiProviderStoreError("LOCAL_AI_MODEL_PROVIDER_MISMATCH", "AI 模型不能移动到其他供应商");
     }
     const provider = this.requiredProvider(document, input.providerId);
     if (input.imageToolDefault) this.clearImageToolDefault(document, model.id);
@@ -318,7 +318,7 @@ export class LocalAiProviderStore {
     const document = this.read();
     const next = document.models.filter((model) => model.id !== modelId);
     if (next.length === document.models.length) {
-      throw new LocalAiProviderStoreError("LOCAL_AI_MODEL_NOT_FOUND", "本地 AI 模型不存在");
+      throw new LocalAiProviderStoreError("LOCAL_AI_MODEL_NOT_FOUND", "AI 模型不存在");
     }
     document.models = next;
     document.updatedAt = new Date().toISOString();
@@ -402,11 +402,11 @@ export class LocalAiProviderStore {
       throw new LocalAiProviderStoreError("LOCAL_AI_STORE_INVALID", "本地 AI 供应商 id 重复");
     }
     if (new Set(models.map((model) => model.id)).size !== models.length) {
-      throw new LocalAiProviderStoreError("LOCAL_AI_STORE_INVALID", "本地 AI 模型 id 重复");
+      throw new LocalAiProviderStoreError("LOCAL_AI_STORE_INVALID", "AI 模型 id 重复");
     }
     const providerIds = new Set(providers.map((provider) => provider.id));
     if (models.some((model) => !providerIds.has(model.providerId))) {
-      throw new LocalAiProviderStoreError("LOCAL_AI_STORE_INVALID", "本地 AI 模型引用了不存在的供应商");
+      throw new LocalAiProviderStoreError("LOCAL_AI_STORE_INVALID", "AI 模型引用了不存在的供应商");
     }
     if (models.filter((model) => model.imageToolDefault).length > 1) {
       throw new LocalAiProviderStoreError("LOCAL_AI_STORE_INVALID", "本地 AI 默认读图模型重复");
@@ -526,7 +526,7 @@ export class LocalAiProviderStore {
   }
 
   private parseModel(value: unknown): StoredLocalAiModel {
-    if (!isRecord(value)) throw new LocalAiProviderStoreError("LOCAL_AI_STORE_INVALID", "本地 AI 模型记录无效");
+    if (!isRecord(value)) throw new LocalAiProviderStoreError("LOCAL_AI_STORE_INVALID", "AI 模型记录无效");
     assertExactKeys(value, [
       "id",
       "providerId",
@@ -545,7 +545,7 @@ export class LocalAiProviderStore {
       "note",
       "createdAt",
       "updatedAt"
-    ], "本地 AI 模型记录");
+    ], "AI 模型记录");
     return {
       id: parseLocalAiModelId(value.id),
       ...parseCreateLocalAiModelInput({
@@ -564,8 +564,8 @@ export class LocalAiProviderStore {
         enabled: value.enabled,
         note: value.note
       }),
-      createdAt: assertTimestamp(value.createdAt, "本地 AI 模型创建时间"),
-      updatedAt: assertTimestamp(value.updatedAt, "本地 AI 模型更新时间")
+      createdAt: assertTimestamp(value.createdAt, "AI 模型创建时间"),
+      updatedAt: assertTimestamp(value.updatedAt, "AI 模型更新时间")
     };
   }
 
@@ -577,7 +577,7 @@ export class LocalAiProviderStore {
 
   private requiredModel(document: LocalAiProviderDocument, modelId: string): StoredLocalAiModel {
     const model = document.models.find((item) => item.id === modelId);
-    if (!model) throw new LocalAiProviderStoreError("LOCAL_AI_MODEL_NOT_FOUND", "本地 AI 模型不存在");
+    if (!model) throw new LocalAiProviderStoreError("LOCAL_AI_MODEL_NOT_FOUND", "AI 模型不存在");
     return model;
   }
 

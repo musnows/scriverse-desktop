@@ -60,6 +60,16 @@ const input = {
   messages: [{ role: "user" as const, content: "继续这一段" }]
 };
 
+function streamResponse(frames: string[]): Response {
+  const encoder = new TextEncoder();
+  return new Response(new ReadableStream({
+    start(controller) {
+      frames.forEach((frame) => controller.enqueue(encoder.encode(frame)));
+      controller.close();
+    }
+  }), { status: 200, headers: { "Content-Type": "text/event-stream" } });
+}
+
 describe("Desktop 本地 AI 调用", () => {
   it("只向已保存的内网端点发送请求并在远端 Prompt 后追加本地 XML", async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
@@ -75,7 +85,7 @@ describe("Desktop 本地 AI 调用", () => {
     expect(fetchImpl).toHaveBeenCalledWith("http://127.0.0.1:11434/v1/chat/completions", expect.objectContaining({
       method: "POST",
       redirect: "error",
-      headers: expect.objectContaining({ Authorization: "Bearer local-secret" })
+      headers: expect.objectContaining({ Accept: "text/event-stream", Authorization: "Bearer local-secret" })
     }));
     expect(JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body))).toMatchObject({
       model: "qwen3:8b",
@@ -84,8 +94,49 @@ describe("Desktop 本地 AI 调用", () => {
         ...input.messages
       ],
       thinking: { type: "enabled" },
-      stream: false
+      stream: true,
+      stream_options: { include_usage: true }
     });
+  });
+
+  it("逐块转发供应商流并汇总为标准完成响应", async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(streamResponse([
+      'data: {"id":"chatcmpl-1","model":"qwen3:8b","choices":[{"index":0,"delta":{"role":"assistant","content":"第一段"}}]}\n\n',
+      'data: {"id":"chatcmpl-1","model":"qwen3:8b","choices":[{"index":0,"delta":{"content":"，第二段"},"finish_reason":"stop"}]}\n\n',
+      'data: {"id":"chatcmpl-1","model":"qwen3:8b","choices":[],"usage":{"prompt_tokens":12,"completion_tokens":8,"total_tokens":20}}\n\n',
+      "data: [DONE]\n\n"
+    ]));
+    const onEvent = vi.fn();
+    await expect(new LocalAiClient(fetchImpl).complete(credential, input, undefined, onEvent)).resolves.toMatchObject({
+      content: "第一段，第二段"
+    });
+    expect(onEvent.mock.calls.map(([event]) => event)).toEqual([
+      { type: "content-delta", delta: "第一段" },
+      { type: "content-delta", delta: "，第二段" }
+    ]);
+  });
+
+  it("在供应商流结束前立即交付已收到的内容", async () => {
+    const encoder = new TextEncoder();
+    let release: () => void = () => undefined;
+    const response = new Response(new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"先显示"}}]}\n\n'));
+        release = () => {
+          controller.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"，再完成"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n'));
+          controller.close();
+        };
+      }
+    }), { status: 200, headers: { "Content-Type": "text/event-stream" } });
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response);
+    const onEvent = vi.fn();
+    let settled = false;
+    const completion = new LocalAiClient(fetchImpl).complete(credential, input, undefined, onEvent)
+      .finally(() => { settled = true; });
+    await vi.waitFor(() => expect(onEvent).toHaveBeenCalledWith({ type: "content-delta", delta: "先显示" }));
+    expect(settled).toBe(false);
+    release();
+    await expect(completion).resolves.toMatchObject({ content: "先显示，再完成" });
   });
 
   it("允许 Desktop 在用户停止生成时取消本地 HTTP 请求", async () => {
@@ -124,7 +175,7 @@ describe("Desktop 本地 AI 调用", () => {
     const failed = vi.fn<typeof fetch>().mockRejectedValue(new TypeError("connect ECONNREFUSED 127.0.0.1"));
     await expect(new LocalAiClient(failed).complete(credential, input)).rejects.toMatchObject({
       code: "LOCAL_AI_NETWORK_ERROR",
-      message: "无法连接本地 AI Base URL"
+      message: "无法连接 AI 供应商 Base URL"
     });
   });
 

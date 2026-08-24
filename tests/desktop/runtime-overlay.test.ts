@@ -25,16 +25,38 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain('import { mergeDesktopLocalAiModels } from "/desktop-local-ai-catalog.js');
     expect(overlayPatch).toContain("applyAiModels(mergeDesktopLocalAiModels(models, localCatalog.models))");
     expect(overlayPatch).toContain("bridge.completeAgentRound({");
-    expect(overlayPatch).toContain("runtimeModel: desktopLocalAiRuntimeModel(model)");
+    expect(overlayPatch).toContain("runtimeModel: desktopProviderRuntimeModel(model)");
     expect(overlayPatch).toContain("/desktop-local-ai/runs/");
     expect(overlayPatch).not.toContain("/desktop-local-ai/prepare");
-    expect(overlayPatch).toContain("+      modelId: model.id,\n+      taskType,\n+      remoteSystemPrompt: desktopOfflineLocalAiSystemPrompt(context),");
+    expect(overlayPatch).toContain("remoteSystemPrompt: desktopOfflineLocalAiSystemPrompt(context)");
+    expect(overlayPatch).toContain("messages: desktopOfflineLocalAiMessages(history, instruction)");
     expect(overlayPatch).toContain('scope.className = "ai-model-option-scope is-local"');
     expect(overlayPatch).toContain('scope.textContent = "本地"');
     expect(overlayPatch).not.toContain("function aiModelLocalIconMarkup()");
     expect(overlayPatch).not.toContain('icon.setAttribute("aria-label", "Desktop 本地模型")');
     expect(overlayPatch).not.toContain("ai-model-option-image.is-local");
     expect(overlayPatch.match(/feature=desktop-local-model-badge-only-v1/g)).toHaveLength(2);
+  });
+
+  it("uses the normal assistant stream UI and keeps local scope only in the model-list badge", () => {
+    const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
+    const addedLines = overlayPatch
+      .split("\n")
+      .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
+      .join("\n");
+
+    expect(overlayPatch).toContain("desktopProviderChatResponse");
+    expect(overlayPatch).toContain("completeWithDesktopProvider");
+    expect(overlayPatch).toContain("bridge.completeAgentRound({");
+    expect(overlayPatch).toContain("if (forwardEvents) onProviderEvent(event, round)");
+    expect(overlayPatch).toContain("async function streamChat(requestHolder, body, idempotencyKey, responseFactory = null)");
+    expect(overlayPatch).toContain('eventName === "replace"');
+    expect(overlayPatch).toContain("feature=desktop-provider-stream-v1");
+    expect(overlayPatch).not.toContain("createDesktopLocalAiPendingMessage");
+    expect(addedLines).not.toContain("本地模型");
+    expect(addedLines).not.toContain("本地助手");
+    expect(addedLines).not.toContain('formatAiMessageMeta(model.displayName, outputTokens, undefined, "本地"');
+    expect(addedLines.match(/scope\.textContent = "本地"/gu)).toHaveLength(1);
   });
 
   it("shows the active workspace in the header and footer with a settings switch action", () => {
@@ -99,7 +121,6 @@ describe("Desktop Web runtime overlay", () => {
     expect(addedLines).not.toContain("本地推理");
     expect(addedLines).not.toContain("不经过 Server 供应商");
     expect(addedLines).not.toContain("未运行 Server 一致性守卫");
-    expect(addedLines).toContain('<div class="message-meta"></div>');
   });
 
   it("hides the online presence banner until more than one distinct user is present", () => {

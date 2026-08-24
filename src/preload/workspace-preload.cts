@@ -1,6 +1,20 @@
 const { contextBridge, ipcRenderer } = require("electron") as typeof import("electron");
 
 const menuCommands = new Set(["open-sync-center"]);
+const aiStreamChannel = "workspace:local-ai:stream-event";
+
+function invokeAiWithStream(channel: string, input: unknown, listener?: (event: unknown) => void): Promise<unknown> {
+  const requestId = input && typeof input === "object" && "requestId" in input && typeof input.requestId === "string"
+    ? input.requestId
+    : null;
+  if (!requestId || typeof listener !== "function") return ipcRenderer.invoke(channel, input);
+  const handler = (_event: Electron.IpcRendererEvent, payload: unknown) => {
+    if (!payload || typeof payload !== "object" || !("requestId" in payload) || payload.requestId !== requestId || !("event" in payload)) return;
+    listener(payload.event);
+  };
+  ipcRenderer.on(aiStreamChannel, handler);
+  return ipcRenderer.invoke(channel, input).finally(() => ipcRenderer.removeListener(aiStreamChannel, handler));
+}
 
 contextBridge.exposeInMainWorld("scriverseDesktopWorkspace", Object.freeze({
   shellProtocol: 1,
@@ -20,9 +34,9 @@ contextBridge.exposeInMainWorld("scriverseDesktopWorkspace", Object.freeze({
   }),
   localAi: Object.freeze({
     catalog: () => ipcRenderer.invoke("workspace:local-ai:catalog"),
-    complete: (input: unknown) => ipcRenderer.invoke("workspace:local-ai:complete", input),
+    complete: (input: unknown, listener?: (event: unknown) => void) => invokeAiWithStream("workspace:local-ai:complete", input, listener),
     cancel: (input: unknown) => ipcRenderer.invoke("workspace:local-ai:cancel", input),
-    completeAgentRound: (input: unknown) => ipcRenderer.invoke("workspace:local-ai:agent-round", input),
+    completeAgentRound: (input: unknown, listener?: (event: unknown) => void) => invokeAiWithStream("workspace:local-ai:agent-round", input, listener),
     cancelAgentRound: (input: unknown) => ipcRenderer.invoke("workspace:local-ai:agent-round-cancel", input)
   })
 }));

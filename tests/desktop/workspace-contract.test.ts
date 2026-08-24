@@ -29,10 +29,14 @@ describe("Desktop 工作区最小 bridge", () => {
     expect(preloadSource).toContain("onMenuCommand");
     expect(preloadSource).toContain("localAi: Object.freeze");
     expect(preloadSource).toContain('ipcRenderer.invoke("workspace:local-ai:catalog"');
-    expect(preloadSource).toContain('ipcRenderer.invoke("workspace:local-ai:complete"');
+    expect(preloadSource).toContain('invokeAiWithStream("workspace:local-ai:complete"');
     expect(preloadSource).toContain('ipcRenderer.invoke("workspace:local-ai:cancel"');
-    expect(preloadSource).toContain('ipcRenderer.invoke("workspace:local-ai:agent-round"');
+    expect(preloadSource).toContain('invokeAiWithStream("workspace:local-ai:agent-round"');
     expect(preloadSource).toContain('ipcRenderer.invoke("workspace:local-ai:agent-round-cancel"');
+    expect(preloadSource).toContain('const aiStreamChannel = "workspace:local-ai:stream-event"');
+    expect(preloadSource).toContain("invokeAiWithStream");
+    expect(preloadSource).toContain("ipcRenderer.on(aiStreamChannel, handler)");
+    expect(preloadSource).toContain("ipcRenderer.removeListener(aiStreamChannel, handler)");
     expect(preloadSource).not.toContain('workspace:local-ai:create');
     expect(preloadSource).not.toContain('workspace:local-ai:remove');
     expect(preloadSource).not.toContain("ipcRenderer,");
@@ -48,7 +52,10 @@ describe("Desktop 工作区最小 bridge", () => {
     expect(ipcSource).toContain("parseCancelLocalAiAgentRoundInput");
     expect(localPreloadSource).toContain('exposeInMainWorld("scriverseDesktopLocalAi"');
     expect(localPreloadSource).not.toContain("getOfflineKey");
-    expect(localPreloadSource).toContain('ipcRenderer.invoke("local-workspace:local-ai:agent-round"');
+    expect(localPreloadSource).toContain('invokeAiWithStream("local-workspace:local-ai:agent-round"');
+    expect(localPreloadSource).toContain('const aiStreamChannel = "local-workspace:local-ai:stream-event"');
+    expect(ipcSource).toContain("workspaceWindow.webContents.send(aiStreamEventChannel");
+    expect(localIpcSource).toContain("workspaceWindow.webContents.send(aiStreamEventChannel");
     expect(localIpcSource).toContain("event.sender.session !== workspaceWindow.webContents.session");
     expect(localIpcSource).toContain("senderOrigin !== origin");
   });

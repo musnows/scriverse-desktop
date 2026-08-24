@@ -50,7 +50,7 @@ function requireElement(value, label) {
 
 function unwrap(result) {
   if (result?.ok === true) return result.data;
-  const error = new Error(result?.error?.message ?? "本地 AI 操作失败，请重试");
+  const error = new Error(result?.error?.message ?? "AI 配置操作失败，请重试");
   error.code = result?.error?.code ?? "DESKTOP_BRIDGE_FAILED";
   throw error;
 }
@@ -162,20 +162,20 @@ function providerPayload(formData, provider = null) {
 function openProviderDialog(provider = null) {
   openDialog({
     title: provider ? "编辑 AI 供应商" : "新建 AI 供应商",
-    eyebrow: provider ? "本地配置" : "本地供应商",
+    eyebrow: "供应商配置",
     meta: "供应商设置",
     fields: providerFields(provider),
     dangerLabel: provider ? "删除供应商" : "",
     onSubmit: async (formData) => {
       if (provider) unwrap(await bridge.updateProvider(providerPayload(formData, provider)));
       else unwrap(await bridge.createProvider(providerPayload(formData)));
-      showToast(provider ? "本地 AI 供应商配置已保存" : "本地 AI 供应商已创建");
+      showToast(provider ? "AI 供应商配置已保存" : "AI 供应商已创建");
       await refreshConfiguration();
     },
     onDanger: provider ? async () => {
-      if (!window.confirm(`确认删除本地供应商“${provider.name}”及其全部模型吗？`)) return false;
+      if (!window.confirm(`确认删除供应商“${provider.name}”及其全部模型吗？`)) return false;
       unwrap(await bridge.removeProvider({ providerId: provider.id }));
-      showToast("本地 AI 供应商已删除");
+      showToast("AI 供应商已删除");
       await refreshConfiguration();
       return true;
     } : null
@@ -229,20 +229,20 @@ function modelPayload(formData, providerId, model = null) {
 function openModelDialog(providerId, model = null) {
   openDialog({
     title: model ? "编辑模型" : "添加模型",
-    eyebrow: "本地模型",
+    eyebrow: "模型配置",
     meta: "用途、上下文与生成参数",
     fields: modelFields(model),
     dangerLabel: model ? "删除模型" : "",
     onSubmit: async (formData) => {
       if (model) unwrap(await bridge.updateModel(modelPayload(formData, providerId, model)));
       else unwrap(await bridge.createModel(modelPayload(formData, providerId)));
-      showToast(model ? "本地 AI 模型配置已保存" : "本地 AI 模型已添加");
+      showToast(model ? "AI 模型配置已保存" : "AI 模型已添加");
       await refreshConfiguration();
     },
     onDanger: model ? async () => {
-      if (!window.confirm(`确认删除本地模型“${model.displayName}”吗？`)) return false;
+      if (!window.confirm(`确认删除模型“${model.displayName}”吗？`)) return false;
       unwrap(await bridge.removeModel({ modelId: model.id }));
-      showToast("本地 AI 模型已删除");
+      showToast("AI 模型已删除");
       await refreshConfiguration();
       return true;
     } : null
@@ -265,7 +265,7 @@ function bindProviderActions() {
     setBusy(button, true, "测试中");
     try {
       const result = unwrap(await bridge.testProvider({ providerId: button.dataset.testProvider }));
-      showToast(result.ok ? "本地 AI 连接测试成功" : result.error, !result.ok);
+      showToast(result.ok ? "AI 供应商连接测试成功" : result.error, !result.ok);
       await refreshConfiguration();
     } catch (error) {
       showToast(error.message, true);
@@ -281,7 +281,8 @@ async function refreshConfiguration() {
   providerList.innerHTML = renderAiProviderConfigurationCards(
     state.configuration.providers,
     state.configuration.models,
-    [{ value: "openai-chat-completions", label: "OpenAI Chat Completions" }]
+    [{ value: "openai-chat-completions", label: "OpenAI Chat Completions" }],
+    { showScope: false }
   );
   bindProviderActions();
 }
@@ -323,7 +324,7 @@ document.querySelector("#local-ai-save-system-prompt").addEventListener("click",
   setBusy(button, true);
   try {
     unwrap(await bridge.updateSystemPrompt({ systemPrompt: systemPrompt.value }));
-    showToast("本地全局系统提示词已保存");
+    showToast("平台全局系统提示词已保存");
     await refreshConfiguration();
   } catch (error) {
     showToast(error.message, true);
@@ -333,9 +334,9 @@ document.querySelector("#local-ai-save-system-prompt").addEventListener("click",
 });
 
 if (!bridge) {
-  providerList.innerHTML = '<div class="empty-state"><b>本地 AI 暂时不可用</b>请重新打开叙界。</div>';
+  providerList.innerHTML = '<div class="empty-state"><b>AI 配置暂时不可用</b>请重新打开叙界。</div>';
 } else {
   refreshConfiguration().catch((error) => {
-    providerList.innerHTML = `<div class="empty-state"><b>本地 AI 配置读取失败</b>${esc(error.message)}</div>`;
+    providerList.innerHTML = `<div class="empty-state"><b>AI 配置读取失败</b>${esc(error.message)}</div>`;
   });
 }

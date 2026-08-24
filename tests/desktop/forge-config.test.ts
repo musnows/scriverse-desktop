@@ -14,8 +14,8 @@ describe("Desktop Forge configuration", () => {
       icon: expect.stringContaining("assets/icon")
     });
     expect(config.makers?.map((maker) => "name" in maker ? maker.name : "")).toEqual(expect.arrayContaining([
-      "@electron-forge/maker-dmg",
-      "@electron-forge/maker-zip",
+      "dmg",
+      "zip",
       "@electron-forge/maker-squirrel",
       "@electron-forge/maker-deb",
       "@electron-forge/maker-rpm"
@@ -49,5 +49,11 @@ describe("Desktop Forge configuration", () => {
     const hook = config.hooks?.postPackage;
     expect(hook).toBeTypeOf("function");
     expect(config.packagerConfig?.name).toBe(process.platform === "darwin" ? "scriverse-desktop" : "Scriverse Desktop");
+  });
+
+  it("passes the localized app bundle name to macOS artifact makers", () => {
+    const makers = config.makers ?? [];
+    expect(makers.some((maker) => "name" in maker && maker.name === "dmg")).toBe(true);
+    expect(makers.some((maker) => "name" in maker && maker.name === "zip")).toBe(true);
   });
 });

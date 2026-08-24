@@ -1,5 +1,7 @@
 import { FuseV1Options, FuseVersion } from "@electron/fuses";
 import { FusesPlugin } from "@electron-forge/plugin-fuses";
+import { MakerDMG } from "@electron-forge/maker-dmg";
+import { MakerZIP } from "@electron-forge/maker-zip";
 import type { ForgeConfig } from "@electron-forge/shared-types";
 import { existsSync, renameSync } from "node:fs";
 import { join } from "node:path";
@@ -22,6 +24,21 @@ const macNotarization = process.env.APPLE_API_KEY?.trim()
 const windowsCertificateFile = process.env.WINDOWS_CERTIFICATE_FILE?.trim() || null;
 const windowsCertificatePassword = process.env.WINDOWS_CERTIFICATE_PASSWORD ?? null;
 const releaseBuild = process.env.SCRIVERSE_DESKTOP_RELEASE_BUILD === "true";
+
+class LocalizedMacDmgMaker extends MakerDMG {
+  override make(options: Parameters<MakerDMG["make"]>[0]): Promise<string[]> {
+    return super.make({ ...options, appName: DESKTOP_DISPLAY_NAME });
+  }
+}
+
+class LocalizedMacZipMaker extends MakerZIP {
+  override make(options: Parameters<MakerZIP["make"]>[0]): Promise<string[]> {
+    return super.make({
+      ...options,
+      appName: options.targetPlatform === "darwin" ? DESKTOP_DISPLAY_NAME : options.appName
+    });
+  }
+}
 
 if (releaseBuild && process.platform === "darwin" && (!macSigningIdentity || !macNotarization)) {
   throw new Error("macOS release builds require signing and notarization credentials");
@@ -132,16 +149,8 @@ const config: ForgeConfig = {
     })
   },
   makers: [
-    {
-      name: "@electron-forge/maker-dmg",
-      platforms: ["darwin"],
-      config: {}
-    },
-    {
-      name: "@electron-forge/maker-zip",
-      platforms: ["darwin", "linux"],
-      config: {}
-    },
+    new LocalizedMacDmgMaker({ name: "scriverse-desktop" }),
+    new LocalizedMacZipMaker({}, ["darwin", "linux"]),
     {
       name: "@electron-forge/maker-squirrel",
       platforms: ["win32"],

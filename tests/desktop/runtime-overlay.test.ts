@@ -73,6 +73,14 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain("workspaceName ? `${workspaceName} · 叙界`");
   });
 
+  it("keeps the loading cover until the initial shelf route is ready", () => {
+    const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
+
+    expect(overlayPatch).toContain('-  if (!session.csrfToken) document.body.classList.remove("auth-pending");');
+    expect(overlayPatch).toContain("auth-pending 由 initializePage 路由完成后才移除");
+    expect(overlayPatch).toContain("feature=desktop-route-ready-cover-v1");
+  });
+
   it("shows remote offline download progress in the top bar and opens sync details", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 

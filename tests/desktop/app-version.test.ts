@@ -8,9 +8,9 @@ describe("Desktop 应用版本", () => {
   it("打包后使用 Electron 应用包版本", () => {
     expect(resolveDesktopAppVersion({
       packaged: true,
-      packagedVersion: "0.0.1",
+      packagedVersion: "0.1.0",
       applicationRoot: "/not-used"
-    })).toBe("0.0.1");
+    })).toBe("0.1.0");
   });
 
   it("开发模式读取项目 package.json 而不是 Electron 运行时版本", () => {
@@ -31,7 +31,7 @@ describe("Desktop 应用版本", () => {
     expect(resolveCompatibleServerVersion(root)).toBe("0.8.7");
   });
 
-  it("当前 Desktop 声明对应 Server 0.8.8", () => {
-    expect(resolveCompatibleServerVersion(process.cwd())).toBe("0.8.8");
+  it("当前 Desktop 声明对应 Server 0.9.0", () => {
+    expect(resolveCompatibleServerVersion(process.cwd())).toBe("0.9.0");
   });
 });

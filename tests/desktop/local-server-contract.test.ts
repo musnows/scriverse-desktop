@@ -75,7 +75,7 @@ describe("Desktop 本地服务消息契约", () => {
       preferredPort: 23_241,
       desktopId: "11111111-1111-4111-8111-111111111111",
       profileId: "22222222-2222-4222-8222-222222222222",
-      clientVersion: "0.0.1",
+      clientVersion: "0.1.0",
       envAllowlist: { NODE_ENV: "production", APP_ALLOW_PRIVATE_AI_ENDPOINTS: "true" }
     })).toMatchObject({ type: "start", dataDirectory: root, databasePath: join(root, "novel.db"), preferredPort: 23_241 });
     expect(() => parseLocalServerParentMessage({
@@ -87,7 +87,7 @@ describe("Desktop 本地服务消息契约", () => {
       preferredPort: 23_241,
       desktopId: "11111111-1111-4111-8111-111111111111",
       profileId: "22222222-2222-4222-8222-222222222222",
-      clientVersion: "0.0.1",
+      clientVersion: "0.1.0",
       envAllowlist: { NODE_ENV: "production", APP_ALLOW_PRIVATE_AI_ENDPOINTS: "true" }
     })).toThrowError(/runtime 目录/u);
   });

@@ -25,7 +25,7 @@ describe("Desktop Forge configuration", () => {
   });
 
   it("mutates only the packaged manifest entry point", async () => {
-    const sourceManifest = { name: "@musnows/scriverse-desktop", version: "0.0.1" };
+    const sourceManifest = { name: "@musnows/scriverse-desktop", version: "0.1.0" };
     const hook = config.hooks?.readPackageJson;
     expect(hook).toBeTypeOf("function");
     const packaged = await hook?.({} as never, sourceManifest);

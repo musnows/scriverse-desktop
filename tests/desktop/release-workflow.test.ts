@@ -22,12 +22,18 @@ describe("Desktop 发布链路", () => {
     expect(release).toContain('sudo chmod 4755 "$package_dir/chrome-sandbox"');
   });
 
-  it("正式发布强制签名、公证并只从 CI Secret 读取凭据", () => {
-    expect(forge).toContain("SCRIVERSE_DESKTOP_RELEASE_BUILD");
+  it("正式发布使用 macOS ad-hoc 签名和 Windows 临时自签证书", () => {
+    expect(forge).toContain('identity: "-"');
     expect(forge).toContain("osxNotarize");
     expect(forge).toContain("windowsSign");
-    expect(release).toContain("secrets.DESKTOP_APPLE_CERTIFICATE_BASE64");
-    expect(release).toContain("secrets.DESKTOP_WINDOWS_CERTIFICATE_BASE64");
+    expect(forge).not.toContain("release builds require signing");
+    expect(release).toContain("New-SelfSignedCertificate");
+    expect(release).toContain('codesign --verify --deep --strict "$app_path"');
+    expect(release).toContain('grep -F "Signature=adhoc"');
+    expect(release).toContain('if: ${{ always() && !cancelled() }}');
+    expect(release).not.toContain("secrets.DESKTOP_");
+    expect(release).not.toContain("spctl --assess");
+    expect(release).not.toContain("stapler validate");
     expect(release).toContain('app_path="out/scriverse-desktop-darwin-${{ matrix.arch }}/叙界.app"');
     expect(release).not.toMatch(/BEGIN (?:RSA )?PRIVATE KEY/u);
   });

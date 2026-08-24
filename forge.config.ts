@@ -23,7 +23,6 @@ const macNotarization = process.env.APPLE_API_KEY?.trim()
   : null;
 const windowsCertificateFile = process.env.WINDOWS_CERTIFICATE_FILE?.trim() || null;
 const windowsCertificatePassword = process.env.WINDOWS_CERTIFICATE_PASSWORD ?? null;
-const releaseBuild = process.env.SCRIVERSE_DESKTOP_RELEASE_BUILD === "true";
 
 class LocalizedMacDmgMaker extends MakerDMG {
   override make(options: Parameters<MakerDMG["make"]>[0]): Promise<string[]> {
@@ -38,13 +37,6 @@ class LocalizedMacZipMaker extends MakerZIP {
       appName: options.targetPlatform === "darwin" ? DESKTOP_DISPLAY_NAME : options.appName
     });
   }
-}
-
-if (releaseBuild && process.platform === "darwin" && (!macSigningIdentity || !macNotarization)) {
-  throw new Error("macOS release builds require signing and notarization credentials");
-}
-if (releaseBuild && process.platform === "win32" && (!windowsCertificateFile || !windowsCertificatePassword)) {
-  throw new Error("Windows release builds require signing credentials");
 }
 
 const packageIcon = process.platform === "darwin"

@@ -8,8 +8,15 @@ const release = readFileSync(join(root, ".github/workflows/desktop-release.yml")
 const forge = readFileSync(join(root, "forge.config.ts"), "utf8");
 
 describe("Desktop 发布链路", () => {
-  it("覆盖 macOS 双架构、Windows x64 和 Linux x64", () => {
-    for (const value of ["macos-15", "macos-15-intel", "windows-2025", "ubuntu-24.04"]) {
+  it("覆盖 macOS、Windows 和 Linux 双架构", () => {
+    for (const value of [
+      "macos-15",
+      "macos-15-intel",
+      "windows-2025",
+      "windows-11-vs2026-arm",
+      "ubuntu-24.04",
+      "ubuntu-24.04-arm"
+    ]) {
       expect(checks).toContain(value);
       expect(release).toContain(value);
     }
@@ -32,6 +39,9 @@ describe("Desktop 发布链路", () => {
     expect(release).toContain("New-SelfSignedCertificate");
     expect(release).not.toContain("Import-Certificate");
     expect(release).toContain("scriverse-desktop-darwin-${{ matrix.arch }}-$package_version.dmg");
+    expect(release).toContain("scriverse-desktop-win32-${{ matrix.arch }}-$packageVersion-Setup.exe");
+    expect(release).toContain("scriverse-desktop-win32-${{ matrix.arch }}-$packageVersion-full.nupkg");
+    expect(release).toContain("scriverse-desktop-win32-${{ matrix.arch }}-$packageVersion-RELEASES");
     expect(release).toContain('codesign --verify --deep --strict "$app_path"');
     expect(release).toContain('grep -F "Signature=adhoc"');
     expect(release).toContain('if: ${{ always() && !cancelled() }}');

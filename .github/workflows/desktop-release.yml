@@ -40,9 +40,15 @@ jobs:
           - label: windows-x64
             runner: windows-2025
             arch: x64
+          - label: windows-arm64
+            runner: windows-11-vs2026-arm
+            arch: arm64
           - label: linux-x64
             runner: ubuntu-24.04
             arch: x64
+          - label: linux-arm64
+            runner: ubuntu-24.04-arm
+            arch: arm64
     env:
       RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
       SCRIVERSE_RUNTIME_REF: ${{ inputs.scriverse_ref || vars.SCRIVERSE_RUNTIME_REF }}
@@ -121,6 +127,20 @@ jobs:
           dmg_path="$(find out/make -name '*.dmg' -print -quit)"
           test -n "$dmg_path"
           mv "$dmg_path" "$(dirname "$dmg_path")/scriverse-desktop-darwin-${{ matrix.arch }}-$package_version.dmg"
+
+      - name: Name Windows artifacts by architecture
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $packageVersion = node --print "require('./package.json').version"
+          $squirrelDirectory = "out/make/squirrel.windows/${{ matrix.arch }}"
+          $setup = Get-ChildItem -Path $squirrelDirectory -Filter "*Setup.exe" | Select-Object -First 1
+          $nupkg = Get-ChildItem -Path $squirrelDirectory -Filter "*-full.nupkg" | Select-Object -First 1
+          $releases = Join-Path $squirrelDirectory "RELEASES"
+          if (-not $setup -or -not $nupkg -or -not (Test-Path $releases)) { throw "Missing Windows release artifacts" }
+          Move-Item $setup.FullName (Join-Path $squirrelDirectory "scriverse-desktop-win32-${{ matrix.arch }}-$packageVersion-Setup.exe")
+          Move-Item $nupkg.FullName (Join-Path $squirrelDirectory "scriverse-desktop-win32-${{ matrix.arch }}-$packageVersion-full.nupkg")
+          Move-Item $releases (Join-Path $squirrelDirectory "scriverse-desktop-win32-${{ matrix.arch }}-$packageVersion-RELEASES")
 
       - name: Verify packaged runtime
         if: runner.os != 'Linux'

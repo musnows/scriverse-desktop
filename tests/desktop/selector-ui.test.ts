@@ -52,6 +52,8 @@ describe("Desktop Selector UI", () => {
     expect(script).toContain("node.textContent = text");
     expect(script).not.toContain("innerHTML");
     expect(css).toContain("@media (max-width: 430px)");
+    expect(css).toContain(".app-header { align-items: stretch; flex-direction: column; }");
+    expect(css).toContain(".brand strong, .brand small { white-space: nowrap; }");
     expect(css).toContain("overflow-wrap: anywhere");
     expect(css).toContain("width: min(184px, 100%); height: 60px");
     expect(css).not.toContain("width: min(260px, 100%)");

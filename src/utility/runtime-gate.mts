@@ -1,7 +1,9 @@
 import { existsSync, mkdirSync } from "node:fs";
+import { createServer } from "node:net";
 import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { MIN_LOCAL_SERVER_PORT, selectLocalServerPort } from "../shared/desktop-settings-contract.js";
 
 type RunningServer = {
   url: string;
@@ -26,6 +28,27 @@ type RuntimeGateResult = {
   localServer: boolean;
   error?: string;
 };
+
+function canBindLoopbackPort(port: number): Promise<boolean> {
+  return new Promise<boolean>((resolve, reject) => {
+    const probe = createServer();
+    let settled = false;
+    const finish = (available: boolean, error: unknown = null): void => {
+      if (settled) return;
+      settled = true;
+      if (error) reject(error);
+      else resolve(available);
+    };
+    probe.unref();
+    probe.once("error", (error: NodeJS.ErrnoException) => {
+      if (error.code === "EADDRINUSE") finish(false);
+      else finish(false, error);
+    });
+    probe.listen({ host: "127.0.0.1", port, exclusive: true }, () => {
+      probe.close((error) => error ? finish(false, error) : finish(true));
+    });
+  });
+}
 
 async function inspectRuntime(): Promise<RuntimeGateResult> {
   process.stdout.write("Desktop runtime gate started\n");
@@ -67,9 +90,10 @@ async function inspectRuntime(): Promise<RuntimeGateResult> {
     const runtimeModule = await import(pathToFileURL(join(appRoot, "dist", "server-runtime.js")).href) as {
       startLocalServer: StartLocalServer;
     };
+    const gatePort = await selectLocalServerPort(MIN_LOCAL_SERVER_PORT, canBindLoopbackPort);
     running = await runtimeModule.startLocalServer({
       host: "127.0.0.1",
-      port: 0,
+      port: gatePort,
       dataDirectory,
       databasePath: join(dataDirectory, "novel.db"),
       env: { NODE_ENV: "production" }

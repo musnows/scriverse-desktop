@@ -37,6 +37,8 @@ describe("Desktop 原生菜单与下载", () => {
   it("向远端页面提供已选择的 Server 工作区名称", () => {
     expect(workspaceIpcSource).toContain("profileName: profile.name");
     expect(workspaceIpcSource).toContain('profileKind: "remote"');
+    expect(preloadSource).toContain("ensureRemoteWorkspaceShellUi(");
+    expect(preloadSource).toContain('ipcRenderer.invoke("workspace:shell:request-switch")');
   });
 
   it("About 面板分行显示 Desktop 与对应 Server 版本", () => {

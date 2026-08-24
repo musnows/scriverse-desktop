@@ -53,6 +53,6 @@ describe("Desktop 存储清单", () => {
     const rootManifest = initializeDesktopStorageRoot(root);
     const vault = join(root, "local-vault");
     initializeDesktopLocalVault(vault, rootManifest.desktopId);
-    expect(() => initializeDesktopLocalVault(vault, crypto.randomUUID())).toThrowError(/当前 Scriverse Desktop/u);
+    expect(() => initializeDesktopLocalVault(vault, crypto.randomUUID())).toThrowError(/当前叙界/u);
   });
 });

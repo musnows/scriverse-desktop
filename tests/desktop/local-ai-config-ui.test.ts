@@ -11,6 +11,8 @@ const selectorIpc = readFileSync(join(root, "src/main/selector-ipc.ts"), "utf8")
 
 describe("Desktop 本地 AI 配置界面", () => {
   it("从 Desktop 独立入口提供与 Server 相同的供应商和模型配置结构", () => {
+    expect(html).toContain("<title>本地 AI 配置 - 叙界</title>");
+    expect(html).not.toContain("Scriverse Desktop");
     expect(html).toContain("本地 AI 配置");
     expect(html).toContain("本地全局系统提示词");
     expect(html).toContain("模型供应商配置");

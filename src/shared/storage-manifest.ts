@@ -63,10 +63,10 @@ function assertCreatedAt(value: unknown): string {
 function parseManifest(value: unknown): DesktopStorageManifest {
   if (!isRecord(value)) throw new DesktopStorageError("STORAGE_MANIFEST_INVALID", "存储清单格式无效");
   if (value.kind !== DESKTOP_ROOT_STORAGE_KIND && value.kind !== DESKTOP_LOCAL_VAULT_STORAGE_KIND) {
-    throw new DesktopStorageError("STORAGE_KIND_MISMATCH", "该目录不属于 Scriverse Desktop，已拒绝打开");
+    throw new DesktopStorageError("STORAGE_KIND_MISMATCH", "该目录不属于叙界，已拒绝打开");
   }
   if (value.storageVersion !== STORAGE_MANIFEST_VERSION) {
-    throw new DesktopStorageError("STORAGE_VERSION_UNSUPPORTED", "该存储目录版本暂不受当前 Scriverse Desktop 支持");
+    throw new DesktopStorageError("STORAGE_VERSION_UNSUPPORTED", "该存储目录版本暂不受当前叙界支持");
   }
   return {
     kind: value.kind,
@@ -118,7 +118,7 @@ export function writeDesktopJsonAtomically(path: string, value: unknown): void {
 function assertEmptyUnclaimedDirectory(directory: string): void {
   const entries = readdirSync(directory).filter((entry) => !entry.startsWith(`${STORAGE_MANIFEST_FILENAME}.tmp-`));
   if (entries.length > 0) {
-    throw new DesktopStorageError("STORAGE_DIRECTORY_UNCLAIMED", "非空目录缺少 Scriverse Desktop 存储清单，已拒绝打开");
+    throw new DesktopStorageError("STORAGE_DIRECTORY_UNCLAIMED", "非空目录缺少叙界存储清单，已拒绝打开");
   }
 }
 
@@ -128,7 +128,7 @@ export function initializeDesktopStorageRoot(directory: string): DesktopRootMani
   const existing = readManifest(directory);
   if (existing) {
     if (existing.kind !== DESKTOP_ROOT_STORAGE_KIND) {
-      throw new DesktopStorageError("STORAGE_KIND_MISMATCH", "该目录不是 Scriverse Desktop 根目录，已拒绝打开");
+      throw new DesktopStorageError("STORAGE_KIND_MISMATCH", "该目录不是叙界根目录，已拒绝打开");
     }
     return existing;
   }
@@ -150,7 +150,7 @@ export function initializeDesktopLocalVault(directory: string, desktopId: string
   const existing = readManifest(directory);
   if (existing) {
     if (existing.kind !== DESKTOP_LOCAL_VAULT_STORAGE_KIND || existing.desktopId !== desktopId) {
-      throw new DesktopStorageError("STORAGE_KIND_MISMATCH", "该目录不是当前 Scriverse Desktop 的本地工作区，已拒绝打开");
+      throw new DesktopStorageError("STORAGE_KIND_MISMATCH", "该目录不是当前叙界的本地工作区，已拒绝打开");
     }
     return existing;
   }

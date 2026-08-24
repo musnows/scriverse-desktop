@@ -10,6 +10,10 @@ const preload = readFileSync(join(root, "src/preload/selector-preload.cts"), "ut
 
 describe("Desktop Selector UI", () => {
   it("提供工作区列表、Server 表单和明确删除确认", () => {
+    expect(html).toContain("<title>选择工作区 - 叙界</title>");
+    expect(html).toContain('aria-label="叙界工作区选择页"');
+    expect(html).toContain("<small>桌面端</small>");
+    expect(html).not.toContain("Scriverse Desktop");
     expect(html).toContain("选择工作区");
     expect(html).toContain("新增 Server");
     expect(html).toContain('id="local-ai-config-button"');

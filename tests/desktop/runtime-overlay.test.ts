@@ -48,7 +48,7 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain("desktopShellBridge()?.requestSwitch()");
     expect(overlayPatch).toContain("当前工作区：${name}");
     expect(overlayPatch).toContain("data-desktop-workspace-name");
-    expect(overlayPatch).toContain("workspaceName ? `${workspaceName} · Scriverse Desktop`");
+    expect(overlayPatch).toContain("workspaceName ? `${workspaceName} · 叙界`");
   });
 
   it("preserves the upstream system administrator account identity UI", () => {

@@ -18,8 +18,8 @@ describe("Desktop 菜单栏与系统托盘后台生命周期", () => {
 
   it("菜单栏与托盘提供打开、运行状态、缓存强刷和彻底退出操作", () => {
     expect(traySource).toContain("new Tray(");
-    expect(traySource).toContain('label: "打开 Scriverse Desktop"');
-    expect(traySource).toContain('label: "退出 Scriverse Desktop"');
+    expect(traySource).toContain('label: `打开${DESKTOP_DISPLAY_NAME}`');
+    expect(traySource).toContain('label: `退出${DESKTOP_DISPLAY_NAME}`');
     expect(traySource).toContain('label: "清理缓存并强制刷新"');
     expect(traySource).toContain("本地工作区正在运行");
     expect(traySource).not.toContain("tmux");

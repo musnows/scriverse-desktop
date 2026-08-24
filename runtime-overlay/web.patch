@@ -503,7 +503,7 @@ index 03b2f488..58c76e8d 100644
 +  const workspaceName = String(desktopWorkspaceIdentity?.profileName ?? "").trim();
 +  document.title = workTitle
 +    ? `${workTitle}${workspaceName ? ` · ${workspaceName}` : ""} · 叙界`
-+    : workspaceName ? `${workspaceName} · Scriverse Desktop` : platformDocumentTitle;
++    : workspaceName ? `${workspaceName} · 叙界` : platformDocumentTitle;
  }
 
  async function loadWorks(preferredId) {

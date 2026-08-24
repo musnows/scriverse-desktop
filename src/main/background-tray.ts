@@ -1,4 +1,5 @@
 import { Menu, Tray, nativeImage } from "electron";
+import { DESKTOP_DISPLAY_NAME } from "../shared/branding.js";
 
 export type BackgroundTrayStatus = {
   localServerRunning: boolean;
@@ -16,7 +17,7 @@ export class BackgroundTray {
     const icon = nativeImage.createFromPath(iconPath);
     if (icon.isEmpty()) throw new Error("Desktop tray icon is unavailable");
     this.tray = new Tray(icon.resize({ width: 18, height: 18 }));
-    this.tray.setToolTip("Scriverse Desktop");
+    this.tray.setToolTip(DESKTOP_DISPLAY_NAME);
     this.tray.on("click", () => this.actions.show());
     this.renderMenu();
   }
@@ -33,7 +34,7 @@ export class BackgroundTray {
   private renderMenu(): void {
     this.tray.setContextMenu(Menu.buildFromTemplate([
       {
-        label: "打开 Scriverse Desktop",
+        label: `打开${DESKTOP_DISPLAY_NAME}`,
         click: () => this.actions.show()
       },
       {
@@ -46,7 +47,7 @@ export class BackgroundTray {
       },
       { type: "separator" },
       {
-        label: "退出 Scriverse Desktop",
+        label: `退出${DESKTOP_DISPLAY_NAME}`,
         click: () => this.actions.quit()
       }
     ]));

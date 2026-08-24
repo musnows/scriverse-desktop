@@ -1,4 +1,5 @@
 import { app, autoUpdater, dialog, powerMonitor, shell, type BrowserWindow } from "electron";
+import { DESKTOP_DISPLAY_NAME } from "../shared/branding.js";
 import type { WorkspaceLeaveState } from "../shared/workspace-contract.js";
 import { desktopUpdateFeedUrl, updateInstallDetail } from "../shared/update-policy.js";
 
@@ -35,7 +36,7 @@ export class DesktopUpdater {
       void this.showMessageBox({
         type: "info",
         title: "检查更新",
-        message: `Scriverse Desktop ${this.options.version} 已是最新版本`
+        message: `${DESKTOP_DISPLAY_NAME} ${this.options.version} 已是最新版本`
       });
     });
     autoUpdater.on("error", (error) => {
@@ -46,7 +47,7 @@ export class DesktopUpdater {
       void this.showMessageBox({
         type: "error",
         title: "检查更新失败",
-        message: "暂时无法检查 Desktop 更新",
+        message: `暂时无法检查${DESKTOP_DISPLAY_NAME}更新`,
         detail: "当前版本仍可继续使用，请稍后重试。"
       });
     });
@@ -112,9 +113,9 @@ export class DesktopUpdater {
   private async openLinuxUpdatePage(): Promise<void> {
     const result = await this.showMessageBox({
       type: "info",
-      title: "Desktop 更新",
+      title: `${DESKTOP_DISPLAY_NAME}更新`,
       message: "Linux 版本由系统包管理器或下载页更新",
-      detail: "Scriverse Desktop 不在 Linux 上伪装内置自动更新。",
+      detail: `${DESKTOP_DISPLAY_NAME}在 Linux 上使用系统包管理器或下载页更新。`,
       buttons: ["打开下载页", "取消"],
       defaultId: 0,
       cancelId: 1
@@ -126,8 +127,8 @@ export class DesktopUpdater {
     const state = this.options.getLeaveState();
     const result = await this.showMessageBox({
       type: "info",
-      title: "Desktop 更新已下载",
-      message: `Scriverse Desktop ${releaseName || "新版本"} 已准备好`,
+      title: `${DESKTOP_DISPLAY_NAME}更新已下载`,
+      message: `${DESKTOP_DISPLAY_NAME} ${releaseName || "新版本"} 已准备好`,
       detail: updateInstallDetail(state),
       buttons: ["稍后", "重新启动并安装"],
       defaultId: 0,

@@ -1,5 +1,6 @@
 import { app, BrowserWindow } from "electron";
 import { join } from "node:path";
+import { DESKTOP_DISPLAY_NAME } from "../shared/branding.js";
 import { LOCAL_AI_CONFIG_ENTRY_URL, SELECTOR_ENTRY_URL } from "../shared/selector-contract.js";
 
 export function createSelectorWindow(desktopRoot: string): BrowserWindow {
@@ -9,7 +10,7 @@ export function createSelectorWindow(desktopRoot: string): BrowserWindow {
     minWidth: 390,
     minHeight: 600,
     show: false,
-    title: "Scriverse Desktop",
+    title: DESKTOP_DISPLAY_NAME,
     backgroundColor: "#f3efe7",
     autoHideMenuBar: true,
     webPreferences: {

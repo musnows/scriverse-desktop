@@ -4,15 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="light dark">
-    <title>选择工作区 - Scriverse Desktop</title>
+    <title>选择工作区 - 叙界</title>
     <link rel="stylesheet" href="./selector.css">
   </head>
   <body>
     <main class="selector-shell">
       <header class="app-header">
-        <a class="brand" href="app://desktop/selector/index.html" aria-label="Scriverse Desktop 工作区选择页">
+        <a class="brand" href="app://desktop/selector/index.html" aria-label="叙界工作区选择页">
           <img class="brand-mark" src="./icon.svg" alt="">
-          <span><strong>叙界</strong><small>Scriverse Desktop</small></span>
+          <span><strong>叙界</strong><small>桌面端</small></span>
         </a>
         <div class="header-actions">
           <button id="system-settings-button" class="ghost-button" type="button" aria-haspopup="dialog" aria-controls="system-settings-dialog">系统设置</button>
@@ -48,7 +48,7 @@
 
       <footer class="app-footer">
         <span>本地与远端工作区</span>
-        <span id="runtime-meta" class="runtime-meta">Desktop v—</span>
+        <span id="runtime-meta" class="runtime-meta">叙界 v—</span>
       </footer>
     </main>
 
@@ -178,7 +178,7 @@
       <form id="system-settings-form" method="dialog">
         <div class="dialog-header">
           <div>
-            <span class="eyebrow">Desktop 系统设置</span>
+            <span class="eyebrow">叙界系统设置</span>
             <h2 id="system-settings-title">本地工作区端口</h2>
           </div>
           <button class="dialog-close" type="button" data-system-settings-close aria-label="关闭">×</button>
@@ -188,7 +188,7 @@
             <span>首选端口</span>
             <input id="local-server-port" class="mono" name="localServerPort" type="number" min="20001" max="65516" step="1" inputmode="numeric" required>
           </label>
-          <p class="field-note">若首选端口被占用，Desktop 会自动选择可用端口。</p>
+          <p class="field-note">若首选端口被占用，叙界会自动选择可用端口。</p>
           <p id="system-settings-error" class="form-error" role="alert" hidden></p>
         </div>
         <div class="dialog-actions">

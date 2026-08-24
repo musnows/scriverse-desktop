@@ -3,9 +3,12 @@ import { FusesPlugin } from "@electron-forge/plugin-fuses";
 import type { ForgeConfig } from "@electron-forge/shared-types";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { DESKTOP_DISPLAY_NAME } from "./src/shared/branding.js";
 
 const desktopMainEntry = "build/main/main.js";
 const desktopAssets = "assets";
+const internalApplicationName = "Scriverse Desktop";
+const packagedApplicationName = process.platform === "darwin" ? DESKTOP_DISPLAY_NAME : internalApplicationName;
 const macSigningIdentity = process.env.APPLE_SIGN_IDENTITY?.trim() || null;
 const macNotarization = process.env.APPLE_API_KEY?.trim()
   && process.env.APPLE_API_KEY_ID?.trim()
@@ -34,11 +37,11 @@ const packageIcon = process.platform === "darwin"
     : `${desktopAssets}/icon-512.png`;
 const linuxMakerOptions = {
   name: "scriverse-desktop",
-  productName: "Scriverse Desktop",
+  productName: DESKTOP_DISPLAY_NAME,
   genericName: "Long-form Fiction Workspace",
   description: "Local AI workspace for long-form fiction",
-  productDescription: "Scriverse Desktop manages long-form fiction, settings, timelines, relationships and isolated AI-assisted writing workspaces.",
-  bin: "Scriverse Desktop",
+  productDescription: "叙界 manages long-form fiction, settings, timelines, relationships and isolated AI-assisted writing workspaces.",
+  bin: internalApplicationName,
   icon: join(process.cwd(), desktopAssets, "icon-512.png"),
   categories: ["Office" as const],
   homepage: "https://scriverse.top/"
@@ -61,6 +64,7 @@ const config: ForgeConfig = {
       unpackDir: "node_modules/@img"
     },
     icon: packageIcon,
+    ...(process.platform === "darwin" ? { extraResource: [join(process.cwd(), desktopAssets, "zh-Hans.lproj")] } : {}),
     osxSign: macSigningIdentity ? { identity: macSigningIdentity } : {
       identity: "-",
       identityValidation: false,
@@ -72,16 +76,17 @@ const config: ForgeConfig = {
       windowsSign: {
         certificateFile: windowsCertificateFile,
         certificatePassword: windowsCertificatePassword,
-        description: "Scriverse Desktop",
+        description: DESKTOP_DISPLAY_NAME,
         website: "https://scriverse.top/"
       }
     } : {}),
-    name: "Scriverse Desktop",
-    executableName: "Scriverse Desktop",
+    name: packagedApplicationName,
+    executableName: internalApplicationName,
     appBundleId: "top.scriverse.desktop",
     appCategoryType: "public.app-category.productivity",
     appCopyright: "Copyright musnows",
     extendInfo: {
+      CFBundleDevelopmentRegion: "zh-Hans",
       NSAppTransportSecurity: {
         NSAllowsArbitraryLoads: false,
         NSAllowsLocalNetworking: true
@@ -108,7 +113,7 @@ const config: ForgeConfig = {
     readPackageJson: async (_forgeConfig, packageJson) => ({
       ...packageJson,
       name: "scriverse-desktop",
-      productName: "Scriverse Desktop",
+      productName: DESKTOP_DISPLAY_NAME,
       main: desktopMainEntry,
       private: true
     })

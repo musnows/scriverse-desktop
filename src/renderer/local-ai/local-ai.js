@@ -333,7 +333,7 @@ document.querySelector("#local-ai-save-system-prompt").addEventListener("click",
 });
 
 if (!bridge) {
-  providerList.innerHTML = '<div class="empty-state"><b>本地 AI 暂时不可用</b>请重新打开 Desktop。</div>';
+  providerList.innerHTML = '<div class="empty-state"><b>本地 AI 暂时不可用</b>请重新打开叙界。</div>';
 } else {
   refreshConfiguration().catch((error) => {
     providerList.innerHTML = `<div class="empty-state"><b>本地 AI 配置读取失败</b>${esc(error.message)}</div>`;

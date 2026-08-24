@@ -1,4 +1,5 @@
 import { Menu, type MenuItemConstructorOptions } from "electron";
+import { DESKTOP_DISPLAY_NAME } from "../shared/branding.js";
 
 export type DesktopMenuActions = {
   switchWorkspace: () => void;
@@ -17,17 +18,17 @@ export function createDesktopMenuTemplate(
   const template: MenuItemConstructorOptions[] = [];
   if (platform === "darwin") {
     template.push({
-      label: "Scriverse Desktop",
+      label: DESKTOP_DISPLAY_NAME,
       submenu: [
-        { role: "about", label: "关于 Scriverse Desktop" },
+        { role: "about", label: `关于${DESKTOP_DISPLAY_NAME}` },
         { type: "separator" },
         { role: "services", label: "服务" },
         { type: "separator" },
-        { role: "hide", label: "隐藏 Scriverse Desktop" },
+        { role: "hide", label: `隐藏${DESKTOP_DISPLAY_NAME}` },
         { role: "hideOthers", label: "隐藏其他" },
         { role: "unhide", label: "全部显示" },
         { type: "separator" },
-        { role: "quit", label: "退出 Scriverse Desktop" }
+        { role: "quit", label: `退出${DESKTOP_DISPLAY_NAME}` }
       ]
     });
   }

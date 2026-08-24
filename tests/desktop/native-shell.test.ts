@@ -41,6 +41,7 @@ describe("Desktop 原生菜单与下载", () => {
 
   it("About 面板分行显示 Desktop 与对应 Server 版本", () => {
     expect(mainSource).toContain("app.setAboutPanelOptions");
+    expect(mainSource).toContain("applicationName: DESKTOP_DISPLAY_NAME");
     expect(mainSource).toContain('applicationVersion: desktopVersion');
     expect(mainSource).toContain('version: ""');
     expect(mainSource).toContain("对应 Server 版本 ${serverVersion}");

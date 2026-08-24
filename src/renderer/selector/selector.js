@@ -157,7 +157,7 @@ function profileStatus(profile) {
   if (profile.capabilities?.compatibility === "compatible") return { label: "可用", className: "compatible" };
   if (profile.capabilities?.compatibility === "online-only") return { label: "仅在线使用", className: "warning" };
   if (profile.capabilities?.compatibility === "legacy-online-only") return { label: "Server 需升级", className: "warning" };
-  if (profile.capabilities?.compatibility === "desktop-upgrade-required") return { label: "Desktop 需升级", className: "failed" };
+  if (profile.capabilities?.compatibility === "desktop-upgrade-required") return { label: "叙界需升级", className: "failed" };
   if (profile.capabilities?.compatibility === "shell-incompatible") return { label: "版本不兼容", className: "failed" };
   return { label: "未检测", className: "" };
 }
@@ -663,16 +663,16 @@ document.addEventListener("keydown", (event) => {
 
 async function initialize() {
   if (!bridge?.profiles || !bridge?.local || !bridge?.remote || !bridge?.settings || !bridge?.app) {
-    workspaceList.replaceChildren(element("p", "empty-state", "Desktop 初始化失败，请重新打开应用。"));
+    workspaceList.replaceChildren(element("p", "empty-state", "叙界初始化失败，请重新打开应用。"));
     profileSummary.textContent = "工作区暂时不可用";
     workspaceList.setAttribute("aria-busy", "false");
     return;
   }
   try {
     const [version, platform] = await Promise.all([bridge.app.getVersion(), bridge.app.getPlatform()]);
-    document.querySelector("#runtime-meta").textContent = `Desktop v${unwrap(version)} · ${unwrap(platform)}`;
+    document.querySelector("#runtime-meta").textContent = `叙界 v${unwrap(version)} · ${unwrap(platform)}`;
   } catch {
-    document.querySelector("#runtime-meta").textContent = "Desktop v—";
+    document.querySelector("#runtime-meta").textContent = "叙界 v—";
   }
   await loadProfiles();
 }

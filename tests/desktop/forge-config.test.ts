@@ -5,9 +5,12 @@ describe("Desktop Forge configuration", () => {
   it("packages an ASAR app with supported platform makers and hardened fuses", () => {
     expect(config.packagerConfig?.asar).toMatchObject({ unpackDir: "node_modules/@img" });
     expect(config.packagerConfig).toMatchObject({
-      name: "Scriverse Desktop",
+      name: process.platform === "darwin" ? "叙界" : "Scriverse Desktop",
       executableName: "Scriverse Desktop",
       appBundleId: "top.scriverse.desktop",
+      extendInfo: {
+        CFBundleDevelopmentRegion: "zh-Hans"
+      },
       icon: expect.stringContaining("assets/icon")
     });
     expect(config.makers?.map((maker) => "name" in maker ? maker.name : "")).toEqual(expect.arrayContaining([
@@ -29,7 +32,7 @@ describe("Desktop Forge configuration", () => {
     expect(sourceManifest).not.toHaveProperty("main");
     expect(packaged).toMatchObject({
       name: "scriverse-desktop",
-      productName: "Scriverse Desktop",
+      productName: "叙界",
       main: "build/main/main.js",
       private: true
     });

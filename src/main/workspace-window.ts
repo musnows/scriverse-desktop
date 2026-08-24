@@ -1,5 +1,6 @@
 import { app, BrowserWindow } from "electron";
 import { join } from "node:path";
+import { DESKTOP_DISPLAY_NAME } from "../shared/branding.js";
 import { LOCAL_PROFILE_PARTITION } from "../shared/contracts.js";
 import { isAllowedWorkspaceNavigation, normalizeLocalWorkspaceOrigin } from "../shared/workspace-url.js";
 import { applyWindowPlacement, type DesktopWindowPlacement } from "./window-placement.js";
@@ -22,7 +23,7 @@ export async function createLocalWorkspaceWindow(options: {
     minHeight: 600,
     ...(options.placement?.bounds ?? {}),
     show: false,
-    title: "本地工作区 - Scriverse Desktop",
+    title: `本地工作区 - ${DESKTOP_DISPLAY_NAME}`,
     backgroundColor: "#f3efe7",
     autoHideMenuBar: true,
     webPreferences: {

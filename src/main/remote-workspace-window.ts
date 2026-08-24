@@ -1,5 +1,6 @@
 import { app, BrowserWindow } from "electron";
 import { join } from "node:path";
+import { DESKTOP_DISPLAY_NAME } from "../shared/branding.js";
 import type { RemoteWorkspaceProfile } from "../shared/contracts.js";
 import { isAllowedRemoteWorkspaceNavigation } from "../shared/remote-workspace-url.js";
 import { registerBundledOfflineShell } from "./offline-shell-protocol.js";
@@ -23,7 +24,7 @@ export async function createRemoteWorkspaceWindow(options: {
     minHeight: 600,
     ...(options.placement?.bounds ?? {}),
     show: false,
-    title: `${options.profile.name} - Scriverse Desktop`,
+    title: `${options.profile.name} - ${DESKTOP_DISPLAY_NAME}`,
     backgroundColor: "#f3efe7",
     autoHideMenuBar: true,
     webPreferences: {

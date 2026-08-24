@@ -155,7 +155,7 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          app_path="out/Scriverse Desktop-darwin-${{ matrix.arch }}/Scriverse Desktop.app"
+          app_path="out/叙界-darwin-${{ matrix.arch }}/叙界.app"
           dmg_path="$(find out/make -name '*.dmg' -print -quit)"
           spctl --assess --type execute --verbose=4 "$app_path"
           xcrun stapler validate "$app_path"

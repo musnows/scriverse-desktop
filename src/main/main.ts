@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { registerDesktopScheme, registerSelectorProtocol } from "./app-protocol.js";
 import { resolveCompatibleServerVersion, resolveDesktopAppVersion } from "./app-version.js";
+import { DESKTOP_DISPLAY_NAME } from "../shared/branding.js";
 import { initializeDesktopEnvironment, type DesktopEnvironment } from "./desktop-environment.js";
 import { LocalServerManager } from "./local-server-manager.js";
 import { ProfileStore } from "./profile-store.js";
@@ -665,7 +666,7 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
   }
   updateBackgroundTrayStatus();
   app.setAboutPanelOptions({
-    applicationName: "Scriverse Desktop",
+    applicationName: DESKTOP_DISPLAY_NAME,
     applicationVersion: desktopVersion,
     version: "",
     credits: `对应 Server 版本 ${serverVersion}`,
@@ -700,8 +701,8 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
     showVersion: () => {
       void dialog.showMessageBox({
         type: "info",
-        title: "Scriverse Desktop 版本",
-        message: `Scriverse Desktop ${desktopVersion}`,
+        title: `${DESKTOP_DISPLAY_NAME}版本`,
+        message: `${DESKTOP_DISPLAY_NAME} ${desktopVersion}`,
         detail: `对应 Server 版本 ${serverVersion}\nElectron ${process.versions.electron} · Node ${process.versions.node}`
       });
     },

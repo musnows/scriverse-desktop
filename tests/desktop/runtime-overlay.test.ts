@@ -124,7 +124,7 @@ describe("Desktop Web runtime overlay", () => {
   it("preserves the upstream system administrator account identity UI", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 
-    expect(overlayPatch).toContain("feature=admin-account-identity-v2&feature=ai-provider-analysis-timeout-v1&feature=task-detail-failure-orange-v1&feature=desktop-same-workspace-v1");
+    expect(overlayPatch).toContain("feature=admin-account-identity-v2&feature=ai-provider-analysis-timeout-v1&feature=task-detail-failure-orange-v1&feature=book-import-progress-v1&feature=presence-multiple-users-v1&feature=desktop-same-workspace-v1");
     expect(overlayPatch.match(/feature=task-detail-failure-orange-v1/g)).toHaveLength(4);
     expect(overlayPatch).not.toContain('-          <button id="account-button"');
     expect(overlayPatch).not.toContain("-  const isSystemAdmin = session.user.isSystemAdmin === true;");
@@ -159,12 +159,11 @@ describe("Desktop Web runtime overlay", () => {
     expect(addedLines).not.toContain("未运行 Server 一致性守卫");
   });
 
-  it("hides the online presence banner until more than one distinct user is present", () => {
+  it("preserves the Server single-user presence behavior", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 
-    expect(overlayPatch).toContain("const groups = groupedPresenceParticipants();");
-    expect(overlayPatch).toContain("if (!state.work || groups.length <= 1)");
-    expect(overlayPatch).toContain('control.classList.add("hidden")');
-    expect(overlayPatch).toContain('control.classList.remove("hidden")');
+    expect(overlayPatch).toContain("feature=presence-multiple-users-v1");
+    expect(overlayPatch).not.toContain("function renderPresence()");
+    expect(overlayPatch).not.toContain("if (!state.work || groups.length <= 1)");
   });
 });

@@ -19,9 +19,12 @@ describe("Desktop 路径", () => {
       localAiProviders: "/Users/author/Scriverse/client-meta/local-ai-providers",
       desktopMasterKey: "/Users/author/Scriverse/client-meta/master.key",
       desktopSettings: "/Users/author/Scriverse/client-meta/desktop-settings.json",
+      remoteMedia: "/Users/author/Scriverse/remote-media",
       localRuntime: "/Users/author/Scriverse/local-vault/runtime",
       localVaultLock: "/Users/author/Scriverse/local-vault/desktop-vault.lock",
-      browserSessions: "/Users/author/Scriverse/browser-sessions-v2"
+      browserSessions: "/Users/author/Scriverse/browser-sessions-v2",
+      logs: "/Users/author/Scriverse/logs",
+      crashDumps: "/Users/author/Scriverse/crash-dumps"
     });
   });
 });

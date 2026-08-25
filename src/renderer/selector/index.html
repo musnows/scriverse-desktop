@@ -179,16 +179,30 @@
         <div class="dialog-header">
           <div>
             <span class="eyebrow">叙界系统设置</span>
-            <h2 id="system-settings-title">本地工作区端口</h2>
+            <h2 id="system-settings-title">系统设置</h2>
           </div>
           <button class="dialog-close" type="button" data-system-settings-close aria-label="关闭">×</button>
         </div>
         <div class="dialog-fields">
           <label>
-            <span>首选端口</span>
-            <input id="local-server-port" class="mono" name="localServerPort" type="number" min="20001" max="65516" step="1" inputmode="numeric" required>
+            <span>本地服务首选端口</span>
+            <input id="local-server-port" class="mono" name="localServerPort" type="number" min="10000" max="60000" step="1" inputmode="numeric" required>
           </label>
-          <p class="field-note">若首选端口被占用，叙界会自动选择可用端口。</p>
+          <p class="field-note">若本地服务首选端口被占用，叙界会自动选择可用端口。</p>
+          <div class="log-storage-setting-row">
+            <label>
+              <span>日志空间上限</span>
+              <select id="log-storage-limit" name="logStorageLimitMiB" required>
+                <option value="500">500 MB</option>
+                <option value="1024">1 GB</option>
+                <option value="2048">2 GB</option>
+                <option value="5120">5 GB</option>
+                <option value="10240">10 GB</option>
+              </select>
+            </label>
+            <button id="open-log-directory" class="ghost-button" type="button">打开日志目录</button>
+          </div>
+          <p class="field-note">包含当前日志和压缩归档；达到上限后会清理最老的 ZIP。</p>
           <p id="system-settings-error" class="form-error" role="alert" hidden></p>
         </div>
         <div class="dialog-actions">

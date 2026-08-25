@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from "electron";
+import { BrowserWindow } from "electron";
 import { join } from "node:path";
 import { DESKTOP_DISPLAY_NAME } from "../shared/branding.js";
 import type { RemoteWorkspaceProfile } from "../shared/contracts.js";
@@ -6,6 +6,8 @@ import { isAllowedRemoteWorkspaceNavigation } from "../shared/remote-workspace-u
 import { registerBundledWorkspaceShell, remoteWorkspaceShellUrl } from "./workspace-shell-protocol.js";
 import { createWorkspaceLoadingCover } from "./workspace-loading-cover.js";
 import { applyWindowPlacement, type DesktopWindowPlacement } from "./window-placement.js";
+import { captureRendererConsole } from "./renderer-console-logging.js";
+import type { RemoteMediaCache } from "./remote-media-cache.js";
 
 export async function createRemoteWorkspaceWindow(options: {
   profile: RemoteWorkspaceProfile;
@@ -14,6 +16,8 @@ export async function createRemoteWorkspaceWindow(options: {
   onClosed: () => void;
   desktopRoot: string;
   offlineShellRoot: string;
+  remoteMediaCache?: RemoteMediaCache;
+  remoteUserId?: string;
   placement?: DesktopWindowPlacement;
   onCreated?: (window: BrowserWindow) => void;
   show?: boolean;
@@ -38,9 +42,10 @@ export async function createRemoteWorkspaceWindow(options: {
       webSecurity: true,
       allowRunningInsecureContent: false,
       webviewTag: false,
-      devTools: !app.isPackaged
+      devTools: true
     }
   });
+  captureRendererConsole(window.webContents, "remote-workspace");
   const loadingCover = createWorkspaceLoadingCover(window);
   options.onCreated?.(window);
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
@@ -77,7 +82,9 @@ export async function createRemoteWorkspaceWindow(options: {
       window.webContents.session,
       options.profile,
       options.offlineShellRoot,
-      options.connectionMode
+      options.connectionMode,
+      options.remoteMediaCache ?? null,
+      options.remoteUserId ?? null
     );
     await window.loadURL(shellUrl);
   } catch (error) {

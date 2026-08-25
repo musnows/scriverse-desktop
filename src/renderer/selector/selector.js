@@ -35,6 +35,8 @@ const localLoginSubmit = document.querySelector("#local-login-submit");
 const systemSettingsDialog = document.querySelector("#system-settings-dialog");
 const systemSettingsForm = document.querySelector("#system-settings-form");
 const localServerPort = document.querySelector("#local-server-port");
+const logStorageLimit = document.querySelector("#log-storage-limit");
+const openLogDirectory = document.querySelector("#open-log-directory");
 const systemSettingsError = document.querySelector("#system-settings-error");
 const systemSettingsSubmit = document.querySelector("#system-settings-submit");
 const deleteDialog = document.querySelector("#delete-dialog");
@@ -100,6 +102,8 @@ function requireElement(element, label) {
   [systemSettingsDialog, "system-settings-dialog"],
   [systemSettingsForm, "system-settings-form"],
   [localServerPort, "local-server-port"],
+  [logStorageLimit, "log-storage-limit"],
+  [openLogDirectory, "open-log-directory"],
   [systemSettingsError, "system-settings-error"],
   [systemSettingsSubmit, "system-settings-submit"],
   [deleteDialog, "delete-dialog"],
@@ -390,6 +394,7 @@ async function openSystemSettingsDialog() {
   try {
     state.desktopSettings = unwrap(await bridge.settings.get());
     localServerPort.value = String(state.desktopSettings.localServerPort);
+    logStorageLimit.value = String(state.desktopSettings.logStorageLimitMiB);
     systemSettingsDialog.showModal();
     window.setTimeout(() => localServerPort.focus(), 0);
   } catch (error) {
@@ -547,15 +552,31 @@ systemSettingsForm.addEventListener("submit", async (event) => {
   systemSettingsError.hidden = true;
   setBusy(systemSettingsSubmit, true);
   try {
-    state.desktopSettings = unwrap(await bridge.settings.update({ localServerPort: Number(localServerPort.value) }));
+    state.desktopSettings = unwrap(await bridge.settings.update({
+      localServerPort: Number(localServerPort.value),
+      logStorageLimitMiB: Number(logStorageLimit.value)
+    }));
     closeSystemSettingsDialog();
     await loadProfiles();
-    showToast(state.localStatus.phase === "running" ? "端口设置已保存，下次启动本地工作区时生效" : "端口设置已保存");
+    showToast(state.localStatus.phase === "running" ? "设置已保存；日志上限已生效，端口将在下次启动本地工作区时生效" : "系统设置已保存");
   } catch (error) {
     systemSettingsError.textContent = error.message;
     systemSettingsError.hidden = false;
   } finally {
     setBusy(systemSettingsSubmit, false);
+  }
+});
+
+openLogDirectory.addEventListener("click", async () => {
+  setBusy(openLogDirectory, true);
+  try {
+    unwrap(await bridge.settings.openLogs());
+    showToast("已打开日志目录");
+  } catch (error) {
+    systemSettingsError.textContent = error.message;
+    systemSettingsError.hidden = false;
+  } finally {
+    setBusy(openLogDirectory, false);
   }
 });
 

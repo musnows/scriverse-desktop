@@ -4,7 +4,7 @@ import { remoteRequestHeaders, remoteResponseHeaders } from "../../src/shared/re
 describe("Desktop 远端 Session 请求头策略", () => {
   it("精确 origin 注入 Bearer 并剥离所有浏览器 Cookie", () => {
     const token = `scrvd_${"a".repeat(43)}`;
-    expect(remoteRequestHeaders({ Cookie: "legacy=1", authorization: "Bearer attacker", Accept: "application/json" },
+    expect(remoteRequestHeaders({ Cookie: "legacy=1", authorization: "Bearer attacker", Accept: "application/json", "X-Scriverse-Desktop-Media-Download": "1" },
       "https://server.example/api/works", "https://server.example", token)).toEqual({
       Accept: "application/json",
       Authorization: `Bearer ${token}`

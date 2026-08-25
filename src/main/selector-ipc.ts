@@ -56,6 +56,7 @@ const channels = [
   "selector:local:login",
   "selector:settings:get",
   "selector:settings:update",
+  "selector:settings:open-logs",
   "selector:remote:refresh-captcha",
   "selector:remote:login",
   "selector:local-ai:configuration",
@@ -145,7 +146,8 @@ export function registerSelectorIpc(selectorWindow: BrowserWindow, profileStore:
   desktopVersion: string;
   getLocalStatus: () => LocalServerPublicStatus;
   getDesktopSettings: () => DesktopSettingsSummary;
-  updateDesktopSettings: (input: unknown) => DesktopSettingsSummary;
+  updateDesktopSettings: (input: unknown) => DesktopSettingsSummary | Promise<DesktopSettingsSummary>;
+  openLogs: () => boolean | Promise<boolean>;
   openLocal: () => Promise<{ status: "opened" | "setup-required" | "login-required"; mode?: "online" }>;
   setupLocal: (input: { username: string; password: string }) => Promise<unknown>;
   loginLocal: (input: { username: string; password: string }) => Promise<unknown>;
@@ -229,6 +231,7 @@ export function registerSelectorIpc(selectorWindow: BrowserWindow, profileStore:
   handle("selector:local:login", selectorWindow, (_event, input) => options.loginLocal(parseLocalLoginInput(input)));
   handle("selector:settings:get", selectorWindow, () => options.getDesktopSettings());
   handle("selector:settings:update", selectorWindow, (_event, input) => options.updateDesktopSettings(input));
+  handle("selector:settings:open-logs", selectorWindow, () => options.openLogs());
   handle("selector:remote:refresh-captcha", selectorWindow, (_event, input) => {
     const profile = profileStore.get(parseProfileId(input));
     if (profile.kind !== "remote") throw new Error("远端工作区 profile 不存在");

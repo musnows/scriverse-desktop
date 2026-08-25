@@ -6,6 +6,7 @@ import {
   remoteWorkspaceShellUrl,
   resolveWorkspaceShellAsset
 } from "../../src/main/workspace-shell-protocol.js";
+import { REMOTE_MEDIA_DOWNLOAD_HEADER } from "../../src/main/remote-media-cache.js";
 import { remotePartition, type RemoteWorkspaceProfile } from "../../src/shared/contracts.js";
 
 const profileId = "11111111-1111-4111-8111-111111111111";
@@ -87,5 +88,31 @@ describe("Desktop 远端工作区网页壳协议", () => {
     const response = await handler!(new Request(`${shellUrl}api/health`));
     expect(response.status).toBe(503);
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("仅在确认后缓存作品图片，封面和当前登录用户头像自动缓存", async () => {
+    let handler: ((request: Request) => Response | Promise<Response>) | null = null;
+    const cachedResponse = vi.fn(async () => null);
+    const cachePath = vi.fn(async () => ({ response: new Response("cached", { status: 200 }), downloaded: true }));
+    const mediaCache = { cachedResponse, cachePath };
+    const electronSession = {
+      fetch: vi.fn(),
+      protocol: {
+        handle: vi.fn((_scheme: string, registered: typeof handler) => { handler = registered; }),
+        unhandle: vi.fn()
+      }
+    } as unknown as Session;
+    registerBundledWorkspaceShell(electronSession, profile, publicRoot, "online", mediaCache as never, "22222222-2222-4222-8222-222222222222");
+
+    await handler!(new Request(`${shellUrl}api/works/work_1/cover?v=1`));
+    await handler!(new Request(`${shellUrl}api/user-avatars/22222222-2222-4222-8222-222222222222?v=1`));
+    await handler!(new Request(`${shellUrl}api/attachments/attachment_1/content`, {
+      headers: { [REMOTE_MEDIA_DOWNLOAD_HEADER]: "1" }
+    }));
+
+    expect(cachePath).toHaveBeenCalledTimes(3);
+    expect(cachePath).toHaveBeenNthCalledWith(1, electronSession, profile, "/api/works/work_1/cover?v=1");
+    expect(cachePath).toHaveBeenNthCalledWith(2, electronSession, profile, "/api/user-avatars/22222222-2222-4222-8222-222222222222?v=1");
+    expect(cachePath).toHaveBeenNthCalledWith(3, electronSession, profile, "/api/attachments/attachment_1/content");
   });
 });

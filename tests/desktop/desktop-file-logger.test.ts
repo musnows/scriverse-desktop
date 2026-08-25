@@ -45,14 +45,14 @@ function archives(directory: string): string[] {
 }
 
 describe("Desktop 文件日志", () => {
-  it("使用 100 MiB 单文件、1 GiB 总量和约定的压缩时序", () => {
+  it("使用 100 MiB 单文件、500 MiB 默认总量和约定的压缩时序", () => {
     expect(DESKTOP_LOG_FILE_MAX_BYTES).toBe(100 * 1024 * 1024);
-    expect(DESKTOP_LOG_TOTAL_MAX_BYTES).toBe(1024 * 1024 * 1024);
+    expect(DESKTOP_LOG_TOTAL_MAX_BYTES).toBe(500 * 1024 * 1024);
     expect(DESKTOP_LOG_ARCHIVE_DELAY_MS).toBe(5 * 60 * 1000);
     expect(DESKTOP_LOG_ARCHIVE_RETRY_MS).toBe(60 * 1000);
   });
 
-  it("持久化 stdout 和 stderr 并脱敏凭据", () => {
+  it("持久化 stdout 和 stderr 并脱敏凭据", async () => {
     const directory = logDirectory();
     const logging = installDesktopProcessLogging(directory, { fileMaxBytes: 4_096, totalMaxBytes: 16_384 });
     const token = `scrvd_${"a".repeat(43)}`;
@@ -60,7 +60,7 @@ describe("Desktop 文件日志", () => {
       process.stderr.write("persistent probe\n");
       logging.logger.write("stderr", token);
     } finally {
-      logging.dispose();
+      await logging.dispose();
     }
     const path = join(directory, "desktop.log");
     const content = readFileSync(path, "utf8");
@@ -79,7 +79,7 @@ describe("Desktop 文件日志", () => {
     expect(redacted.match(/\[credential\]|\[api-key\]/gu)?.length).toBeGreaterThanOrEqual(3);
   });
 
-  it("滚动后的每个日志文件都不超过配置上限", () => {
+  it("滚动后的每个日志文件都不超过配置上限", async () => {
     const directory = logDirectory();
     const logger = new DesktopFileLogger(directory, {
       fileMaxBytes: 220,
@@ -87,7 +87,7 @@ describe("Desktop 文件日志", () => {
       archiveDelayMs: 60_000
     });
     for (let index = 0; index < 12; index += 1) logger.write("stdout", `line-${index}-${"内容".repeat(40)}`);
-    logger.dispose();
+    await logger.dispose();
     const logFiles = readdirSync(directory).filter((name) => name.endsWith(".log"));
     expect(logFiles.length).toBeGreaterThan(2);
     for (const name of logFiles) expect(statSync(join(directory, name)).size).toBeLessThanOrEqual(220);
@@ -102,12 +102,13 @@ describe("Desktop 文件日志", () => {
       archiveRetryMs: 20
     });
     logger.write("stderr", "x".repeat(260));
+    await logger.flush();
     expect(rotatedLogs(directory).length).toBeGreaterThan(0);
     expect(archives(directory)).toHaveLength(0);
     await waitFor(() => archives(directory).length > 0);
     expect(rotatedLogs(directory)).toHaveLength(0);
     expect(readFileSync(join(directory, archives(directory)[0]!)).subarray(0, 2).toString("ascii")).toBe("PK");
-    logger.dispose();
+    await logger.dispose();
   });
 
   it("压缩失败时按重试间隔再次处理", async () => {
@@ -125,12 +126,39 @@ describe("Desktop 文件日志", () => {
       }
     });
     logger.write("stderr", "x".repeat(240));
+    await logger.flush();
     await waitFor(() => attempts >= 2 && archives(directory).length > 0);
     expect(rotatedLogs(directory)).toHaveLength(0);
-    logger.dispose();
+    await logger.dispose();
   });
 
-  it("超过总量上限时先删除最老的 ZIP", () => {
+  it("压缩历史文件时新的输出只写入当前日志", async () => {
+    const directory = logDirectory();
+    let sourceSizeDuringArchive = 0;
+    let logger!: DesktopFileLogger;
+    logger = new DesktopFileLogger(directory, {
+      fileMaxBytes: 200,
+      totalMaxBytes: 4_000,
+      archiveDelayMs: 10,
+      archiveRetryMs: 20,
+      archiveFile: async (sourcePath, targetPath) => {
+        const before = statSync(sourcePath).size;
+        logger.write("stderr", "written-during-archive");
+        await logger.flush();
+        sourceSizeDuringArchive = statSync(sourcePath).size;
+        expect(sourceSizeDuringArchive).toBe(before);
+        expect(readFileSync(join(directory, "desktop.log"), "utf8")).toContain("written-during-archive");
+        writeFileSync(targetPath, Buffer.from("PK detached archive"), { mode: 0o600 });
+      }
+    });
+    logger.write("stderr", "x".repeat(260));
+    await logger.flush();
+    await waitFor(() => archives(directory).length > 0);
+    expect(sourceSizeDuringArchive).toBe(200);
+    await logger.dispose();
+  });
+
+  it("超过总量上限时先删除最老的 ZIP", async () => {
     const directory = logDirectory();
     const oldest = join(directory, "desktop-20260825T000000-0001.zip");
     const newest = join(directory, "desktop-20260825T000001-0002.zip");
@@ -141,10 +169,25 @@ describe("Desktop 文件日志", () => {
     const logger = new DesktopFileLogger(directory, { fileMaxBytes: 20, totalMaxBytes: 100 });
     expect(existsSync(oldest)).toBe(false);
     expect(existsSync(newest)).toBe(true);
-    logger.dispose();
+    await logger.dispose();
   });
 
-  it("没有可删除 ZIP 时停止追加以保持日志总量上限", () => {
+  it("运行时降低总量上限会立即清理最老 ZIP", async () => {
+    const directory = logDirectory();
+    const oldest = join(directory, "desktop-20260825T000000-0001.zip");
+    const newest = join(directory, "desktop-20260825T000001-0002.zip");
+    writeFileSync(oldest, Buffer.alloc(70));
+    writeFileSync(newest, Buffer.alloc(70));
+    utimesSync(oldest, new Date(1_000), new Date(1_000));
+    utimesSync(newest, new Date(2_000), new Date(2_000));
+    const logger = new DesktopFileLogger(directory, { fileMaxBytes: 20, totalMaxBytes: 200 });
+    await logger.setTotalMaxBytes(100);
+    expect(existsSync(oldest)).toBe(false);
+    expect(existsSync(newest)).toBe(true);
+    await logger.dispose();
+  });
+
+  it("没有可删除 ZIP 时停止追加以保持日志总量上限", async () => {
     const directory = logDirectory();
     const pending = join(directory, "desktop-20260825T000000-0001.log");
     writeFileSync(pending, Buffer.alloc(90));
@@ -154,15 +197,16 @@ describe("Desktop 文件日志", () => {
       archiveDelayMs: 60_000
     });
     logger.write("stderr", "quota-bound-entry");
+    await logger.flush();
     const total = readdirSync(directory)
       .filter((name) => name.endsWith(".log") || name.endsWith(".zip"))
       .reduce((sum, name) => sum + statSync(join(directory, name)).size, 0);
     expect(total).toBeLessThanOrEqual(100);
     expect(existsSync(join(directory, "desktop.log"))).toBe(false);
-    logger.dispose();
+    await logger.dispose();
   });
 
-  it("启动时恢复已完成但尚未改名的临时 ZIP", () => {
+  it("启动时恢复已完成但尚未改名的临时 ZIP", async () => {
     const directory = logDirectory();
     const temporary = join(directory, "desktop-20260825T000000-0001.zip.tmp-recovery");
     const archive = join(directory, "desktop-20260825T000000-0001.zip");
@@ -170,7 +214,7 @@ describe("Desktop 文件日志", () => {
     const logger = new DesktopFileLogger(directory, { fileMaxBytes: 20, totalMaxBytes: 200 });
     expect(existsSync(temporary)).toBe(false);
     expect(existsSync(archive)).toBe(true);
-    logger.dispose();
+    await logger.dispose();
   });
 
   it("只把 Renderer warning 和 error 写入主进程日志", () => {

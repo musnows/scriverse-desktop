@@ -1,10 +1,13 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import {
+  DEFAULT_DESKTOP_LOG_STORAGE_LIMIT_MIB,
   DEFAULT_LOCAL_SERVER_PORT,
   DESKTOP_SETTINGS_VERSION,
   DesktopSettingsContractError,
   parseDesktopSettingsUpdate,
+  parseDesktopLogStorageLimitMiB,
   parseLocalServerPort,
+  type DesktopLogStorageLimitMiB,
   type DesktopSettingsSummary
 } from "../shared/desktop-settings-contract.js";
 import { writeDesktopJsonAtomically } from "../shared/storage-manifest.js";
@@ -14,6 +17,7 @@ const MAX_SETTINGS_BYTES = 64 * 1024;
 type DesktopSettingsDocument = {
   version: typeof DESKTOP_SETTINGS_VERSION;
   localServerPort: number;
+  logStorageLimitMiB: DesktopLogStorageLimitMiB;
   updatedAt: string;
 };
 
@@ -22,7 +26,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function parseDocument(value: unknown): DesktopSettingsDocument {
-  if (!isRecord(value) || Object.keys(value).toSorted().join(",") !== "localServerPort,updatedAt,version") {
+  if (!isRecord(value)) {
+    throw new DesktopSettingsContractError("DESKTOP_SETTINGS_INVALID", "Desktop 系统设置格式无效");
+  }
+  const keys = Object.keys(value).toSorted().join(",");
+  if (keys !== "localServerPort,logStorageLimitMiB,updatedAt,version" && keys !== "localServerPort,updatedAt,version") {
     throw new DesktopSettingsContractError("DESKTOP_SETTINGS_INVALID", "Desktop 系统设置格式无效");
   }
   if (value.version !== DESKTOP_SETTINGS_VERSION || typeof value.updatedAt !== "string" || !Number.isFinite(Date.parse(value.updatedAt))) {
@@ -31,6 +39,9 @@ function parseDocument(value: unknown): DesktopSettingsDocument {
   return {
     version: DESKTOP_SETTINGS_VERSION,
     localServerPort: parseLocalServerPort(value.localServerPort),
+    logStorageLimitMiB: value.logStorageLimitMiB === undefined
+      ? DEFAULT_DESKTOP_LOG_STORAGE_LIMIT_MIB
+      : parseDesktopLogStorageLimitMiB(value.logStorageLimitMiB),
     updatedAt: value.updatedAt
   };
 }
@@ -54,6 +65,7 @@ export class DesktopSettingsStore {
   get(): DesktopSettingsSummary {
     return {
       localServerPort: this.document?.localServerPort ?? DEFAULT_LOCAL_SERVER_PORT,
+      logStorageLimitMiB: this.document?.logStorageLimitMiB ?? DEFAULT_DESKTOP_LOG_STORAGE_LIMIT_MIB,
       updatedAt: this.document?.updatedAt ?? null
     };
   }
@@ -63,6 +75,7 @@ export class DesktopSettingsStore {
     this.document = {
       version: DESKTOP_SETTINGS_VERSION,
       localServerPort: input.localServerPort,
+      logStorageLimitMiB: input.logStorageLimitMiB,
       updatedAt: new Date().toISOString()
     };
     writeDesktopJsonAtomically(this.path, this.document);

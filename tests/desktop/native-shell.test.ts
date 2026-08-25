@@ -62,6 +62,7 @@ describe("Desktop 原生菜单与下载", () => {
   it("把主进程、本地 Server 和 Renderer 诊断写入 Desktop 日志", () => {
     expect(mainSource).toContain("installDesktopProcessLogging(desktopEnvironment.paths.logs)");
     expect(mainSource).toContain('process.stderr.write("Desktop file logging initialized\\n")');
+    expect(mainSource).toContain("logger.setTotalMaxBytes(desktopLogStorageLimitBytes(settings.logStorageLimitMiB))");
     for (const path of ["selector-window.ts", "workspace-window.ts", "remote-workspace-window.ts"]) {
       expect(readFileSync(join(root, "src/main", path), "utf8")).toContain("captureRendererConsole(window.webContents");
     }

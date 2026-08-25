@@ -11,6 +11,10 @@ export type DesktopMenuActions = {
   checkForUpdates: () => void;
 };
 
+export function desktopDevToolsAccelerator(platform: NodeJS.Platform = process.platform): string {
+  return platform === "darwin" ? "Command+Alt+I" : "Control+Shift+I";
+}
+
 export function createDesktopMenuTemplate(
   actions: DesktopMenuActions,
   platform: NodeJS.Platform = process.platform
@@ -61,6 +65,8 @@ export function createDesktopMenuTemplate(
         { role: "resetZoom", label: "实际大小" },
         { role: "zoomIn", label: "放大" },
         { role: "zoomOut", label: "缩小" },
+        { type: "separator" },
+        { role: "toggleDevTools", label: "开发者工具", accelerator: desktopDevToolsAccelerator(platform) },
         { type: "separator" },
         { role: "togglefullscreen", label: "切换全屏" }
       ]

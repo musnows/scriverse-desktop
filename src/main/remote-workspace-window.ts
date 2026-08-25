@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from "electron";
+import { BrowserWindow } from "electron";
 import { join } from "node:path";
 import { DESKTOP_DISPLAY_NAME } from "../shared/branding.js";
 import type { RemoteWorkspaceProfile } from "../shared/contracts.js";
@@ -38,7 +38,7 @@ export async function createRemoteWorkspaceWindow(options: {
       webSecurity: true,
       allowRunningInsecureContent: false,
       webviewTag: false,
-      devTools: !app.isPackaged
+      devTools: true
     }
   });
   const loadingCover = createWorkspaceLoadingCover(window);

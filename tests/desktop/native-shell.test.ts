@@ -23,9 +23,19 @@ describe("Desktop 原生菜单与下载", () => {
   });
 
   it("提供工作区、编辑、视图、窗口和帮助菜单", () => {
-    for (const label of ["切换工作区", "重新连接", "打开同步中心", "撤销", "查找", "切换全屏", "打开日志目录", "版本信息", "检查更新"]) {
+    for (const label of ["切换工作区", "重新连接", "打开同步中心", "撤销", "查找", "开发者工具", "切换全屏", "打开日志目录", "版本信息", "检查更新"]) {
       expect(menuSource).toContain(label);
     }
+  });
+
+  it("在所有正式窗口启用开发者工具并提供平台快捷键", () => {
+    for (const path of ["selector-window.ts", "workspace-window.ts", "remote-workspace-window.ts"]) {
+      const source = readFileSync(join(root, "src/main", path), "utf8");
+      expect(source).toContain("devTools: true");
+      expect(source).not.toContain("devTools: !app.isPackaged");
+    }
+    expect(menuSource).toContain('role: "toggleDevTools"');
+    expect(menuSource).toContain('platform === "darwin" ? "Command+Alt+I" : "Control+Shift+I"');
   });
 
   it("向本地页面提供工作区名称和切换能力", () => {

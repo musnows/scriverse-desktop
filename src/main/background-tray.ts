@@ -12,7 +12,7 @@ export class BackgroundTray {
   constructor(iconPath: string, private readonly actions: {
     show: () => void;
     refresh: () => void | Promise<void>;
-    quit: () => void;
+    requestQuit: () => void;
   }) {
     const icon = nativeImage.createFromPath(iconPath);
     if (icon.isEmpty()) throw new Error("Desktop tray icon is unavailable");
@@ -48,7 +48,7 @@ export class BackgroundTray {
       { type: "separator" },
       {
         label: `退出${DESKTOP_DISPLAY_NAME}`,
-        click: () => this.actions.quit()
+        click: () => this.actions.requestQuit()
       }
     ]));
   }

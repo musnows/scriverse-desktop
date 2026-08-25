@@ -260,6 +260,11 @@ button:disabled { cursor: wait; opacity: .56; transform: none !important; }
 }
 
 .toast.error { border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); color: var(--danger); }
+.toast.quit-confirmation { display: grid; gap: 8px; width: min(360px, calc(100vw - 32px)); color: var(--ink); }
+.toast.quit-confirmation strong { font-size: 12px; }
+.toast.quit-confirmation p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+.toast-confirmation-actions { display: flex; justify-content: flex-end; gap: 7px; }
+.toast-confirmation-actions button { min-height: 30px; padding: 6px 10px; }
 
 @keyframes skeleton { to { background-position: -200% 0; } }
 @keyframes status-pulse { 50% { opacity: .35; transform: scale(.72); } }

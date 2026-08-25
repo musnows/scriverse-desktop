@@ -79,7 +79,7 @@ describe("Desktop 原生菜单与下载", () => {
     expect(downloadSource).toContain("webContents.id !== owner.webContents.id");
     expect(downloadSource).toContain("setSaveDialogOptions");
     expect(downloadSource).not.toContain("setSavePath");
-    expect(preloadSource).toContain('new Set(["open-sync-center"])');
+    expect(preloadSource).toContain('new Set(["open-sync-center", "request-quit"])');
     expect(preloadSource).not.toContain("send:");
   });
 });

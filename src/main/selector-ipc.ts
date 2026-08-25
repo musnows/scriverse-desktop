@@ -1,4 +1,4 @@
-import { app, ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from "electron";
+import { ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from "electron";
 import { ProfileStore } from "./profile-store.js";
 import {
   LOCAL_AI_CONFIG_ENTRY_URL,
@@ -70,7 +70,8 @@ const channels = [
   "selector:local-ai:test-provider",
   "selector:app:get-version",
   "selector:app:get-platform",
-  "selector:app:quit"
+  "selector:app:request-quit",
+  "selector:app:confirm-quit"
 ] as const;
 
 function errorResult(error: unknown): IpcFailure {
@@ -166,6 +167,8 @@ export function registerSelectorIpc(selectorWindow: BrowserWindow, profileStore:
   updateLocalAiModel: (input: LocalAiModelUpdateInput) => unknown;
   removeLocalAiModel: (modelId: string) => string;
   testLocalAiProvider: (providerId: string) => Promise<unknown>;
+  requestQuit: () => void;
+  confirmQuit: () => void;
 }): () => void {
   handle("selector:profiles:list", selectorWindow, () => sortProfilesForSelector(profileStore.list()));
   handle("selector:profiles:status", selectorWindow, (_event, input) => {
@@ -272,8 +275,12 @@ export function registerSelectorIpc(selectorWindow: BrowserWindow, profileStore:
   }, LOCAL_AI_CONFIG_ENTRY_URL);
   handle("selector:app:get-version", selectorWindow, () => options.desktopVersion);
   handle("selector:app:get-platform", selectorWindow, () => process.platform);
-  handle("selector:app:quit", selectorWindow, () => {
-    setImmediate(() => app.quit());
+  handle("selector:app:request-quit", selectorWindow, () => {
+    options.requestQuit();
+    return null;
+  });
+  handle("selector:app:confirm-quit", selectorWindow, () => {
+    options.confirmQuit();
     return null;
   });
   return () => {

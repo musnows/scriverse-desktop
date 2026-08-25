@@ -4,22 +4,12 @@ on:
   release:
     types:
       - published
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: Existing GitHub Release tag
-        required: true
-        type: string
-      scriverse_ref:
-        description: Compatible Scriverse commit or tag
-        required: true
-        type: string
 
 permissions:
   contents: write
 
 concurrency:
-  group: desktop-release-${{ github.event.release.tag_name || inputs.tag }}
+  group: desktop-release-${{ github.event.release.tag_name }}
   cancel-in-progress: false
 
 jobs:
@@ -50,8 +40,7 @@ jobs:
             runner: ubuntu-24.04-arm
             arch: arm64
     env:
-      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
-      SCRIVERSE_RUNTIME_REF: ${{ inputs.scriverse_ref || vars.SCRIVERSE_RUNTIME_REF }}
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
 
     steps:
       - name: Checkout release tag
@@ -59,22 +48,32 @@ jobs:
         with:
           ref: ${{ env.RELEASE_TAG }}
 
-      - name: Require a pinned Scriverse runtime ref
-        shell: bash
-        run: test -n "$SCRIVERSE_RUNTIME_REF"
-
-      - name: Checkout compatible Scriverse runtime source
-        uses: actions/checkout@v6
-        with:
-          repository: musnows/Scriverse
-          ref: ${{ env.SCRIVERSE_RUNTIME_REF }}
-          path: scriverse-runtime-source
-
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
+
+      - name: Resolve compatible Scriverse release
+        id: scriverse-release
+        shell: bash
+        run: |
+          server_version="$(node --print "require('./package.json').scriverseServerVersion")"
+          test -n "$server_version"
+          echo "ref=v$server_version" >> "$GITHUB_OUTPUT"
+
+      - name: Verify compatible Scriverse Release exists
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release view "${{ steps.scriverse-release.outputs.ref }}" --repo musnows/Scriverse
+
+      - name: Checkout compatible Scriverse runtime source
+        uses: actions/checkout@v6
+        with:
+          repository: musnows/Scriverse
+          ref: ${{ steps.scriverse-release.outputs.ref }}
+          path: scriverse-runtime-source
 
       - name: Verify release version
         shell: bash
@@ -199,7 +198,7 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       GH_TOKEN: ${{ github.token }}
-      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
 
     steps:
       - name: Download release artifacts

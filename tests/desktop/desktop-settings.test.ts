@@ -26,7 +26,11 @@ describe("Desktop 系统设置与本地端口", () => {
     expect(updated).toMatchObject({ localServerPort: 24_321, logStorageLimitMiB: 2_048, updatedAt: expect.any(String) });
     expect(new DesktopSettingsStore(path).get()).toEqual(updated);
     expect(JSON.parse(readFileSync(path, "utf8"))).toMatchObject({ version: 1, localServerPort: 24_321, logStorageLimitMiB: 2_048 });
-    expect(() => store.update({ localServerPort: 20_000, logStorageLimitMiB: 500 })).toThrowError(/20001/u);
+    expect(store.update({ localServerPort: 10_000, logStorageLimitMiB: 500 }).localServerPort).toBe(10_000);
+    expect(store.update({ localServerPort: 60_000, logStorageLimitMiB: 500 }).localServerPort).toBe(60_000);
+    expect(() => store.update({ localServerPort: 9_999, logStorageLimitMiB: 500 })).toThrowError(/10000/u);
+    expect(() => store.update({ localServerPort: 60_001, logStorageLimitMiB: 500 })).toThrowError(/60000/u);
+    expect(() => store.update({ localServerPort: 23_241.5, logStorageLimitMiB: 500 })).toThrowError(/整数/u);
   });
 
   it("仅接受五档日志空间上限并拒绝其他大小", () => {
@@ -64,6 +68,8 @@ describe("Desktop 系统设置与本地端口", () => {
     const canBind = vi.fn(async (port: number) => port >= 24_323);
     await expect(selectLocalServerPort(24_321, canBind)).resolves.toBe(24_323);
     expect(canBind).toHaveBeenCalledTimes(3);
+    expect(localServerPortCandidates(59_990)).toEqual(Array.from({ length: 11 }, (_value, offset) => 59_990 + offset));
+    expect(localServerPortCandidates(60_000)).toEqual([60_000]);
   });
 
   it("20 个端口都失败时只报告最初配置的端口", async () => {

@@ -1,8 +1,8 @@
 export const DESKTOP_SETTINGS_VERSION = 1;
 export const DEFAULT_LOCAL_SERVER_PORT = 23_241;
-export const MIN_LOCAL_SERVER_PORT = 20_001;
+export const MIN_LOCAL_SERVER_PORT = 10_000;
 export const LOCAL_SERVER_PORT_SCAN_COUNT = 20;
-export const MAX_LOCAL_SERVER_PORT = 65_535 - (LOCAL_SERVER_PORT_SCAN_COUNT - 1);
+export const MAX_LOCAL_SERVER_PORT = 60_000;
 export const DESKTOP_LOG_STORAGE_LIMIT_MIB_OPTIONS = [500, 1_024, 2_048, 5_120, 10_240] as const;
 export const DEFAULT_DESKTOP_LOG_STORAGE_LIMIT_MIB = DESKTOP_LOG_STORAGE_LIMIT_MIB_OPTIONS[0];
 
@@ -25,7 +25,7 @@ export class LocalServerPortUnavailableError extends Error {
   readonly code = "LOCAL_PORT_UNAVAILABLE";
 
   constructor(readonly preferredPort: number) {
-    super(`本地工作区端口 ${preferredPort} 被占用，请在 Desktop 系统设置中修改端口号`);
+    super(`本地服务首选端口 ${preferredPort} 被占用，请在 Desktop 系统设置中修改端口号`);
     this.name = "LocalServerPortUnavailableError";
   }
 }
@@ -43,7 +43,7 @@ export function parseLocalServerPort(value: unknown): number {
   ) {
     throw new DesktopSettingsContractError(
       "LOCAL_PORT_INVALID",
-      `本地工作区端口必须是 ${MIN_LOCAL_SERVER_PORT} 到 ${MAX_LOCAL_SERVER_PORT} 之间的整数`
+      `本地服务首选端口必须是 ${MIN_LOCAL_SERVER_PORT} 到 ${MAX_LOCAL_SERVER_PORT} 之间的整数`
     );
   }
   return value;
@@ -78,7 +78,8 @@ export function parseDesktopSettingsUpdate(value: unknown): {
 
 export function localServerPortCandidates(preferredPort: number): number[] {
   const base = parseLocalServerPort(preferredPort);
-  return Array.from({ length: LOCAL_SERVER_PORT_SCAN_COUNT }, (_value, offset) => base + offset);
+  const count = Math.min(LOCAL_SERVER_PORT_SCAN_COUNT, MAX_LOCAL_SERVER_PORT - base + 1);
+  return Array.from({ length: count }, (_value, offset) => base + offset);
 }
 
 export async function selectLocalServerPort(

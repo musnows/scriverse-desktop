@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from "electron";
+import { BrowserWindow } from "electron";
 import { join } from "node:path";
 import { DESKTOP_DISPLAY_NAME } from "../shared/branding.js";
 import { LOCAL_PROFILE_PARTITION } from "../shared/contracts.js";
@@ -36,7 +36,7 @@ export async function createLocalWorkspaceWindow(options: {
       webSecurity: true,
       allowRunningInsecureContent: false,
       webviewTag: false,
-      devTools: !app.isPackaged
+      devTools: true
     }
   });
   const loadingCover = createWorkspaceLoadingCover(window);

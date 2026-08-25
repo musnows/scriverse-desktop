@@ -5,7 +5,7 @@ import type { Session } from "electron";
 import type { RemoteWorkspaceProfile } from "../shared/contracts.js";
 import { writeDesktopJsonAtomically } from "../shared/storage-manifest.js";
 
-const REMOTE_MEDIA_CACHE_VERSION = 1;
+const REMOTE_MEDIA_CACHE_VERSION = 2;
 const MAX_REMOTE_MEDIA_BYTES = 64 * 1024 * 1024;
 const REMOTE_MEDIA_PAGE_LIMIT = 100;
 const REMOTE_MEDIA_REFRESH_INTERVAL_MS = 15 * 60 * 1_000;
@@ -33,13 +33,11 @@ type RemoteMediaCacheEntry = {
 type RemoteMediaCacheManifest = {
   version: typeof REMOTE_MEDIA_CACHE_VERSION;
   profileId: string;
-  userId: string;
   entries: Record<string, RemoteMediaCacheEntry>;
 };
 
 type RemoteMediaCacheScope = {
   profileId: string;
-  userId: string;
   directory: string;
   objectDirectory: string;
   manifestPath: string;
@@ -197,26 +195,26 @@ export class RemoteMediaCache {
 
   constructor(private readonly root: string) {}
 
-  private scopeKey(profileId: string, userId: string): string {
-    if (!isUuid(profileId) || !isUuid(userId)) {
+  private scopeKey(profileId: string): string {
+    if (!isUuid(profileId)) {
       throw new RemoteMediaCacheError("REMOTE_MEDIA_SCOPE_INVALID", "远端图片缓存范围无效");
     }
-    return `${profileId}:${userId}`;
+    return profileId;
   }
 
-  private async scope(profileId: string, userId: string): Promise<RemoteMediaCacheScope> {
-    const key = this.scopeKey(profileId, userId);
+  private async scope(profileId: string): Promise<RemoteMediaCacheScope> {
+    const key = this.scopeKey(profileId);
     let promise = this.scopes.get(key);
     if (!promise) {
-      promise = this.openScope(profileId, userId);
+      promise = this.openScope(profileId);
       this.scopes.set(key, promise);
     }
     return promise;
   }
 
-  private async openScope(profileId: string, userId: string): Promise<RemoteMediaCacheScope> {
-    const directory = join(this.root, profileId, userId);
-    const objectDirectory = join(directory, "objects");
+  private async openScope(profileId: string): Promise<RemoteMediaCacheScope> {
+    const directory = join(this.root, "profiles", profileId);
+    const objectDirectory = join(this.root, "objects");
     const manifestPath = join(directory, "manifest.json");
     await mkdir(directory, { recursive: true, mode: 0o700 });
     if (process.platform !== "win32") await chmod(directory, 0o700);
@@ -225,7 +223,6 @@ export class RemoteMediaCache {
     let manifest: RemoteMediaCacheManifest = {
       version: REMOTE_MEDIA_CACHE_VERSION,
       profileId,
-      userId,
       entries: {}
     };
     try {
@@ -234,7 +231,6 @@ export class RemoteMediaCache {
         !isRecord(document)
         || document.version !== REMOTE_MEDIA_CACHE_VERSION
         || document.profileId !== profileId
-        || document.userId !== userId
         || !isRecord(document.entries)
       ) throw new Error("invalid");
       const entries: Record<string, RemoteMediaCacheEntry> = {};
@@ -255,15 +251,15 @@ export class RemoteMediaCache {
           cachedAt: value.cachedAt
         };
       }
-      manifest = { version: REMOTE_MEDIA_CACHE_VERSION, profileId, userId, entries };
+      manifest = { version: REMOTE_MEDIA_CACHE_VERSION, profileId, entries };
     } catch (error) {
-      if (isRecord(error) && error.code === "ENOENT") return { profileId, userId, directory, objectDirectory, manifestPath, manifest };
+      if (isRecord(error) && error.code === "ENOENT") return { profileId, directory, objectDirectory, manifestPath, manifest };
       if (error instanceof Error && error.message === "invalid") {
         throw new RemoteMediaCacheError("REMOTE_MEDIA_CACHE_INVALID", "远端图片缓存清单无效");
       }
       throw new RemoteMediaCacheError("REMOTE_MEDIA_CACHE_INVALID", "远端图片缓存无法读取");
     }
-    return { profileId, userId, directory, objectDirectory, manifestPath, manifest };
+    return { profileId, directory, objectDirectory, manifestPath, manifest };
   }
 
   private async objectExists(scope: RemoteMediaCacheScope, sha256: string, byteLength: number): Promise<boolean> {
@@ -285,10 +281,10 @@ export class RemoteMediaCache {
     }
   }
 
-  async cachedResponse(profileId: string, userId: string, path: string): Promise<Response | null> {
+  async cachedResponse(profileId: string, path: string): Promise<Response | null> {
     const route = parseRemoteMediaRoute(path);
     if (!route) return null;
-    return this.cached(await this.scope(profileId, userId), route);
+    return this.cached(await this.scope(profileId), route);
   }
 
   private async remoteFetch(
@@ -347,12 +343,11 @@ export class RemoteMediaCache {
   async cachePath(
     electronSession: Session,
     profile: RemoteWorkspaceProfile,
-    userId: string,
     path: string
   ): Promise<{ response: Response; downloaded: boolean }> {
     const route = parseRemoteMediaRoute(path);
     if (!route) throw new RemoteMediaCacheError("REMOTE_MEDIA_PATH_INVALID", "远端图片地址无效");
-    const scope = await this.scope(profile.id, userId);
+    const scope = await this.scope(profile.id);
     const existing = await this.cached(scope, route);
     if (existing) return { response: existing, downloaded: false };
     const response = await this.remoteFetch(electronSession, profile, route.path, { method: "GET" });
@@ -364,14 +359,13 @@ export class RemoteMediaCache {
   async cacheWorkCover(
     electronSession: Session,
     profile: RemoteWorkspaceProfile,
-    userId: string,
     workId: string
   ): Promise<boolean> {
     const work = await this.remoteData(electronSession, profile, `/api/works/${encodeURIComponent(workId)}`);
     const coverUrl = typeof work.coverUrl === "string" ? work.coverUrl : null;
     const route = coverUrl ? parseRemoteMediaRoute(coverUrl) : null;
     if (!route || route.kind !== "cover" || route.subjectId !== workId) return false;
-    return (await this.cachePath(electronSession, profile, userId, route.path)).downloaded;
+    return (await this.cachePath(electronSession, profile, route.path)).downloaded;
   }
 
   async refreshLoggedInUserAvatar(
@@ -384,7 +378,7 @@ export class RemoteMediaCache {
     if (session.authenticated !== true || user?.userId !== userId || typeof user.avatarUrl !== "string") return false;
     const route = parseRemoteMediaRoute(user.avatarUrl);
     if (!route || route.kind !== "user-avatar" || route.subjectId !== userId) return false;
-    return (await this.cachePath(electronSession, profile, userId, route.path)).downloaded;
+    return (await this.cachePath(electronSession, profile, route.path)).downloaded;
   }
 
   private async remoteData(electronSession: Session, profile: RemoteWorkspaceProfile, path: string): Promise<Record<string, unknown>> {
@@ -464,11 +458,10 @@ export class RemoteMediaCache {
   private async workSummary(
     electronSession: Session,
     profile: RemoteWorkspaceProfile,
-    userId: string,
     workId: string
   ): Promise<{ summary: RemoteWorkMediaSummary; candidates: WorkMediaCandidate[] }> {
     const { title, candidates } = await this.workImageCandidates(electronSession, profile, workId);
-    const scope = await this.scope(profile.id, userId);
+    const scope = await this.scope(profile.id);
     const hashes = new Set<string>();
     let totalBytes = 0;
     let additionalBytes = 0;
@@ -494,22 +487,20 @@ export class RemoteMediaCache {
   async describeWorkImages(
     electronSession: Session,
     profile: RemoteWorkspaceProfile,
-    userId: string,
     workId: string
   ): Promise<RemoteWorkMediaSummary> {
-    return (await this.workSummary(electronSession, profile, userId, workId)).summary;
+    return (await this.workSummary(electronSession, profile, workId)).summary;
   }
 
   async downloadWorkImages(
     electronSession: Session,
     profile: RemoteWorkspaceProfile,
-    userId: string,
     workId: string
   ): Promise<RemoteWorkMediaDownloadResult> {
-    const { summary, candidates } = await this.workSummary(electronSession, profile, userId, workId);
+    const { summary, candidates } = await this.workSummary(electronSession, profile, workId);
     let downloadedCount = 0;
     for (const candidate of candidates) {
-      if ((await this.cachePath(electronSession, profile, userId, candidate.path)).downloaded) downloadedCount += 1;
+      if ((await this.cachePath(electronSession, profile, candidate.path)).downloaded) downloadedCount += 1;
     }
     return { ...summary, downloadedCount };
   }

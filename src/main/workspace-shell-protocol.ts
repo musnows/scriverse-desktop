@@ -160,14 +160,14 @@ export function registerBundledWorkspaceShell(
     if (url.pathname === "/api" || url.pathname.startsWith("/api/")) {
       const mediaRoute = parseRemoteMediaRoute(`${url.pathname}${url.search}`);
       if (mediaRoute && mediaCache && userId) {
-        const cached = await mediaCache.cachedResponse(profile.id, userId, mediaRoute.path);
+        const cached = await mediaCache.cachedResponse(profile.id, mediaRoute.path);
         if (cached) return cached;
         const requestedDownload = request.headers.get(REMOTE_MEDIA_DOWNLOAD_HEADER) === "1";
         const automaticDownload = mediaRoute.kind === "cover"
           || (mediaRoute.kind === "user-avatar" && mediaRoute.subjectId === userId);
         if (connectionMode === "online" && (requestedDownload || automaticDownload)) {
           try {
-            return (await mediaCache.cachePath(electronSession, profile, userId, mediaRoute.path)).response;
+            return (await mediaCache.cachePath(electronSession, profile, mediaRoute.path)).response;
           } catch (error) {
             const message = error instanceof Error ? error.message : "无法下载远端图片";
             return Response.json({ error: { code: "REMOTE_MEDIA_UNAVAILABLE", message } }, {

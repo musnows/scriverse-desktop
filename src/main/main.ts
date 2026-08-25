@@ -312,9 +312,9 @@ function startRemoteAvatarRefresh(window: BrowserWindow, profile: RemoteWorkspac
   return () => clearInterval(timer);
 }
 
-async function confirmAndCacheWorkImages(window: BrowserWindow, profile: RemoteWorkspaceProfile, userId: string, workId: string): Promise<unknown> {
+async function confirmAndCacheWorkImages(window: BrowserWindow, profile: RemoteWorkspaceProfile, workId: string): Promise<unknown> {
   if (!remoteMediaCache) throw new Error("Desktop 图片缓存尚未就绪");
-  const summary = await remoteMediaCache.describeWorkImages(window.webContents.session, profile, userId, workId);
+  const summary = await remoteMediaCache.describeWorkImages(window.webContents.session, profile, workId);
   if (summary.imageCount === 0) return { status: "empty", summary };
   const detail = summary.alreadyCachedCount > 0
     ? `共 ${summary.imageCount} 张作品图片，其中 ${summary.alreadyCachedCount} 张已在本地缓存。本次预计新增 ${formatRemoteMediaBytes(summary.additionalBytes)}。`
@@ -330,7 +330,7 @@ async function confirmAndCacheWorkImages(window: BrowserWindow, profile: RemoteW
     noLink: true
   });
   if (result.response !== 1) return { status: "declined", summary };
-  const downloaded = await remoteMediaCache.downloadWorkImages(window.webContents.session, profile, userId, workId);
+  const downloaded = await remoteMediaCache.downloadWorkImages(window.webContents.session, profile, workId);
   return { status: "downloaded", ...downloaded };
 }
 
@@ -541,11 +541,11 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
         cancelLocalAi: (_userId, requestId) => localAiRequestCoordinator!.cancel(requestId),
         completeLocalAiAgentRound: (_userId, input, onEvent) => localAiRequestCoordinator!.completeAgentRound(input, onEvent),
         cancelLocalAiAgentRound: (_userId, requestId) => localAiRequestCoordinator!.cancelAgentRound(requestId),
-        cacheWorkCover: async (userId, workId) => {
+        cacheWorkCover: async (_userId, workId) => {
           if (!remoteMediaCache) throw new Error("Desktop 图片缓存尚未就绪");
-          return remoteMediaCache.cacheWorkCover(window.webContents.session, profile, userId, workId);
+          return remoteMediaCache.cacheWorkCover(window.webContents.session, profile, workId);
         },
-        cacheWorkImages: (userId, workId) => confirmAndCacheWorkImages(window, profile, userId, workId),
+        cacheWorkImages: (_userId, workId) => confirmAndCacheWorkImages(window, profile, workId),
         reportLeaveState: (state) => {
           activeRemoteLeaveState = state;
           const user = remoteAuthCoordinator!.cachedUser(profile);

@@ -111,8 +111,8 @@ describe("Desktop 远端工作区网页壳协议", () => {
     }));
 
     expect(cachePath).toHaveBeenCalledTimes(3);
-    expect(cachePath).toHaveBeenNthCalledWith(1, electronSession, profile, "22222222-2222-4222-8222-222222222222", "/api/works/work_1/cover?v=1");
-    expect(cachePath).toHaveBeenNthCalledWith(2, electronSession, profile, "22222222-2222-4222-8222-222222222222", "/api/user-avatars/22222222-2222-4222-8222-222222222222?v=1");
-    expect(cachePath).toHaveBeenNthCalledWith(3, electronSession, profile, "22222222-2222-4222-8222-222222222222", "/api/attachments/attachment_1/content");
+    expect(cachePath).toHaveBeenNthCalledWith(1, electronSession, profile, "/api/works/work_1/cover?v=1");
+    expect(cachePath).toHaveBeenNthCalledWith(2, electronSession, profile, "/api/user-avatars/22222222-2222-4222-8222-222222222222?v=1");
+    expect(cachePath).toHaveBeenNthCalledWith(3, electronSession, profile, "/api/attachments/attachment_1/content");
   });
 });

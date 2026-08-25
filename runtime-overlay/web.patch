@@ -1196,6 +1196,17 @@ index b94fd30..5d9815a 100644
 +  return `event: ${eventName}\ndata: ${JSON.stringify(payload)}\n\n`;
 +}
 +
++function createDesktopProviderPendingMessage(tab) {
++  const message = document.createElement("div");
++  message.className = "assistant-message is-streaming";
++  message.dataset.testid = "ai-stream-message";
++  message.innerHTML = '<div class="message-body" data-testid="ai-stream-content" aria-live="polite" aria-busy="true"></div><div class="message-meta">正在连接模型流…… <span class="ai-stream-connection-seconds" data-testid="ai-stream-connection-seconds">0</span> 秒</div>';
++  attachMessageHeading(message, aiAssistantLabel("正在生成", tab.roleplayCharacter), undefined, tab);
++  tab.feed.append(message);
++  scrollAiFeedToBottom(tab.feed);
++  return message;
++}
++
 +function desktopProviderChatResponse(options) {
 +  const encoder = new TextEncoder();
 +  let streamedContent = "";
@@ -1205,6 +1216,7 @@ index b94fd30..5d9815a 100644
 +      const emit = (eventName, payload) => {
 +        if (!closed) controller.enqueue(encoder.encode(desktopProviderStreamFrame(eventName, payload)));
 +      };
++      emit("process_step", { id: "provider-thinking-1", type: "thinking", round: 1, content: "", append: false });
 +      void completeWithDesktopProvider({
 +        ...options,
 +        onProviderEvent: (event, round) => {
@@ -1551,13 +1563,22 @@ index b94fd30..5d9815a 100644
      tab.selectedModelId = modelId;
 +    const desktopProviderModel = selectedDesktopProviderModel(modelId);
      const imageAttachmentIds = aiChatImageAttachmentIds(requestComposerSnapshot.images);
++    const desktopProviderUserMetadata = imageAttachmentIds.length ? { chatImageAttachmentIds: imageAttachmentIds } : {};
      if (imageAttachmentIds.length > 0 && !state.models.find((model) => model.id === modelId)?.multimodalEnabled) {
        return toast("当前选择的模型不是多模态模型，无法发送图片附件", "error");
-@@ -16088,7 +17019,7 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
+@@ -16088,7 +17019,10 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
      }
      setAiChatTabStatus(tab, "streaming");
      if (retry?.message?.isConnected) retry.message.remove();
 -    if (taskType !== "chat") {
++    let desktopProviderOptimisticUserMessage = null;
++    if (desktopProviderModel && taskType === "chat" && !retry) {
++      appendMessage("user", instruction, citations, null, desktopProviderUserMetadata, null, { tab });
++      desktopProviderOptimisticUserMessage = tab.feed.lastElementChild;
++    }
++    const desktopProviderStreamMessage = desktopProviderModel && taskType === "chat"
++      ? createDesktopProviderPendingMessage(tab)
++      : null;
 +    if (taskType !== "chat" || desktopProviderModel) {
        if (!retry) {
          try {
@@ -1567,10 +1588,41 @@ index b94fd30..5d9815a 100644
              instruction,
              citations,
 -            { modelId },
-+            { modelId, ...(imageAttachmentIds.length ? { chatImageAttachmentIds: imageAttachmentIds } : {}) },
++            { modelId, ...desktopProviderUserMetadata },
              { signal: request.signal }
            );
            assertAiRequestCurrent(request);
+@@ -16107,7 +17043,12 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
+           tab.selectedModelId = modelId;
+           tab.promptSent = true;
+           clearAiChatTabComposer(tab);
+-          appendMessage("user", instruction, citations, persistedUserMessage.createdAt, {}, persistedUserMessage.id, { tab });
++          if (desktopProviderOptimisticUserMessage?.isConnected) {
++            updateMessageCreatedAt(desktopProviderOptimisticUserMessage, persistedUserMessage.createdAt);
++            attachMessageIdentity(desktopProviderOptimisticUserMessage, persistedUserMessage.id);
++          } else {
++            appendMessage("user", instruction, citations, persistedUserMessage.createdAt, desktopProviderUserMetadata, persistedUserMessage.id, { tab });
++          }
+           if (isActiveAiChatTab(tab)) {
+             state.aiConversationModelId = modelId;
+             state.aiPromptSent = true;
+@@ -16119,6 +17053,8 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
+         } catch (error) {
++          desktopProviderOptimisticUserMessage?.remove();
++          desktopProviderStreamMessage?.remove();
+           if (isAiRequestCancellation(error, requestHolder.snapshot) || !aiRequestTargetsCurrentState(requestHolder.snapshot)) throw error;
+           setAiChatTabStatus(tab, "error");
+           return toast(`对话记录创建失败：${error.message}`, "error");
+         }
+       } else {
+@@ -16132,6 +17086,7 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
+     let persistedStreamMessage = null;
+     let suggestion = null;
+     if (taskType === "chat") {
++      desktopProviderStreamMessage?.remove();
+       const streamed = await streamChat(requestHolder, aiRetryStreamRequestBody({
+         instruction,
+         ...(sceneDirection ? { sceneDirection } : {}),
 @@ -16143,7 +17074,17 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
          ...(imageAttachmentIds.length ? { imageAttachmentIds } : {}),
          conversationId: requestHolder.snapshot.conversationId,

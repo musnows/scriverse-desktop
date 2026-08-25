@@ -59,6 +59,14 @@ describe("Desktop 原生菜单与下载", () => {
     expect(mainSource).toContain("对应 Server 版本 ${serverVersion}");
   });
 
+  it("把主进程、本地 Server 和 Renderer 诊断写入 Desktop 日志", () => {
+    expect(mainSource).toContain("installDesktopProcessLogging(desktopEnvironment.paths.logs)");
+    expect(mainSource).toContain('process.stderr.write("Desktop file logging initialized\\n")');
+    for (const path of ["selector-window.ts", "workspace-window.ts", "remote-workspace-window.ts"]) {
+      expect(readFileSync(join(root, "src/main", path), "utf8")).toContain("captureRendererConsole(window.webContents");
+    }
+  });
+
   it("下载只允许当前工作区并始终使用系统保存对话框", () => {
     expect(downloadSource).toContain("webContents.id !== owner.webContents.id");
     expect(downloadSource).toContain("setSaveDialogOptions");

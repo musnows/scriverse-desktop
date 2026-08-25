@@ -2,6 +2,7 @@ import { BrowserWindow } from "electron";
 import { join } from "node:path";
 import { DESKTOP_DISPLAY_NAME } from "../shared/branding.js";
 import { LOCAL_AI_CONFIG_ENTRY_URL, SELECTOR_ENTRY_URL } from "../shared/selector-contract.js";
+import { captureRendererConsole } from "./renderer-console-logging.js";
 
 export function createSelectorWindow(desktopRoot: string): BrowserWindow {
   const window = new BrowserWindow({
@@ -24,6 +25,7 @@ export function createSelectorWindow(desktopRoot: string): BrowserWindow {
       devTools: true
     }
   });
+  captureRendererConsole(window.webContents, "selector");
   const selectorSession = window.webContents.session;
   selectorSession.setPermissionCheckHandler(() => false);
   selectorSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));

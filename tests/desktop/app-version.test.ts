@@ -31,7 +31,7 @@ describe("Desktop 应用版本", () => {
     expect(resolveCompatibleServerVersion(root)).toBe("0.8.7");
   });
 
-  it("当前 Desktop 声明对应 Server 0.9.0", () => {
-    expect(resolveCompatibleServerVersion(process.cwd())).toBe("0.9.0");
+  it("当前 Desktop 声明对应 Server 0.9.2", () => {
+    expect(resolveCompatibleServerVersion(process.cwd())).toBe("0.9.2");
   });
 });

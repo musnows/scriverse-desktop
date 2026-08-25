@@ -57,7 +57,8 @@ const state = {
   deletingDiscardUnsynced: false,
   remoteLoginProfileId: null,
   remoteCaptchaId: null,
-  toastTimer: null
+  toastTimer: null,
+  quitConfirmationOpen: false
 };
 
 function requireElement(element, label) {
@@ -124,13 +125,59 @@ function unwrap(result) {
 }
 
 function showToast(message, isError = false) {
+  if (state.quitConfirmationOpen) return;
   window.clearTimeout(state.toastTimer);
   toast.textContent = message;
+  toast.classList.remove("quit-confirmation");
   toast.classList.toggle("error", isError);
+  toast.setAttribute("role", "status");
+  toast.removeAttribute("aria-label");
   toast.hidden = false;
   state.toastTimer = window.setTimeout(() => {
     toast.hidden = true;
   }, 4_200);
+}
+
+function closeQuitConfirmation() {
+  window.clearTimeout(state.toastTimer);
+  state.quitConfirmationOpen = false;
+  toast.replaceChildren();
+  toast.classList.remove("quit-confirmation", "error");
+  toast.setAttribute("role", "status");
+  toast.removeAttribute("aria-label");
+  toast.hidden = true;
+}
+
+function showQuitConfirmation() {
+  if (state.quitConfirmationOpen) return;
+  state.quitConfirmationOpen = true;
+  window.clearTimeout(state.toastTimer);
+  toast.replaceChildren();
+  toast.classList.remove("error");
+  toast.classList.add("quit-confirmation");
+  toast.setAttribute("role", "alertdialog");
+  toast.setAttribute("aria-label", "退出叙界");
+  const title = element("strong", "", "退出叙界？");
+  const detail = element("p", "", "退出后会停止本地工作区服务；离线副本和待同步修改会继续保留。");
+  const actions = element("div", "toast-confirmation-actions");
+  const cancel = element("button", "ghost-button", "继续使用");
+  cancel.type = "button";
+  const confirm = element("button", "primary-button", "退出叙界");
+  confirm.type = "button";
+  cancel.addEventListener("click", closeQuitConfirmation, { once: true });
+  confirm.addEventListener("click", async () => {
+    setBusy(confirm, true);
+    try {
+      unwrap(await bridge.app.confirmQuit());
+    } catch (error) {
+      closeQuitConfirmation();
+      showToast(error.message, true);
+    }
+  });
+  actions.append(cancel, confirm);
+  toast.append(title, detail, actions);
+  toast.hidden = false;
+  cancel.focus();
 }
 
 function setBusy(button, busy) {
@@ -637,11 +684,12 @@ document.querySelector("#refresh-button").addEventListener("click", loadProfiles
 window.addEventListener("focus", () => { void loadProfiles(); });
 document.querySelector("#quit-button").addEventListener("click", async () => {
   try {
-    unwrap(await bridge.app.quit());
+    unwrap(await bridge.app.requestQuit());
   } catch (error) {
     showToast(error.message, true);
   }
 });
+bridge.app.onQuitRequested(showQuitConfirmation);
 document.querySelectorAll("[data-dialog-close]").forEach((button) => button.addEventListener("click", closeProfileDialog));
 document.querySelectorAll("[data-remote-login-close]").forEach((button) => button.addEventListener("click", closeRemoteLoginDialog));
 document.querySelectorAll("[data-local-setup-close]").forEach((button) => button.addEventListener("click", closeLocalSetupDialog));

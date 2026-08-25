@@ -20,6 +20,7 @@ const localWorkspaceChannels = [
   "local-workspace:shell:get-capabilities",
   "local-workspace:shell:request-switch",
   "local-workspace:shell:logout",
+  "local-workspace:shell:confirm-quit",
   "local-workspace:local-ai:catalog",
   "local-workspace:local-ai:complete",
   "local-workspace:local-ai:cancel",
@@ -89,6 +90,7 @@ export function registerLocalWorkspaceIpc(workspaceWindow: BrowserWindow, origin
   getWorkspaceIdentity: () => { profileId: string; profileName: string; profileKind: "local" };
   requestSwitch: () => Promise<void> | void;
   logout: () => Promise<void> | void;
+  confirmQuit: () => void;
   getLocalAiCatalog: () => LocalAiWorkspaceCatalog;
   completeLocalAi: (input: LocalAiCompletionRequestInput, onEvent: (event: LocalAiStreamEvent) => void) => Promise<LocalAiCompletionResult>;
   cancelLocalAi: (requestId: string) => boolean;
@@ -98,6 +100,7 @@ export function registerLocalWorkspaceIpc(workspaceWindow: BrowserWindow, origin
   handle("local-workspace:shell:get-capabilities", workspaceWindow, origin, options.isActive, () => options.getWorkspaceIdentity());
   handle("local-workspace:shell:request-switch", workspaceWindow, origin, options.isActive, () => options.requestSwitch());
   handle("local-workspace:shell:logout", workspaceWindow, origin, options.isActive, () => options.logout());
+  handle("local-workspace:shell:confirm-quit", workspaceWindow, origin, options.isActive, () => options.confirmQuit());
   handle("local-workspace:local-ai:catalog", workspaceWindow, origin, options.isActive, () => options.getLocalAiCatalog());
   handle("local-workspace:local-ai:complete", workspaceWindow, origin, options.isActive, (input) => {
     const parsed = parseLocalAiCompletionRequestInput(input);

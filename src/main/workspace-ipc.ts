@@ -27,6 +27,7 @@ const workspaceChannels = [
   "workspace:shell:get-capabilities",
   "workspace:shell:report-leave-state",
   "workspace:shell:request-switch",
+  "workspace:shell:confirm-quit",
   "workspace:shell:cache-work-cover",
   "workspace:shell:cache-work-images",
   "workspace:local-ai:catalog",
@@ -121,6 +122,7 @@ export function registerWorkspaceIpc(workspaceWindow: BrowserWindow, profile: Re
   cacheWorkImages: (userId: string, workId: string) => Promise<unknown>;
   reportLeaveState: (state: WorkspaceLeaveState) => void;
   requestSwitch: () => Promise<void> | void;
+  confirmQuit: () => void;
 }): () => void {
   const activeUserId = (): string => {
     const user = options.getCachedUser();
@@ -146,6 +148,7 @@ export function registerWorkspaceIpc(workspaceWindow: BrowserWindow, profile: Re
     return null;
   });
   handle("workspace:shell:request-switch", workspaceWindow, profile, options.activeProfileId, () => options.requestSwitch());
+  handle("workspace:shell:confirm-quit", workspaceWindow, profile, options.activeProfileId, () => options.confirmQuit());
   handle("workspace:shell:cache-work-cover", workspaceWindow, profile, options.activeProfileId, (input) => (
     options.cacheWorkCover(activeUserId(), parseWorkMediaInput(input))
   ));

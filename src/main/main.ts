@@ -82,6 +82,7 @@ let backgroundTray: BackgroundTray | null = null;
 let desktopProcessLogging: DesktopProcessLogging | null = null;
 let remoteMediaCache: RemoteMediaCache | null = null;
 let quitAfterLocalShutdown = false;
+let desktopQuitConfirmed = false;
 let allowWorkspaceWindowClose = false;
 let localWorkspaceOpenPromise: Promise<void> | null = null;
 let remoteWorkspaceOpenPromise: Promise<void> | null = null;
@@ -344,6 +345,28 @@ function showDesktopWindow(): void {
   if (target === workspaceWindow) mainWindow?.hide();
 }
 
+function requestDesktopQuitConfirmation(): void {
+  if (desktopQuitConfirmed) {
+    app.quit();
+    return;
+  }
+  const activeWorkspace = workspaceWindow && !workspaceWindow.isDestroyed() ? workspaceWindow : null;
+  const selector = mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
+  const target = activeWorkspace ?? selector;
+  if (!target) {
+    app.quit();
+    return;
+  }
+  showDesktopWindow();
+  if (target === activeWorkspace) target.webContents.send("workspace:shell:menu-command", "request-quit");
+  else target.webContents.send("selector:app:request-quit");
+}
+
+function confirmDesktopQuit(): void {
+  desktopQuitConfirmed = true;
+  app.quit();
+}
+
 function hideDesktopToBackground(): void {
   if (workspaceWindow && !workspaceWindow.isDestroyed()) workspaceWindow.hide();
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.hide();
@@ -453,6 +476,7 @@ function openLocalWorkspace(origin: string): Promise<void> {
         isActive: () => activeWorkspaceKind === "local" && workspaceWindow === window,
         getWorkspaceIdentity: () => ({ profileId: LOCAL_PROFILE_ID, profileName: "本地工作区", profileKind: "local" }),
         requestSwitch: requestWorkspaceSwitch,
+        confirmQuit: confirmDesktopQuit,
         logout: async () => {
           localAuthStore?.clear();
           localSessionPolicy?.clear();
@@ -551,7 +575,8 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
           const user = remoteAuthCoordinator!.cachedUser(profile);
           if (user) remoteSyncStatusStore!.update(profile, user.userId, state);
         },
-        requestSwitch: requestWorkspaceSwitch
+        requestSwitch: requestWorkspaceSwitch,
+        confirmQuit: confirmDesktopQuit
       });
     },
     onReady: () => mainWindow?.hide(),
@@ -736,7 +761,7 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
       refresh: () => clearDesktopCachesAndReload().catch((error) => {
         dialog.showErrorBox("刷新失败", error instanceof Error ? error.message : "缓存清理失败");
       }),
-      quit: () => app.quit()
+      requestQuit: requestDesktopQuitConfirmation
     });
   }
   updateBackgroundTrayStatus();
@@ -766,6 +791,7 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
         workspaceWindow.webContents.send("workspace:shell:menu-command", "open-sync-center");
       }
     },
+    requestQuit: requestDesktopQuitConfirmation,
     find: () => {
       if (!workspaceWindow || workspaceWindow.isDestroyed()) return;
       const modifiers = [process.platform === "darwin" ? "meta" : "control"] as const;
@@ -836,7 +862,9 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
     createLocalAiModel: (input) => localAiProviderStore!.createModel(input),
     updateLocalAiModel: (input) => localAiProviderStore!.updateModel(input),
     removeLocalAiModel: (modelId) => localAiProviderStore!.removeModel(modelId),
-    testLocalAiProvider
+    testLocalAiProvider,
+    requestQuit: requestDesktopQuitConfirmation,
+    confirmQuit: confirmDesktopQuit
   });
   mainWindow.once("closed", () => {
     disposeSelectorIpc?.();
@@ -894,6 +922,11 @@ if (handleSquirrelStartup()) {
   });
   app.on("before-quit", (event) => {
     if (runtimeGateRequested || localServerGateRequested || !localServerManager || quitAfterLocalShutdown) return;
+    if (!desktopQuitConfirmed) {
+      event.preventDefault();
+      requestDesktopQuitConfirmation();
+      return;
+    }
     quitAfterLocalShutdown = true;
     const phase = localServerManager.getStatus().phase;
     if (phase === "stopped") return;
@@ -901,6 +934,7 @@ if (handleSquirrelStartup()) {
     void closeWorkspaceBeforeQuit().then(async (closed) => {
       if (!closed) {
         quitAfterLocalShutdown = false;
+        desktopQuitConfirmed = false;
         return;
       }
       await localServerManager?.stop();

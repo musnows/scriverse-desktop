@@ -5,6 +5,7 @@ export type DesktopMenuActions = {
   switchWorkspace: () => void;
   reconnectWorkspace: () => void;
   openSyncCenter: () => void;
+  requestQuit: () => void;
   find: () => void;
   openLogs: () => void;
   showVersion: () => void;
@@ -32,7 +33,7 @@ export function createDesktopMenuTemplate(
         { role: "hideOthers", label: "隐藏其他" },
         { role: "unhide", label: "全部显示" },
         { type: "separator" },
-        { role: "quit", label: `退出${DESKTOP_DISPLAY_NAME}` }
+        { label: `退出${DESKTOP_DISPLAY_NAME}`, accelerator: "CmdOrCtrl+Q", click: actions.requestQuit }
       ]
     });
   }

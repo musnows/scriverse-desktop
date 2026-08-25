@@ -133,7 +133,7 @@ export class DesktopSyncClient {
     return jsonResponse(response);
   }
 
-  async downloadWork(work, { scheduleRequest = null } = {}) {
+  async downloadWork(work, { scheduleRequest = null, onProgress = () => undefined } = {}) {
     if (!work?.id) throw new DesktopSyncClientError("SYNC_WORK_INVALID", "请先选择要下载的作品");
     if (work.offlineAccessEnabled !== true) {
       throw new DesktopSyncClientError("OFFLINE_ACCESS_DISABLED", "作品所有者尚未允许 Desktop 离线访问");
@@ -142,18 +142,22 @@ export class DesktopSyncClient {
       ? scheduleRequest(() => this.request(path, options))
       : this.request(path, options);
     const descriptor = await request(`/api/sync/works/${encodeURIComponent(work.id)}/snapshots`, { method: "POST", body: {} });
+    const total = Math.max(0, Number(descriptor.itemCount) || 0);
     const items = [];
     let after = 0;
     try {
+      await onProgress({ phase: "downloading", completed: 0, total });
       while (true) {
         const page = await request(`/api/sync/snapshots/${encodeURIComponent(descriptor.snapshotId)}/items?after=${after}&limit=100`);
         items.push(...page.items);
+        await onProgress({ phase: "downloading", completed: items.length, total });
         if (!page.hasMore) break;
         if (!Number.isInteger(page.nextAfter) || page.nextAfter <= after) {
           throw new DesktopSyncClientError("SYNC_SNAPSHOT_INVALID", "Server 返回的离线数据不完整");
         }
         after = page.nextAfter;
       }
+      await onProgress({ phase: "saving", completed: items.length, total });
       const stored = await this.store.replaceSnapshot({
         workId: work.id,
         cutoffCursor: descriptor.cutoffCursor,

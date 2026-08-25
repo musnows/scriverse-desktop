@@ -1,4 +1,4 @@
-import { createDesktopSyncClient } from "./desktop-sync-client.js?v=20260823-desktop-sync-client-v7";
+import { createDesktopSyncClient } from "./desktop-sync-client.js?v=20260826-desktop-download-progress-v1";
 import { DESKTOP_BULK_DOWNLOAD_CONCURRENCY, createDesktopBulkDownloadRateLimiter } from "./desktop-request-rate-limiter.js?v=20260823-desktop-bulk-download-v1";
 import { mergeEntitySnapshots } from "./three-way-merge.js?v=20260823-desktop-conflict-merge-v1";
 
@@ -38,6 +38,15 @@ function workStatusLabel(work, summary) {
   return "已同步";
 }
 
+export function offlineDownloadProgressText(progress) {
+  if (progress?.phase === "preparing") return "离线同步中 · 正在准备副本";
+  if (progress?.phase === "saving") return "离线同步中 · 正在保存副本";
+  const total = Math.max(0, Number(progress?.total) || 0);
+  const completed = Math.min(total, Math.max(0, Number(progress?.completed) || 0));
+  if (total > 0) return `离线同步中 · 已下载 ${completed}/${total} 项（${Math.round((completed / total) * 100)}%）`;
+  return "离线同步中 · 正在下载内容";
+}
+
 function rescueFileName(work) {
   const title = String(work?.title ?? "scriverse-work")
     .normalize("NFC")
@@ -70,6 +79,42 @@ export class DesktopWorkspaceController {
     this.client = client;
     this.store = client.store;
     this.serverWorks = [];
+    this.downloadProgressByWorkId = new Map();
+    this.downloadProgressOutputs = new Map();
+  }
+
+  updateDownloadProgress(workId, progress) {
+    this.downloadProgressByWorkId.set(workId, progress);
+    const output = this.ensureDownloadProgressOutput(workId, progress);
+    if (!(output instanceof HTMLElement)) return;
+    output.dataset.phase = String(progress?.phase ?? "downloading");
+    output.textContent = offlineDownloadProgressText(progress);
+  }
+
+  clearDownloadProgress(workId) {
+    this.downloadProgressByWorkId.delete(workId);
+    const output = this.downloadProgressOutputs.get(workId);
+    if (output instanceof HTMLElement) output.remove();
+    this.downloadProgressOutputs.delete(workId);
+  }
+
+  createDownloadProgressOutput(progress) {
+    const output = element("small", "desktop-sync-download-progress", offlineDownloadProgressText(progress));
+    output.dataset.phase = String(progress?.phase ?? "downloading");
+    output.setAttribute("role", "status");
+    return output;
+  }
+
+  ensureDownloadProgressOutput(workId, progress) {
+    const existing = this.downloadProgressOutputs.get(workId);
+    if (existing instanceof HTMLElement) return existing;
+    const row = [...document.querySelectorAll(".desktop-sync-row")].find((item) => item.dataset.workId === workId);
+    const copy = row?.querySelector(".desktop-sync-row-copy");
+    if (!(copy instanceof HTMLElement)) return null;
+    const output = this.createDownloadProgressOutput(progress);
+    this.downloadProgressOutputs.set(workId, output);
+    copy.append(output);
+    return output;
   }
 
   async aggregateStatus() {
@@ -87,12 +132,21 @@ export class DesktopWorkspaceController {
   }
 
   async downloadWork(work, { scheduleRequest = null, confirmImages = true } = {}) {
-    const stored = await this.client.downloadWork(work, { scheduleRequest });
     const workId = String(work?.id ?? "");
-    if (!workId) return stored;
-    await unwrapBridge(await this.bridge.shell.cacheWorkCover({ workId }));
-    if (confirmImages) await unwrapBridge(await this.bridge.shell.cacheWorkImages({ workId }));
-    return stored;
+    if (workId) this.updateDownloadProgress(workId, { phase: "preparing", completed: 0, total: 0 });
+    try {
+      const stored = await this.client.downloadWork(work, {
+        scheduleRequest,
+        onProgress: (progress) => this.updateDownloadProgress(workId, progress)
+      });
+      if (!workId) return stored;
+      this.updateDownloadProgress(workId, { phase: "saving", completed: 0, total: 0 });
+      await unwrapBridge(await this.bridge.shell.cacheWorkCover({ workId }));
+      if (confirmImages) await unwrapBridge(await this.bridge.shell.cacheWorkImages({ workId }));
+      return stored;
+    } finally {
+      if (workId) this.clearDownloadProgress(workId);
+    }
   }
 
   async setOfflineAccess(work, enabled, { scheduleRequest = null } = {}) {
@@ -181,6 +235,7 @@ export class DesktopWorkspaceController {
     const content = document.querySelector("#desktop-sync-list");
     const summaryOutput = document.querySelector("#desktop-sync-summary");
     if (!(content instanceof HTMLElement) || !(summaryOutput instanceof HTMLElement)) return;
+    this.downloadProgressOutputs.clear();
     content.replaceChildren(element("p", "entity-history-empty", "正在读取离线副本……"));
     const cachedWorks = await this.store.listWorks();
     const cachedById = new Map(cachedWorks.map((work) => [work.workId, work]));
@@ -210,6 +265,12 @@ export class DesktopWorkspaceController {
             ? "Server 已允许离线访问，尚未下载"
             : "Server 尚未允许离线访问")
       );
+      const downloadProgress = this.downloadProgressByWorkId.get(workId);
+      if (downloadProgress) {
+        const progressOutput = this.createDownloadProgressOutput(downloadProgress);
+        this.downloadProgressOutputs.set(workId, progressOutput);
+        copy.append(progressOutput);
+      }
       const actions = element("div", "desktop-sync-row-actions");
       const canManage = Boolean(serverWork && ["admin", "owner"].includes(String(serverWork.accessRole)));
       if (canManage) {

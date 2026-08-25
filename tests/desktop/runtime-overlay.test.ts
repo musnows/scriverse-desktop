@@ -121,6 +121,18 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch.match(/feature=desktop-sync-icon-only-v1/g)).toHaveLength(2);
   });
 
+  it("shows per-work offline download progress inside the sync center", () => {
+    const workspace = readFileSync(join(process.cwd(), "runtime-overlay/public/desktop-workspace.js"), "utf8");
+    const syncClient = readFileSync(join(process.cwd(), "runtime-overlay/public/desktop-sync-client.js"), "utf8");
+
+    expect(workspace).toContain("desktop-sync-download-progress");
+    expect(workspace).toContain("离线同步中 · 已下载 ${completed}/${total} 项");
+    expect(workspace).toContain("offlineDownloadProgressText");
+    expect(workspace).toContain("ensureDownloadProgressOutput");
+    expect(syncClient).toContain('onProgress({ phase: "downloading", completed: items.length, total })');
+    expect(syncClient).toContain('onProgress({ phase: "saving", completed: items.length, total })');
+  });
+
   it("preserves the upstream system administrator account identity UI", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 
@@ -145,7 +157,7 @@ describe("Desktop Web runtime overlay", () => {
   it("updates Desktop workspace modules when media cache behavior changes", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 
-    expect(overlayPatch).toContain('desktop-workspace.js?v=20260825-desktop-media-cache-v1');
+    expect(overlayPatch).toContain('desktop-workspace.js?v=20260826-desktop-download-progress-v1');
     expect(overlayPatch).toContain('desktop-offline-api.js?v=20260825-desktop-media-cache-v1');
   });
 

@@ -14,7 +14,7 @@ index 277ecf0..d09c0ab 100644
  import { createPresenceClientId, stagePresenceClientIdForRelogin } from "/presence-client-id.js?v=20260810-presence-relogin-v1";
  import { normalizeUploadProgress, uploadProgressText } from "/upload-progress.js?v=20260812-upload-progress-v1";
  import { resolveToastRegionHost } from "/toast-layer.js?v=20260822-toast-modal-host-v1";
-+import { createDesktopWorkspaceController } from "/desktop-workspace.js?v=20260825-desktop-media-cache-v1";
++import { createDesktopWorkspaceController } from "/desktop-workspace.js?v=20260826-desktop-download-progress-v1";
 +import { createDesktopOfflineApi } from "/desktop-offline-api.js?v=20260825-desktop-media-cache-v1";
 +import { desktopOfflineLocalAiMessages, desktopOfflineLocalAiSystemPrompt } from "/desktop-local-ai-offline.js?v=20260823-desktop-local-ai-offline-v1";
 +import { mergeDesktopLocalAiModels } from "/desktop-local-ai-catalog.js?v=20260824-desktop-local-provider-prefix-v1";
@@ -1941,6 +1941,8 @@ index 92bc37c..8f3a45d 100644
 +.desktop-sync-row-copy { display: grid; min-width: 0; gap: 5px; }
 +.desktop-sync-row-copy strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 +.desktop-sync-row-copy small { color: var(--muted); font-size: 9px; line-height: 1.5; }
++.desktop-sync-row-copy .desktop-sync-download-progress { color: var(--accent-dark); font-variant-numeric: tabular-nums; }
++.desktop-sync-row-copy .desktop-sync-download-progress[data-phase="saving"] { color: var(--green); }
 +.desktop-sync-row-actions { display: flex; flex: 0 0 auto; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 +.desktop-sync-row-actions button { min-height: 32px; padding: 6px 9px; font-size: 9px; }
 +.desktop-sync-warning { margin: 0 24px 16px; padding: 12px 14px; border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--line)); border-radius: 6px; background: color-mix(in srgb, var(--accent) 5%, var(--surface)); }

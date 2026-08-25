@@ -130,6 +130,11 @@ index b94fd30..5d9815a 100644
 +  }
 +}
 +
++function desktopAiModelOptionLabel(model) {
++  const label = modelOptionLabel(model);
++  return model?.scope === "local" ? `本地 · ${label}` : label;
++}
++
 +async function ensureDesktopWorkspace(user = state.user) {
 +  if (!globalThis.scriverseDesktopWorkspace?.shell) return null;
 +  if (desktopWorkspaceController && (!user?.userId || desktopWorkspaceController.user.userId === user.userId)) {
@@ -1045,6 +1050,43 @@ index b94fd30..5d9815a 100644
      input: (markdown) => {
        normalizeVditorAttachmentImages(editor);
        updateVditorWordCount(editor, markdown);
+@@ -15205,13 +15205,15 @@ async function openTaskDialog() {
+   let relationshipCharacters = [];
+   let taskModels = [];
+   let taskDefaults = [];
++  let localCatalog = { models: [] };
+   try {
+-    [relationshipCharacters, taskModels, taskDefaults] = await Promise.all([
++    [relationshipCharacters, taskModels, taskDefaults, localCatalog] = await Promise.all([
+       canReadModule("characters")
+         ? apiAllPages(`/api/works/${state.work.id}/characters`)
+         : Promise.resolve([]),
+       api(`/api/works/${state.work.id}/models`),
+-      api(`/api/works/${state.work.id}/task-defaults`)
++      api(`/api/works/${state.work.id}/task-defaults`),
++      loadDesktopLocalAiCatalog()
+     ]);
+   } catch (error) {
+     toast(`分析任务配置加载失败：${error.message}`, "error");
+@@ -15285,7 +15287,7 @@ async function openTaskDialog() {
+     </div>`;
+   };
+   const defaultModelByTask = new Map(taskDefaults.map((item) => [item.taskType, item.model.id]));
+-  const availableTaskModels = taskModels.filter((model) => isSelectableModel(model));
++  const availableTaskModels = mergeDesktopLocalAiModels(taskModels, localCatalog.models).filter((model) => isSelectableModel(model));
+   const characterOptions = relationshipCharacters.map((character) => [character.id, character.name]);
+   const relationshipCharacterPicker = `<div class="form-field relationship-character-field">
+     <span id="relationship-character-label">被分析角色（可多选）</span>
+     <div class="relationship-character-picker">
+@@ -15309,7 +15311,7 @@ async function openTaskDialog() {
+   const defaultModelId = defaultModelByTask.get(analysisTaskModelPurpose(defaultTaskType)) ?? "";
+   const modelField = `<label>任务模型<select name="modelId" required aria-describedby="analysis-task-model-help">
+     <option value="" ${availableTaskModels.some((model) => model.id === defaultModelId) ? "" : "selected"} disabled>${availableTaskModels.length ? "请选择模型" : "没有可用模型"}</option>
+-    ${availableTaskModels.map((model) => `<option value="${esc(model.id)}" ${model.id === defaultModelId ? "selected" : ""}>${esc(modelOptionLabel(model))}</option>`).join("")}
++    ${availableTaskModels.map((model) => `<option value="${esc(model.id)}" ${model.id === defaultModelId ? "selected" : ""}>${esc(desktopAiModelOptionLabel(model))}</option>`).join("")}
+   </select><small id="analysis-task-model-help">默认值来自“本书 AI 设置”，只修改当前任务，不会改变全书默认模型。</small><p class="analysis-context-warning hidden" data-analysis-context-warning role="alert"></p></label>`;
+   const chapterField = taskScopePicker(chapterOptions, "选择需要分析的章节");
+   const relationshipFields = `<div class="relationship-analysis-options hidden">
 @@ -16009,11 +16457,493 @@ function openModelDialog(providerId, item = null, provider = null, protocolOptio
    syncMultimodalFields();
  }

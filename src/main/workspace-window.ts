@@ -5,6 +5,7 @@ import { LOCAL_PROFILE_PARTITION } from "../shared/contracts.js";
 import { isAllowedWorkspaceNavigation, normalizeLocalWorkspaceOrigin } from "../shared/workspace-url.js";
 import { createWorkspaceLoadingCover } from "./workspace-loading-cover.js";
 import { applyWindowPlacement, type DesktopWindowPlacement } from "./window-placement.js";
+import { captureRendererConsole } from "./renderer-console-logging.js";
 
 export async function createLocalWorkspaceWindow(options: {
   origin: string;
@@ -39,6 +40,7 @@ export async function createLocalWorkspaceWindow(options: {
       devTools: true
     }
   });
+  captureRendererConsole(window.webContents, "local-workspace");
   const loadingCover = createWorkspaceLoadingCover(window);
   options.onCreated?.(window);
   const workspaceSession = window.webContents.session;

@@ -6,6 +6,7 @@ import { isAllowedRemoteWorkspaceNavigation } from "../shared/remote-workspace-u
 import { registerBundledWorkspaceShell, remoteWorkspaceShellUrl } from "./workspace-shell-protocol.js";
 import { createWorkspaceLoadingCover } from "./workspace-loading-cover.js";
 import { applyWindowPlacement, type DesktopWindowPlacement } from "./window-placement.js";
+import { captureRendererConsole } from "./renderer-console-logging.js";
 
 export async function createRemoteWorkspaceWindow(options: {
   profile: RemoteWorkspaceProfile;
@@ -41,6 +42,7 @@ export async function createRemoteWorkspaceWindow(options: {
       devTools: true
     }
   });
+  captureRendererConsole(window.webContents, "remote-workspace");
   const loadingCover = createWorkspaceLoadingCover(window);
   options.onCreated?.(window);
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));

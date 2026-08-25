@@ -21,7 +21,9 @@ describe("Desktop 路径", () => {
       desktopSettings: "/Users/author/Scriverse/client-meta/desktop-settings.json",
       localRuntime: "/Users/author/Scriverse/local-vault/runtime",
       localVaultLock: "/Users/author/Scriverse/local-vault/desktop-vault.lock",
-      browserSessions: "/Users/author/Scriverse/browser-sessions-v2"
+      browserSessions: "/Users/author/Scriverse/browser-sessions-v2",
+      logs: "/Users/author/Scriverse/logs",
+      crashDumps: "/Users/author/Scriverse/crash-dumps"
     });
   });
 });

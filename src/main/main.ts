@@ -34,6 +34,7 @@ import { handleSquirrelStartup } from "./squirrel-startup.js";
 import { applyWindowPlacement, captureWindowPlacement } from "./window-placement.js";
 import { DesktopSettingsStore } from "./desktop-settings-store.js";
 import { BackgroundTray } from "./background-tray.js";
+import { installDesktopProcessLogging, type DesktopProcessLogging } from "./desktop-file-logger.js";
 import { LOCAL_PROFILE_ID, type RemoteWorkspaceProfile } from "../shared/contracts.js";
 import { parseRemoteSessionResponse, type RemoteAuthUser } from "../shared/remote-auth-contract.js";
 import type { WorkspaceLeaveState } from "../shared/workspace-contract.js";
@@ -75,6 +76,7 @@ let localAiClient: LocalAiClient | null = null;
 let localAiRequestCoordinator: LocalAiRequestCoordinator | null = null;
 let desktopUpdater: DesktopUpdater | null = null;
 let backgroundTray: BackgroundTray | null = null;
+let desktopProcessLogging: DesktopProcessLogging | null = null;
 let quitAfterLocalShutdown = false;
 let allowWorkspaceWindowClose = false;
 let localWorkspaceOpenPromise: Promise<void> | null = null;
@@ -774,6 +776,8 @@ if (handleSquirrelStartup()) {
   if (!runtimeGateRequested) {
     try {
       desktopEnvironment = initializeDesktopEnvironment();
+      desktopProcessLogging = installDesktopProcessLogging(desktopEnvironment.paths.logs);
+      process.stderr.write("Desktop file logging initialized\n");
     } catch (error) {
       desktopStartupError = error;
     }
@@ -824,6 +828,8 @@ if (handleSquirrelStartup()) {
     desktopUpdater?.dispose();
     backgroundTray?.dispose();
     backgroundTray = null;
+    desktopProcessLogging?.dispose();
+    desktopProcessLogging = null;
   });
   app.on("window-all-closed", () => {
     // 后台模式由菜单栏或系统托盘继续承载，不因窗口关闭而退出。

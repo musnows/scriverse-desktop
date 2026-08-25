@@ -86,8 +86,13 @@ export class DesktopWorkspaceController {
     }), { works: 0, pendingMutations: 0, conflicts: 0, rejected: 0 });
   }
 
-  async downloadWork(work, { scheduleRequest = null } = {}) {
-    return this.client.downloadWork(work, { scheduleRequest });
+  async downloadWork(work, { scheduleRequest = null, confirmImages = true } = {}) {
+    const stored = await this.client.downloadWork(work, { scheduleRequest });
+    const workId = String(work?.id ?? "");
+    if (!workId) return stored;
+    await unwrapBridge(await this.bridge.shell.cacheWorkCover({ workId }));
+    if (confirmImages) await unwrapBridge(await this.bridge.shell.cacheWorkImages({ workId }));
+    return stored;
   }
 
   async setOfflineAccess(work, enabled, { scheduleRequest = null } = {}) {
@@ -130,7 +135,7 @@ export class DesktopWorkspaceController {
             }
             await this.setOfflineAccess(work, true, { scheduleRequest });
           }
-          await this.downloadWork(work, { scheduleRequest });
+          await this.downloadWork(work, { scheduleRequest, confirmImages: false });
           result.downloaded += 1;
         } catch (error) {
           result.failed.push({ workId: work.id, title: String(work.title ?? "未命名作品"), error });

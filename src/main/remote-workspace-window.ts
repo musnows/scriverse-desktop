@@ -7,6 +7,7 @@ import { registerBundledWorkspaceShell, remoteWorkspaceShellUrl } from "./worksp
 import { createWorkspaceLoadingCover } from "./workspace-loading-cover.js";
 import { applyWindowPlacement, type DesktopWindowPlacement } from "./window-placement.js";
 import { captureRendererConsole } from "./renderer-console-logging.js";
+import type { RemoteMediaCache } from "./remote-media-cache.js";
 
 export async function createRemoteWorkspaceWindow(options: {
   profile: RemoteWorkspaceProfile;
@@ -15,6 +16,8 @@ export async function createRemoteWorkspaceWindow(options: {
   onClosed: () => void;
   desktopRoot: string;
   offlineShellRoot: string;
+  remoteMediaCache?: RemoteMediaCache;
+  remoteUserId?: string;
   placement?: DesktopWindowPlacement;
   onCreated?: (window: BrowserWindow) => void;
   show?: boolean;
@@ -79,7 +82,9 @@ export async function createRemoteWorkspaceWindow(options: {
       window.webContents.session,
       options.profile,
       options.offlineShellRoot,
-      options.connectionMode
+      options.connectionMode,
+      options.remoteMediaCache ?? null,
+      options.remoteUserId ?? null
     );
     await window.loadURL(shellUrl);
   } catch (error) {

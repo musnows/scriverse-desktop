@@ -27,6 +27,8 @@ const workspaceChannels = [
   "workspace:shell:get-capabilities",
   "workspace:shell:report-leave-state",
   "workspace:shell:request-switch",
+  "workspace:shell:cache-work-cover",
+  "workspace:shell:cache-work-images",
   "workspace:local-ai:catalog",
   "workspace:local-ai:complete",
   "workspace:local-ai:cancel",
@@ -51,6 +53,23 @@ function errorResult(error: unknown): IpcFailure {
     };
   }
   return { ok: false, error: { code: "DESKTOP_INTERNAL_ERROR", message: "Desktop 工作区操作失败" } };
+}
+
+function parseWorkMediaInput(input: unknown): string {
+  const candidate = input && typeof input === "object" && !Array.isArray(input)
+    ? input as Record<string, unknown>
+    : null;
+  if (
+    !candidate
+    || Object.keys(candidate).length !== 1
+    || typeof candidate.workId !== "string"
+    || !/^[A-Za-z0-9_-]{1,300}$/u.test(candidate.workId)
+  ) {
+    const error = new Error("作品图片缓存请求无效") as Error & { code: string };
+    error.code = "WORK_MEDIA_INPUT_INVALID";
+    throw error;
+  }
+  return candidate.workId;
 }
 
 function assertWorkspaceSender(
@@ -98,6 +117,8 @@ export function registerWorkspaceIpc(workspaceWindow: BrowserWindow, profile: Re
   cancelLocalAi: (userId: string, requestId: string) => boolean;
   completeLocalAiAgentRound: (userId: string, input: LocalAiAgentRoundInput, onEvent: (event: LocalAiStreamEvent) => void) => Promise<LocalAiAgentRoundResult>;
   cancelLocalAiAgentRound: (userId: string, requestId: string) => boolean;
+  cacheWorkCover: (userId: string, workId: string) => Promise<boolean>;
+  cacheWorkImages: (userId: string, workId: string) => Promise<unknown>;
   reportLeaveState: (state: WorkspaceLeaveState) => void;
   requestSwitch: () => Promise<void> | void;
 }): () => void {
@@ -125,6 +146,12 @@ export function registerWorkspaceIpc(workspaceWindow: BrowserWindow, profile: Re
     return null;
   });
   handle("workspace:shell:request-switch", workspaceWindow, profile, options.activeProfileId, () => options.requestSwitch());
+  handle("workspace:shell:cache-work-cover", workspaceWindow, profile, options.activeProfileId, (input) => (
+    options.cacheWorkCover(activeUserId(), parseWorkMediaInput(input))
+  ));
+  handle("workspace:shell:cache-work-images", workspaceWindow, profile, options.activeProfileId, (input) => (
+    options.cacheWorkImages(activeUserId(), parseWorkMediaInput(input))
+  ));
   handle("workspace:local-ai:catalog", workspaceWindow, profile, options.activeProfileId, () => {
     return options.getLocalAiCatalog(activeUserId());
   });

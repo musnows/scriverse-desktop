@@ -89,7 +89,7 @@ export class DesktopOfflineApi {
       ...summary,
       id: String(summary.id ?? cached.workId),
       title: String(summary.title ?? cached.title ?? "未命名作品"),
-      coverUrl: null,
+      coverUrl: typeof summary.coverUrl === "string" ? summary.coverUrl : null,
       ...workAccess(cached),
       offlineAccessEnabled: true,
       wordCount: chapterEntities.reduce((total, entity) => total + textCount(entity.snapshot?.content), 0),

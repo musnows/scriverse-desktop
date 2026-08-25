@@ -2,6 +2,7 @@ import type { Session } from "electron";
 import { readFile } from "node:fs/promises";
 import { extname, isAbsolute, relative, resolve, sep } from "node:path";
 import type { RemoteWorkspaceProfile } from "../shared/contracts.js";
+import { REMOTE_MEDIA_DOWNLOAD_HEADER, RemoteMediaCache, parseRemoteMediaRoute } from "./remote-media-cache.js";
 
 const WORKSPACE_SHELL_CSP = "default-src 'self'; base-uri 'none'; connect-src 'self'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data: blob:; manifest-src 'self'; media-src 'none'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; worker-src 'self'";
 
@@ -103,6 +104,7 @@ function remoteRequestHeaders(request: Request, profile: RemoteWorkspaceProfile)
     "sec-fetch-dest",
     "sec-fetch-mode",
     "sec-fetch-site",
+    REMOTE_MEDIA_DOWNLOAD_HEADER,
     "upgrade"
   ]) headers.delete(name);
   headers.set("Origin", profile.origin);
@@ -145,7 +147,9 @@ export function registerBundledWorkspaceShell(
   electronSession: Session,
   profile: RemoteWorkspaceProfile,
   publicRoot: string,
-  connectionMode: "online" | "offline"
+  connectionMode: "online" | "offline",
+  mediaCache: RemoteMediaCache | null = null,
+  userId: string | null = null
 ): () => void {
   let active = true;
   electronSession.protocol.handle("app", async (request) => {
@@ -154,6 +158,25 @@ export function registerBundledWorkspaceShell(
     }
     const url = new URL(request.url);
     if (url.pathname === "/api" || url.pathname.startsWith("/api/")) {
+      const mediaRoute = parseRemoteMediaRoute(`${url.pathname}${url.search}`);
+      if (mediaRoute && mediaCache && userId) {
+        const cached = await mediaCache.cachedResponse(profile.id, mediaRoute.path);
+        if (cached) return cached;
+        const requestedDownload = request.headers.get(REMOTE_MEDIA_DOWNLOAD_HEADER) === "1";
+        const automaticDownload = mediaRoute.kind === "cover"
+          || (mediaRoute.kind === "user-avatar" && mediaRoute.subjectId === userId);
+        if (connectionMode === "online" && (requestedDownload || automaticDownload)) {
+          try {
+            return (await mediaCache.cachePath(electronSession, profile, mediaRoute.path)).response;
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "无法下载远端图片";
+            return Response.json({ error: { code: "REMOTE_MEDIA_UNAVAILABLE", message } }, {
+              status: 502,
+              headers: { "Cache-Control": "no-store" }
+            });
+          }
+        }
+      }
       if (connectionMode === "offline") {
         return Response.json({ error: { code: "DESKTOP_OFFLINE", message: "当前处于离线状态" } }, {
           status: 503,

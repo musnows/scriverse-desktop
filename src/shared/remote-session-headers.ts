@@ -11,7 +11,7 @@ export function remoteRequestHeaders(
   origin: string,
   token: string | null
 ): RemoteHeaders {
-  const sanitized = withoutHeaders(headers, new Set(["authorization", "cookie", "cookie2"]));
+  const sanitized = withoutHeaders(headers, new Set(["authorization", "cookie", "cookie2", "x-scriverse-desktop-media-download"]));
   let requestOrigin: string | null = null;
   try {
     requestOrigin = new URL(requestUrl).origin;

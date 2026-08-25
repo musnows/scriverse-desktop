@@ -23,6 +23,8 @@ contextBridge.exposeInMainWorld("scriverseDesktopWorkspace", Object.freeze({
     getCapabilities: () => ipcRenderer.invoke("workspace:shell:get-capabilities"),
     reportLeaveState: (input: unknown) => ipcRenderer.invoke("workspace:shell:report-leave-state", input),
     requestSwitch: () => ipcRenderer.invoke("workspace:shell:request-switch"),
+    cacheWorkCover: (input: unknown) => ipcRenderer.invoke("workspace:shell:cache-work-cover", input),
+    cacheWorkImages: (input: unknown) => ipcRenderer.invoke("workspace:shell:cache-work-images", input),
     onMenuCommand: (listener: (command: string) => void) => {
       if (typeof listener !== "function") return () => undefined;
       const handler = (_event: Electron.IpcRendererEvent, command: unknown) => {

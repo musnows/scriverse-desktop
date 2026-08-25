@@ -26,6 +26,10 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain("loadDesktopLocalAiCatalog()");
     expect(overlayPatch).toContain('import { mergeDesktopLocalAiModels } from "/desktop-local-ai-catalog.js');
     expect(overlayPatch).toContain("applyAiModels(mergeDesktopLocalAiModels(models, localCatalog.models))");
+    expect(overlayPatch).toContain("[relationshipCharacters, taskModels, taskDefaults, localCatalog] = await Promise.all");
+    expect(overlayPatch).toContain("mergeDesktopLocalAiModels(taskModels, localCatalog.models)");
+    expect(overlayPatch).toContain("desktopAiModelOptionLabel(model)");
+    expect(overlayPatch).toContain('return model?.scope === "local" ? `本地 · ${label}` : label;');
     expect(overlayPatch).toContain("bridge.completeAgentRound({");
     expect(overlayPatch).toContain("runtimeModel: desktopProviderRuntimeModel(model)");
     expect(overlayPatch).toContain("/desktop-local-ai/runs/");

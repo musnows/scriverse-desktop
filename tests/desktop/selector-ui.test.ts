@@ -20,6 +20,8 @@ describe("Desktop Selector UI", () => {
     expect(html).toContain('id="system-settings-button"');
     expect(html).toContain('id="local-server-port"');
     expect(html).toContain('min="20001" max="65516"');
+    expect(html).toContain('id="log-storage-limit"');
+    for (const option of ["500 MB", "1 GB", "2 GB", "5 GB", "10 GB"]) expect(html).toContain(`>${option}</option>`);
     expect(html).toContain("app://desktop/local-ai/index.html");
     expect(html).toContain("id=\"profile-dialog\"");
     expect(html).toContain("id=\"local-setup-dialog\"");
@@ -42,9 +44,11 @@ describe("Desktop Selector UI", () => {
     expect(script).toContain("永久更换并删除本机副本");
     expect(script).toContain("bridge.profiles.status(profile.id)");
     expect(script).toContain('window.addEventListener("focus", () => { void loadProfiles(); });');
-    expect(script).toContain("bridge.settings.update({ localServerPort: Number(localServerPort.value) })");
+    expect(script).toContain("localServerPort: Number(localServerPort.value)");
+    expect(script).toContain("logStorageLimitMiB: Number(logStorageLimit.value)");
     expect(script).toContain('return { label: "本地", className: "idle" };');
     expect(css).toContain(".status-badge.idle {");
+    expect(css).toContain(".dialog-fields input, .dialog-fields select {");
     expect(css).not.toContain(".status-badge.local {");
   });
 

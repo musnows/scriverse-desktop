@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import {
-  appendFileSync,
   chmodSync,
   createWriteStream,
   existsSync,
@@ -10,12 +9,13 @@ import {
   statSync,
   unlinkSync
 } from "node:fs";
+import { open, type FileHandle } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { ZipFile } from "yazl";
 
 export const DESKTOP_LOG_FILE_MAX_BYTES = 100 * 1024 * 1024;
-export const DESKTOP_LOG_TOTAL_MAX_BYTES = 1024 * 1024 * 1024;
+export const DESKTOP_LOG_TOTAL_MAX_BYTES = 500 * 1024 * 1024;
 export const DESKTOP_LOG_ARCHIVE_DELAY_MS = 5 * 60 * 1000;
 export const DESKTOP_LOG_ARCHIVE_RETRY_MS = 60 * 1000;
 const DESKTOP_LOG_QUOTA_CHECK_INTERVAL_MS = 60 * 1000;
@@ -48,7 +48,7 @@ export type DesktopFileLoggerOptions = {
 
 export type DesktopProcessLogging = {
   logger: DesktopFileLogger;
-  dispose: () => void;
+  dispose: () => Promise<void>;
 };
 
 function safeUnlink(path: string): boolean {
@@ -90,7 +90,7 @@ export async function zipDesktopLog(sourcePath: string, targetPath: string): Pro
 export class DesktopFileLogger {
   private readonly activePath: string;
   private readonly fileMaxBytes: number;
-  private readonly totalMaxBytes: number;
+  private totalMaxBytes: number;
   private readonly archiveDelayMs: number;
   private readonly archiveRetryMs: number;
   private readonly quotaCheckIntervalMs: number;
@@ -102,6 +102,8 @@ export class DesktopFileLogger {
   private rotationSequence = 0;
   private lastQuotaCheckAt = 0;
   private disposed = false;
+  private activeHandle: FileHandle | null = null;
+  private writeQueue: Promise<void> = Promise.resolve();
 
   constructor(readonly directory: string, options: DesktopFileLoggerOptions = {}) {
     this.fileMaxBytes = options.fileMaxBytes ?? DESKTOP_LOG_FILE_MAX_BYTES;
@@ -119,7 +121,7 @@ export class DesktopFileLogger {
     this.removeInterruptedArchiveFiles();
     this.refreshManagedTotal();
     this.activeSize = existsSync(this.activePath) ? statSync(this.activePath).size : 0;
-    if (this.activeSize >= this.fileMaxBytes) this.rotateActiveLog();
+    if (this.activeSize >= this.fileMaxBytes) this.rotateClosedActiveLog();
     this.scheduleExistingRotatedLogs();
     this.enforceQuota(true);
   }
@@ -134,43 +136,87 @@ export class DesktopFileLogger {
     if (lines.at(-1) === "") lines.pop();
     const payload = Buffer.from(lines.map((line) => `${timestamp} [${stream}] ${line}\n`).join(""), "utf8");
     if (payload.length === 0) return;
-    try {
-      this.appendPayload(payload);
+    this.enqueueWrite(async () => {
+      await this.appendPayload(payload);
       this.enforceQuota(false);
-    } catch {
-      // 日志写入失败不能阻止 Desktop 主流程继续运行。
-    }
+    });
   }
 
-  dispose(): void {
+  async flush(): Promise<void> {
+    await this.writeQueue;
+    if (this.activeHandle) await this.activeHandle.sync();
+  }
+
+  async dispose(): Promise<void> {
     this.disposed = true;
+    await this.writeQueue;
+    await this.closeActiveHandle();
     for (const scheduled of this.scheduledArchives.values()) clearTimeout(scheduled.timer);
     this.scheduledArchives.clear();
   }
 
-  private appendPayload(payload: Buffer): void {
+  setTotalMaxBytes(totalMaxBytes: number): Promise<void> {
+    if (!Number.isSafeInteger(totalMaxBytes) || totalMaxBytes < this.fileMaxBytes) throw new Error("日志目录上限无效");
+    this.totalMaxBytes = totalMaxBytes;
+    return this.enqueueWrite(async () => this.enforceQuota(true));
+  }
+
+  private enqueueWrite(operation: () => Promise<void>): Promise<void> {
+    const queued = this.writeQueue.then(operation);
+    this.writeQueue = queued.catch(() => undefined);
+    return queued;
+  }
+
+  private async appendPayload(payload: Buffer): Promise<void> {
     let offset = 0;
     while (offset < payload.length) {
-      if (this.activeSize >= this.fileMaxBytes) this.rotateActiveLog();
+      if (this.activeSize >= this.fileMaxBytes) await this.rotateActiveLog();
       let capacity = this.fileMaxBytes - this.activeSize;
       if (capacity < 4 && payload.length - offset > capacity) {
-        this.rotateActiveLog();
+        await this.rotateActiveLog();
         capacity = this.fileMaxBytes;
       }
       const maximumEnd = Math.min(payload.length, offset + capacity);
       const end = safeUtf8SliceEnd(payload, offset, maximumEnd);
       const part = payload.subarray(offset, end);
       if (!this.makeRoomFor(part.length)) return;
-      appendFileSync(this.activePath, part, { mode: 0o600 });
+      const handle = await this.activeLogHandle();
+      let written = 0;
+      while (written < part.length) {
+        const result = await handle.write(part, written, part.length - written, null);
+        if (result.bytesWritten <= 0) throw new Error("日志文件写入未取得进展");
+        written += result.bytesWritten;
+      }
       if (process.platform !== "win32") chmodSync(this.activePath, 0o600);
       this.activeSize += part.length;
       this.managedTotalBytes += part.length;
       offset = end;
-      if (this.activeSize >= this.fileMaxBytes) this.rotateActiveLog();
+      if (this.activeSize >= this.fileMaxBytes) await this.rotateActiveLog();
     }
   }
 
-  private rotateActiveLog(): void {
+  private async activeLogHandle(): Promise<FileHandle> {
+    if (!this.activeHandle) this.activeHandle = await open(this.activePath, "a", 0o600);
+    return this.activeHandle;
+  }
+
+  private async closeActiveHandle(): Promise<void> {
+    const handle = this.activeHandle;
+    if (!handle) return;
+    this.activeHandle = null;
+    try {
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+  }
+
+  private async rotateActiveLog(): Promise<void> {
+    await this.closeActiveHandle();
+    this.rotateClosedActiveLog();
+  }
+
+  private rotateClosedActiveLog(): void {
     if (!existsSync(this.activePath) || this.activeSize === 0) {
       this.activeSize = 0;
       return;
@@ -333,10 +379,10 @@ export function installDesktopProcessLogging(directory: string, options: Desktop
   } as typeof process.stderr.write;
   return {
     logger,
-    dispose: () => {
+    dispose: async () => {
       process.stdout.write = stdoutWrite;
       process.stderr.write = stderrWrite;
-      logger.dispose();
+      await logger.dispose();
     }
   };
 }

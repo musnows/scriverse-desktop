@@ -36,6 +36,7 @@ import { DesktopSettingsStore } from "./desktop-settings-store.js";
 import { BackgroundTray } from "./background-tray.js";
 import { installDesktopProcessLogging, type DesktopProcessLogging } from "./desktop-file-logger.js";
 import { LOCAL_PROFILE_ID, type RemoteWorkspaceProfile } from "../shared/contracts.js";
+import { desktopLogStorageLimitBytes } from "../shared/desktop-settings-contract.js";
 import { parseRemoteSessionResponse, type RemoteAuthUser } from "../shared/remote-auth-contract.js";
 import type { WorkspaceLeaveState } from "../shared/workspace-contract.js";
 
@@ -261,6 +262,7 @@ async function runLocalServerGate(manager: LocalServerManager): Promise<void> {
       workspaceLoaded,
       stopped: manager.getStatus().phase === "stopped"
     })}\n`);
+    await desktopProcessLogging?.logger.flush();
     app.exit(0);
   } catch (error) {
     await manager.stop();
@@ -268,6 +270,7 @@ async function runLocalServerGate(manager: LocalServerManager): Promise<void> {
       ok: false,
       error: error instanceof Error ? error.message : String(error)
     })}\n`);
+    await desktopProcessLogging?.logger.flush();
     app.exit(1);
   }
 }
@@ -716,7 +719,11 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
     desktopVersion,
     getLocalStatus: () => manager.getStatus(),
     getDesktopSettings: () => desktopSettingsStore!.get(),
-    updateDesktopSettings: (input) => desktopSettingsStore!.update(input),
+    updateDesktopSettings: async (input) => {
+      const settings = desktopSettingsStore!.update(input);
+      await desktopProcessLogging?.logger.setTotalMaxBytes(desktopLogStorageLimitBytes(settings.logStorageLimitMiB));
+      return settings;
+    },
     openLocal: async () => {
       const ready = await manager.start();
       updateBackgroundTrayStatus();
@@ -777,6 +784,8 @@ if (handleSquirrelStartup()) {
     try {
       desktopEnvironment = initializeDesktopEnvironment();
       desktopProcessLogging = installDesktopProcessLogging(desktopEnvironment.paths.logs);
+      desktopSettingsStore = new DesktopSettingsStore(desktopEnvironment.paths.desktopSettings);
+      void desktopProcessLogging.logger.setTotalMaxBytes(desktopLogStorageLimitBytes(desktopSettingsStore.get().logStorageLimitMiB));
       process.stderr.write("Desktop file logging initialized\n");
     } catch (error) {
       desktopStartupError = error;
@@ -791,8 +800,7 @@ if (handleSquirrelStartup()) {
       return;
     }
     if (desktopStartupError) throw desktopStartupError;
-    if (!desktopEnvironment) throw new Error("Desktop data paths are unavailable");
-    desktopSettingsStore = new DesktopSettingsStore(desktopEnvironment.paths.desktopSettings);
+    if (!desktopEnvironment || !desktopSettingsStore) throw new Error("Desktop data paths are unavailable");
     localServerManager = createLocalServerManager(desktopEnvironment, desktopSettingsStore);
     if (localServerGateRequested) {
       await runLocalServerGate(localServerManager);
@@ -800,8 +808,9 @@ if (handleSquirrelStartup()) {
     }
     registerSelectorProtocol(join(desktopRoot, "renderer"));
     createWindow(desktopEnvironment, localServerManager);
-  }).catch((error: unknown) => {
+  }).catch(async (error: unknown) => {
     process.stderr.write(`Desktop startup failed: ${error instanceof Error ? error.message : String(error)}\n`);
+    await desktopProcessLogging?.logger.flush();
     app.exit(1);
   });
   app.on("activate", () => {
@@ -824,12 +833,17 @@ if (handleSquirrelStartup()) {
       app.quit();
     });
   });
-  app.on("will-quit", () => {
+  app.on("will-quit", (event) => {
+    const processLogging = desktopProcessLogging;
+    if (processLogging) {
+      event.preventDefault();
+      desktopProcessLogging = null;
+      void processLogging.dispose().finally(() => app.quit());
+      return;
+    }
     desktopUpdater?.dispose();
     backgroundTray?.dispose();
     backgroundTray = null;
-    desktopProcessLogging?.dispose();
-    desktopProcessLogging = null;
   });
   app.on("window-all-closed", () => {
     // 后台模式由菜单栏或系统托盘继续承载，不因窗口关闭而退出。

@@ -145,7 +145,7 @@ export function registerSelectorIpc(selectorWindow: BrowserWindow, profileStore:
   desktopVersion: string;
   getLocalStatus: () => LocalServerPublicStatus;
   getDesktopSettings: () => DesktopSettingsSummary;
-  updateDesktopSettings: (input: unknown) => DesktopSettingsSummary;
+  updateDesktopSettings: (input: unknown) => DesktopSettingsSummary | Promise<DesktopSettingsSummary>;
   openLocal: () => Promise<{ status: "opened" | "setup-required" | "login-required"; mode?: "online" }>;
   setupLocal: (input: { username: string; password: string }) => Promise<unknown>;
   loginLocal: (input: { username: string; password: string }) => Promise<unknown>;

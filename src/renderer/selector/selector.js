@@ -36,6 +36,7 @@ const systemSettingsDialog = document.querySelector("#system-settings-dialog");
 const systemSettingsForm = document.querySelector("#system-settings-form");
 const localServerPort = document.querySelector("#local-server-port");
 const logStorageLimit = document.querySelector("#log-storage-limit");
+const openLogDirectory = document.querySelector("#open-log-directory");
 const systemSettingsError = document.querySelector("#system-settings-error");
 const systemSettingsSubmit = document.querySelector("#system-settings-submit");
 const deleteDialog = document.querySelector("#delete-dialog");
@@ -102,6 +103,7 @@ function requireElement(element, label) {
   [systemSettingsForm, "system-settings-form"],
   [localServerPort, "local-server-port"],
   [logStorageLimit, "log-storage-limit"],
+  [openLogDirectory, "open-log-directory"],
   [systemSettingsError, "system-settings-error"],
   [systemSettingsSubmit, "system-settings-submit"],
   [deleteDialog, "delete-dialog"],
@@ -562,6 +564,19 @@ systemSettingsForm.addEventListener("submit", async (event) => {
     systemSettingsError.hidden = false;
   } finally {
     setBusy(systemSettingsSubmit, false);
+  }
+});
+
+openLogDirectory.addEventListener("click", async () => {
+  setBusy(openLogDirectory, true);
+  try {
+    unwrap(await bridge.settings.openLogs());
+    showToast("已打开日志目录");
+  } catch (error) {
+    systemSettingsError.textContent = error.message;
+    systemSettingsError.hidden = false;
+  } finally {
+    setBusy(openLogDirectory, false);
   }
 });
 

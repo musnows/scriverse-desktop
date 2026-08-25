@@ -8,6 +8,7 @@ const menuSource = readFileSync(join(root, "src/main/native-menu.ts"), "utf8");
 const mainSource = readFileSync(join(root, "src/main/main.ts"), "utf8");
 const downloadSource = readFileSync(join(root, "src/main/download-policy.ts"), "utf8");
 const preloadSource = readFileSync(join(root, "src/preload/workspace-preload.cts"), "utf8");
+const selectorPreloadSource = readFileSync(join(root, "src/preload/selector-preload.cts"), "utf8");
 const localPreloadSource = readFileSync(join(root, "src/preload/local-workspace-preload.cts"), "utf8");
 const localIpcSource = readFileSync(join(root, "src/main/local-workspace-ipc.ts"), "utf8");
 const workspaceIpcSource = readFileSync(join(root, "src/main/workspace-ipc.ts"), "utf8");
@@ -66,6 +67,12 @@ describe("Desktop 原生菜单与下载", () => {
     for (const path of ["selector-window.ts", "workspace-window.ts", "remote-workspace-window.ts"]) {
       expect(readFileSync(join(root, "src/main", path), "utf8")).toContain("captureRendererConsole(window.webContents");
     }
+  });
+
+  it("通过系统设置的具名能力打开日志目录", () => {
+    expect(mainSource).toContain("openLogs: openLogsDirectory");
+    expect(mainSource).toContain('openError.code = "DESKTOP_LOG_DIRECTORY_OPEN_FAILED"');
+    expect(selectorPreloadSource).toContain('invoke("selector:settings:open-logs")');
   });
 
   it("下载只允许当前工作区并始终使用系统保存对话框", () => {

@@ -21,6 +21,7 @@ describe("Desktop Selector UI", () => {
     expect(html).toContain('id="local-server-port"');
     expect(html).toContain('min="20001" max="65516"');
     expect(html).toContain('id="log-storage-limit"');
+    expect(html).toContain('id="open-log-directory"');
     for (const option of ["500 MB", "1 GB", "2 GB", "5 GB", "10 GB"]) expect(html).toContain(`>${option}</option>`);
     expect(html).toContain("app://desktop/local-ai/index.html");
     expect(html).toContain("id=\"profile-dialog\"");
@@ -46,9 +47,12 @@ describe("Desktop Selector UI", () => {
     expect(script).toContain('window.addEventListener("focus", () => { void loadProfiles(); });');
     expect(script).toContain("localServerPort: Number(localServerPort.value)");
     expect(script).toContain("logStorageLimitMiB: Number(logStorageLimit.value)");
+    expect(script).toContain("bridge.settings.openLogs()");
     expect(script).toContain('return { label: "本地", className: "idle" };');
     expect(css).toContain(".status-badge.idle {");
     expect(css).toContain(".dialog-fields input, .dialog-fields select {");
+    expect(css).toContain("grid-template-columns: repeat(2, minmax(0, 1fr))");
+    expect(css).toContain(".log-storage-setting-row .ghost-button { width: 100%; min-height: 45px;");
     expect(css).not.toContain(".status-badge.local {");
   });
 
@@ -75,6 +79,7 @@ describe("Desktop Selector UI", () => {
     expect(preload).toContain("selector:local:login");
     expect(preload).toContain("selector:settings:get");
     expect(preload).toContain("selector:settings:update");
+    expect(preload).toContain("selector:settings:open-logs");
     expect(preload).toContain("selector:remote:refresh-captcha");
     expect(preload).toContain("selector:remote:login");
     expect(preload).toContain("localAi: Object.freeze");

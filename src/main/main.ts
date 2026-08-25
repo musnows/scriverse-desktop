@@ -656,6 +656,15 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
   );
   remoteAuthCoordinator = remoteAuth;
   const remoteProbe = new RemoteServerProbe();
+  const openLogsDirectory = async (): Promise<boolean> => {
+    const error = await shell.openPath(environment.paths.logs);
+    if (error !== "") {
+      const openError = new Error("无法打开日志目录") as Error & { code: string };
+      openError.code = "DESKTOP_LOG_DIRECTORY_OPEN_FAILED";
+      throw openError;
+    }
+    return true;
+  };
   mainWindow = createSelectorWindow(desktopRoot);
   mainWindow.on("close", (event) => {
     if (quitAfterLocalShutdown) return;
@@ -704,7 +713,11 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
       workspaceWindow.webContents.sendInputEvent({ type: "keyDown", keyCode: "F", modifiers: [...modifiers] });
       workspaceWindow.webContents.sendInputEvent({ type: "keyUp", keyCode: "F", modifiers: [...modifiers] });
     },
-    openLogs: () => { void shell.openPath(environment.paths.logs); },
+    openLogs: () => {
+      void openLogsDirectory().catch((error) => {
+        dialog.showErrorBox("打开日志目录失败", error instanceof Error ? error.message : "无法打开日志目录");
+      });
+    },
     showVersion: () => {
       void dialog.showMessageBox({
         type: "info",
@@ -724,6 +737,7 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
       await desktopProcessLogging?.logger.setTotalMaxBytes(desktopLogStorageLimitBytes(settings.logStorageLimitMiB));
       return settings;
     },
+    openLogs: openLogsDirectory,
     openLocal: async () => {
       const ready = await manager.start();
       updateBackgroundTrayStatus();

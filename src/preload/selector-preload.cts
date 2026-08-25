@@ -18,7 +18,8 @@ contextBridge.exposeInMainWorld("scriverseDesktop", Object.freeze({
   }),
   settings: Object.freeze({
     get: () => ipcRenderer.invoke("selector:settings:get"),
-    update: (input: unknown) => ipcRenderer.invoke("selector:settings:update", input)
+    update: (input: unknown) => ipcRenderer.invoke("selector:settings:update", input),
+    openLogs: () => ipcRenderer.invoke("selector:settings:open-logs")
   }),
   remote: Object.freeze({
     refreshCaptcha: (profileId: unknown) => ipcRenderer.invoke("selector:remote:refresh-captcha", profileId),

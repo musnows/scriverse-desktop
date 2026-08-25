@@ -18,6 +18,7 @@ index b94fd30..5d9815a 100644
 +import { createDesktopOfflineApi } from "/desktop-offline-api.js?v=20260823-desktop-same-workspace-v1";
 +import { desktopOfflineLocalAiMessages, desktopOfflineLocalAiSystemPrompt } from "/desktop-local-ai-offline.js?v=20260823-desktop-local-ai-offline-v1";
 +import { mergeDesktopLocalAiModels } from "/desktop-local-ai-catalog.js?v=20260824-desktop-local-provider-prefix-v1";
++import { desktopProviderCompletedToolCalls } from "/desktop-local-ai-stream.js?v=20260825-desktop-provider-live-tools-v1";
  import { buildGlobalReplaceRefreshPlan, resolveGlobalReplaceChapterCount } from "/global-replace-refresh.js?v=20260812-global-replace-tree-v2";
  import {
    clampCropRect,
@@ -1101,7 +1102,8 @@ index b94fd30..5d9815a 100644
 +  const request = assertAiRequestCurrent(requestHolder.snapshot);
 +  let runId = "";
 +  let activeRoundRequestId = "";
-+  let round = 0;
++  let generationRound = 0;
++  const emittedToolCallIds = new Set();
 +  const cancel = () => {
 +    if (activeRoundRequestId) void bridge.cancelAgentRound({ requestId: activeRoundRequestId });
 +    if (runId) void api(`/api/works/${encodeURIComponent(request.workId)}/desktop-local-ai/runs/${encodeURIComponent(runId)}`, { method: "DELETE" }).catch(() => undefined);
@@ -1137,10 +1139,13 @@ index b94fd30..5d9815a 100644
 +      if (run.status === "cancelled") throw new Error("AI 请求已取消");
 +      if (run.status === "awaiting-completion") {
 +        const completion = run.completion;
++        for (const toolCall of desktopProviderCompletedToolCalls(completion?.body, emittedToolCallIds)) {
++          onProviderEvent({ type: "tool-call", toolCall }, Math.max(1, generationRound));
++        }
 +        activeRoundRequestId = String(completion?.requestId ?? "");
 +        if (!activeRoundRequestId) throw new Error("AI 请求状态异常");
-+        round += 1;
 +        const forwardEvents = completion.purpose === "generation";
++        if (forwardEvents) generationRound += 1;
 +        let providerResponse;
 +        try {
 +          providerResponse = unwrapDesktopLocalAiResult(await bridge.completeAgentRound({
@@ -1151,7 +1156,7 @@ index b94fd30..5d9815a 100644
 +            body: completion.body,
 +            timeoutMs: completion.timeoutMs
 +          }, (event) => {
-+            if (forwardEvents) onProviderEvent(event, round);
++            if (forwardEvents) onProviderEvent(event, generationRound);
 +          }));
 +        } catch (error) {
 +          if (request.signal.aborted) throw error;
@@ -1191,6 +1196,17 @@ index b94fd30..5d9815a 100644
 +  return `event: ${eventName}\ndata: ${JSON.stringify(payload)}\n\n`;
 +}
 +
++function createDesktopProviderPendingMessage(tab) {
++  const message = document.createElement("div");
++  message.className = "assistant-message is-streaming";
++  message.dataset.testid = "ai-stream-message";
++  message.innerHTML = '<div class="message-body" data-testid="ai-stream-content" aria-live="polite" aria-busy="true"></div><div class="message-meta">正在连接模型流…… <span class="ai-stream-connection-seconds" data-testid="ai-stream-connection-seconds">0</span> 秒</div>';
++  attachMessageHeading(message, aiAssistantLabel("正在生成", tab.roleplayCharacter), undefined, tab);
++  tab.feed.append(message);
++  scrollAiFeedToBottom(tab.feed);
++  return message;
++}
++
 +function desktopProviderChatResponse(options) {
 +  const encoder = new TextEncoder();
 +  let streamedContent = "";
@@ -1200,6 +1216,7 @@ index b94fd30..5d9815a 100644
 +      const emit = (eventName, payload) => {
 +        if (!closed) controller.enqueue(encoder.encode(desktopProviderStreamFrame(eventName, payload)));
 +      };
++      emit("process_step", { id: "provider-thinking-1", type: "thinking", round: 1, content: "", append: false });
 +      void completeWithDesktopProvider({
 +        ...options,
 +        onProviderEvent: (event, round) => {
@@ -1208,6 +1225,8 @@ index b94fd30..5d9815a 100644
 +            emit("delta", { delta: event.delta });
 +          } else if (event?.type === "reasoning-delta" && typeof event.delta === "string" && event.delta) {
 +            emit("process_step", { id: `provider-thinking-${round}`, type: "thinking", round, content: event.delta, append: true });
++          } else if (event?.type === "tool-call" && event.toolCall) {
++            emit("tool_call", { ...event.toolCall, round });
 +          }
 +        }
 +      }).then((completed) => {
@@ -1544,13 +1563,22 @@ index b94fd30..5d9815a 100644
      tab.selectedModelId = modelId;
 +    const desktopProviderModel = selectedDesktopProviderModel(modelId);
      const imageAttachmentIds = aiChatImageAttachmentIds(requestComposerSnapshot.images);
++    const desktopProviderUserMetadata = imageAttachmentIds.length ? { chatImageAttachmentIds: imageAttachmentIds } : {};
      if (imageAttachmentIds.length > 0 && !state.models.find((model) => model.id === modelId)?.multimodalEnabled) {
        return toast("当前选择的模型不是多模态模型，无法发送图片附件", "error");
-@@ -16088,7 +17019,7 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
+@@ -16088,7 +17019,10 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
      }
      setAiChatTabStatus(tab, "streaming");
      if (retry?.message?.isConnected) retry.message.remove();
 -    if (taskType !== "chat") {
++    let desktopProviderOptimisticUserMessage = null;
++    if (desktopProviderModel && taskType === "chat" && !retry) {
++      appendMessage("user", instruction, citations, null, desktopProviderUserMetadata, null, { tab });
++      desktopProviderOptimisticUserMessage = tab.feed.lastElementChild;
++    }
++    const desktopProviderStreamMessage = desktopProviderModel && taskType === "chat"
++      ? createDesktopProviderPendingMessage(tab)
++      : null;
 +    if (taskType !== "chat" || desktopProviderModel) {
        if (!retry) {
          try {
@@ -1560,10 +1588,41 @@ index b94fd30..5d9815a 100644
              instruction,
              citations,
 -            { modelId },
-+            { modelId, ...(imageAttachmentIds.length ? { chatImageAttachmentIds: imageAttachmentIds } : {}) },
++            { modelId, ...desktopProviderUserMetadata },
              { signal: request.signal }
            );
            assertAiRequestCurrent(request);
+@@ -16107,7 +17043,12 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
+           tab.selectedModelId = modelId;
+           tab.promptSent = true;
+           clearAiChatTabComposer(tab);
+-          appendMessage("user", instruction, citations, persistedUserMessage.createdAt, {}, persistedUserMessage.id, { tab });
++          if (desktopProviderOptimisticUserMessage?.isConnected) {
++            updateMessageCreatedAt(desktopProviderOptimisticUserMessage, persistedUserMessage.createdAt);
++            attachMessageIdentity(desktopProviderOptimisticUserMessage, persistedUserMessage.id);
++          } else {
++            appendMessage("user", instruction, citations, persistedUserMessage.createdAt, desktopProviderUserMetadata, persistedUserMessage.id, { tab });
++          }
+           if (isActiveAiChatTab(tab)) {
+             state.aiConversationModelId = modelId;
+             state.aiPromptSent = true;
+@@ -16119,6 +17053,8 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
+         } catch (error) {
++          desktopProviderOptimisticUserMessage?.remove();
++          desktopProviderStreamMessage?.remove();
+           if (isAiRequestCancellation(error, requestHolder.snapshot) || !aiRequestTargetsCurrentState(requestHolder.snapshot)) throw error;
+           setAiChatTabStatus(tab, "error");
+           return toast(`对话记录创建失败：${error.message}`, "error");
+         }
+       } else {
+@@ -16132,6 +17086,7 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
+     let persistedStreamMessage = null;
+     let suggestion = null;
+     if (taskType === "chat") {
++      desktopProviderStreamMessage?.remove();
+       const streamed = await streamChat(requestHolder, aiRetryStreamRequestBody({
+         instruction,
+         ...(sceneDirection ? { sceneDirection } : {}),
 @@ -16143,7 +17074,17 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
          ...(imageAttachmentIds.length ? { imageAttachmentIds } : {}),
          conversationId: requestHolder.snapshot.conversationId,
@@ -1618,10 +1677,7 @@ index b94fd30..5d9815a 100644
      } else {
        const request = assertAiRequestCurrent(requestHolder.snapshot);
        suggestion = await api(`/api/works/${encodeURIComponent(request.workId)}/suggestions`, {
-@@ -16309,7 +17278,7 @@ function renderAiStreamingCharacterProgress(meta, visibleCharacters) {
-   meta.replaceChildren("正在生成 · ", createAiStreamCharacterCount(visible), " 字");
- }
-
+@@ -16312,4 +17281,4 @@
 -async function streamChat(requestHolder, body, idempotencyKey) {
 +async function streamChat(requestHolder, body, idempotencyKey, responseFactory = null) {
    const tab = aiChatTabForRequest(requestHolder.snapshot);
@@ -1635,7 +1691,6 @@ index b94fd30..5d9815a 100644
 +  const streamConnectionEstablishedEvents = new Set(["delta", "replace", "process_step", "tool_call", "context_compacted", "complete", "request_status", "error"]);
    const streamSpeedController = createStreamTypewriterSpeedController();
    let messageMounted = false;
-   const mountAssistantMessage = () => {
 @@ -16395,12 +17364,14 @@ async function streamChat(requestHolder, body, idempotencyKey) {
    };
    try {

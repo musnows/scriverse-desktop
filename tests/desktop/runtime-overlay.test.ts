@@ -18,6 +18,7 @@ describe("Desktop Web runtime overlay", () => {
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-workspace.js"))).toBe(true);
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-local-ai-offline.js"))).toBe(true);
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-local-ai-catalog.js"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-local-ai-stream.js"))).toBe(true);
   });
 
   it("merges local models into every workspace picker and marks them with a local badge", () => {
@@ -26,6 +27,10 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain("loadDesktopLocalAiCatalog()");
     expect(overlayPatch).toContain('import { mergeDesktopLocalAiModels } from "/desktop-local-ai-catalog.js');
     expect(overlayPatch).toContain("applyAiModels(mergeDesktopLocalAiModels(models, localCatalog.models))");
+    expect(overlayPatch).toContain("[relationshipCharacters, taskModels, taskDefaults, localCatalog] = await Promise.all");
+    expect(overlayPatch).toContain("mergeDesktopLocalAiModels(taskModels, localCatalog.models)");
+    expect(overlayPatch).toContain("desktopAiModelOptionLabel(model)");
+    expect(overlayPatch).toContain('return model?.scope === "local" ? `本地 · ${label}` : label;');
     expect(overlayPatch).toContain("bridge.completeAgentRound({");
     expect(overlayPatch).toContain("runtimeModel: desktopProviderRuntimeModel(model)");
     expect(overlayPatch).toContain("/desktop-local-ai/runs/");
@@ -50,9 +55,26 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain("desktopProviderChatResponse");
     expect(overlayPatch).toContain("completeWithDesktopProvider");
     expect(overlayPatch).toContain("bridge.completeAgentRound({");
-    expect(overlayPatch).toContain("if (forwardEvents) onProviderEvent(event, round)");
+    expect(overlayPatch).toContain("if (forwardEvents) onProviderEvent(event, generationRound)");
+    expect(overlayPatch).toContain("desktopProviderCompletedToolCalls(completion?.body, emittedToolCallIds)");
+    expect(overlayPatch).toContain('onProviderEvent({ type: "tool-call", toolCall }, Math.max(1, generationRound))');
+    expect(overlayPatch).toContain('emit("tool_call", { ...event.toolCall, round })');
     expect(overlayPatch).toContain("async function streamChat(requestHolder, body, idempotencyKey, responseFactory = null)");
     expect(overlayPatch).toContain('eventName === "replace"');
+    expect(overlayPatch).toContain("createDesktopProviderPendingMessage(tab)");
+    expect(overlayPatch).toContain('emit("process_step", { id: "provider-thinking-1", type: "thinking", round: 1, content: "", append: false })');
+    expect(overlayPatch).toContain('message.className = "assistant-message is-streaming"');
+    expect(overlayPatch).toContain('data-testid="ai-stream-connection-seconds">0</span> 秒');
+    const optimisticUserIndex = overlayPatch.indexOf('appendMessage("user", instruction, citations, null, desktopProviderUserMetadata, null, { tab })');
+    const immediateShellIndex = overlayPatch.indexOf("createDesktopProviderPendingMessage(tab)", optimisticUserIndex);
+    const persistenceIndex = overlayPatch.indexOf("{ modelId, ...desktopProviderUserMetadata }", optimisticUserIndex);
+    const streamCallIndex = overlayPatch.indexOf("const streamed = await streamChat", immediateShellIndex);
+    const placeholderReleaseIndex = overlayPatch.lastIndexOf("desktopProviderStreamMessage?.remove();", streamCallIndex);
+    expect(optimisticUserIndex).toBeGreaterThan(-1);
+    expect(immediateShellIndex).toBeGreaterThan(optimisticUserIndex);
+    expect(persistenceIndex).toBeGreaterThan(immediateShellIndex);
+    expect(placeholderReleaseIndex).toBeGreaterThan(persistenceIndex);
+    expect(streamCallIndex).toBeGreaterThan(placeholderReleaseIndex);
     expect(overlayPatch).toContain("feature=desktop-provider-stream-v1");
     expect(overlayPatch).not.toContain("createDesktopLocalAiPendingMessage");
     expect(addedLines).not.toContain("本地模型");
@@ -102,7 +124,7 @@ describe("Desktop Web runtime overlay", () => {
   it("preserves the upstream system administrator account identity UI", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 
-    expect(overlayPatch).toContain("feature=admin-account-identity-v2&feature=ai-provider-analysis-timeout-v1&feature=task-detail-failure-orange-v1&feature=desktop-same-workspace-v1");
+    expect(overlayPatch).toContain("feature=admin-account-identity-v2&feature=ai-provider-analysis-timeout-v1&feature=task-detail-failure-orange-v1&feature=book-import-progress-v1&feature=presence-multiple-users-v1&feature=desktop-same-workspace-v1");
     expect(overlayPatch.match(/feature=task-detail-failure-orange-v1/g)).toHaveLength(4);
     expect(overlayPatch).not.toContain('-          <button id="account-button"');
     expect(overlayPatch).not.toContain("-  const isSystemAdmin = session.user.isSystemAdmin === true;");
@@ -137,12 +159,11 @@ describe("Desktop Web runtime overlay", () => {
     expect(addedLines).not.toContain("未运行 Server 一致性守卫");
   });
 
-  it("hides the online presence banner until more than one distinct user is present", () => {
+  it("preserves the Server single-user presence behavior", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 
-    expect(overlayPatch).toContain("const groups = groupedPresenceParticipants();");
-    expect(overlayPatch).toContain("if (!state.work || groups.length <= 1)");
-    expect(overlayPatch).toContain('control.classList.add("hidden")');
-    expect(overlayPatch).toContain('control.classList.remove("hidden")');
+    expect(overlayPatch).toContain("feature=presence-multiple-users-v1");
+    expect(overlayPatch).not.toContain("function renderPresence()");
+    expect(overlayPatch).not.toContain("if (!state.work || groups.length <= 1)");
   });
 });

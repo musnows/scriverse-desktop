@@ -1,0 +1,141 @@
+name: Package Desktop develop
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-develop-package
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Desktop develop tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout Desktop develop
+        uses: actions/checkout@v6
+        with:
+          ref: develop
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install Desktop dependencies
+        run: npm ci
+
+      - name: Run Desktop checks
+        run: npm run check
+
+  package:
+    name: Package develop ${{ matrix.label }}
+    needs: test
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: macos-arm64
+            runner: macos-15
+            arch: arm64
+          - label: macos-x64
+            runner: macos-15-intel
+            arch: x64
+          - label: windows-x64
+            runner: windows-2025
+            arch: x64
+          - label: windows-arm64
+            runner: windows-11-vs2026-arm
+            arch: arm64
+          - label: linux-x64
+            runner: ubuntu-24.04
+            arch: x64
+          - label: linux-arm64
+            runner: ubuntu-24.04-arm
+            arch: arm64
+
+    steps:
+      - name: Checkout Desktop develop
+        uses: actions/checkout@v6
+        with:
+          ref: develop
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Resolve compatible Scriverse release
+        id: scriverse-release
+        shell: bash
+        run: |
+          server_version="$(node --print "require('./package.json').scriverseServerVersion")"
+          test -n "$server_version"
+          echo "ref=v$server_version" >> "$GITHUB_OUTPUT"
+
+      - name: Verify compatible Scriverse Release exists
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release view "${{ steps.scriverse-release.outputs.ref }}" --repo musnows/Scriverse
+
+      - name: Checkout compatible Scriverse release
+        uses: actions/checkout@v6
+        with:
+          repository: musnows/Scriverse
+          ref: ${{ steps.scriverse-release.outputs.ref }}
+          path: scriverse-runtime-source
+
+      - name: Install Linux maker dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes fakeroot rpm xvfb
+
+      - name: Build Scriverse runtime
+        working-directory: scriverse-runtime-source
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install Desktop dependencies
+        run: npm ci
+
+      - name: Package Desktop develop
+        env:
+          SCRIVERSE_RUNTIME_DIR: ${{ github.workspace }}/scriverse-runtime-source/dist
+        run: npm run make -- --arch=${{ matrix.arch }}
+
+      - name: Verify packaged runtime
+        if: runner.os != 'Linux'
+        env:
+          SCRIVERSE_DESKTOP_GATE_SKIP_LOCAL_SERVER: ${{ runner.os == 'Windows' && 'true' || 'false' }}
+        run: npm run verify:package -- ${{ matrix.arch }}
+
+      - name: Verify packaged runtime on Linux
+        if: runner.os == 'Linux'
+        run: |
+          package_dir="out/scriverse-desktop-linux-${{ matrix.arch }}"
+          sudo chown root:root "$package_dir/chrome-sandbox"
+          sudo chmod 4755 "$package_dir/chrome-sandbox"
+          xvfb-run --auto-servernum npm run verify:package -- ${{ matrix.arch }}
+
+      - name: Verify develop artifacts
+        run: npm run verify:artifacts
+
+      - name: Upload develop artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: scriverse-desktop-develop-${{ matrix.label }}
+          path: out/make/**
+          if-no-files-found: error
+          retention-days: 14

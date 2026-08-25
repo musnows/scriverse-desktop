@@ -96,7 +96,32 @@ npm run verify:package
 - 最终安装前必须运行 `verify:package`、`codesign --verify --deep --strict`，并使用 Computer Use 验证安装后的 App。
 - 本地维护和安装只要求 Apple Silicon Mac；不在本机尝试 Intel Mac 打包。不得因此删除 CI。
 
-## 7. Git 规范
+## 7. Git 分支、CI 与发布规范
+
+### 分支职责
+
+- `develop` 是唯一日常开发与功能集成分支。所有功能、修复、文档、CI 和构建改动都必须从最新的 `origin/develop` 派生，并通过指向 `develop` 的 PR 集成；禁止基于 `main` 开发或直接向 `main` 提交开发改动。
+- `main` 只用于发版。只有准备发布时，才允许创建从 `develop` 指向 `main` 的 PR；禁止功能分支、修复分支或维护分支直接指向 `main`。
+- 指向 `develop` 的 PR 不运行 GitHub CI，也不要求远端状态检查；这不免除本地验证，提交者仍必须完成与改动直接相关的测试、`npm run check` 和必要的真实打包验证。
+- 指向 `main` 的 PR 才运行 `Desktop checks`。禁止为 `push`、指向 `develop` 的 PR 或其他普通分支自动触发该检查。
+
+### `main` PR 的 Server Release 能力对齐门禁
+
+创建从 `develop` 指向 `main` 的发版 PR 前，必须确认 Desktop `develop` 与其声明兼容的 Scriverse Server Release 完整对齐，不得遗漏该后端 Release 已提供能力的 Desktop 适配：
+
+1. 读取 `package.json` 的 `scriverseServerVersion`，确认对应的 Scriverse Git tag 与 GitHub Release `vX.Y.Z` 已正式存在；禁止使用后端 `develop`、未发布 commit 或可变分支替代。
+2. 审计该 Server Release 相对上一兼容版本的全部用户能力和外部契约，包括页面与路由、API 请求和响应、认证与权限、AI 供应商和模型、Prompt、Agent tools、流式事件、配置与数据库契约、导入导出及静态资源。
+3. 逐项确认 Desktop 壳、Preload、Web runtime overlay、本地与远端工作区、本地供应商、离线同步和打包 runtime 已适配所有相关变化；Server Web 已有能力不能因进入 Desktop 而缺失、退化或使用不同逻辑。
+4. 使用该精确 Server Release tag 执行 `runtime:prepare`、相关测试、`npm run check` 和必要的 Desktop 打包验收。存在任何缺少适配、补丁无法正向应用或契约不一致时，必须继续在 `develop` 修复，禁止创建指向 `main` 的 PR。
+
+### CI 触发边界
+
+- `.github/workflows/desktop-checks.yml` 只能由指向 `main` 的 `pull_request` 触发，只执行代码检查，不执行打包。
+- `.github/workflows/desktop-release.yml` 只能由 GitHub Release 的 `published` 事件触发正式六架构打包；禁止提供人工触发、分支 push 触发或 PR 触发入口。
+- `.github/workflows/desktop-develop-package.yml` 只允许 `workflow_dispatch` 人工触发，且始终检出 Desktop `develop`，用于六架构开发包验收；不得自动触发，也不得上传到 GitHub Release。
+- 正式发布与 `develop` 人工打包都必须根据 `package.json.scriverseServerVersion` 检出精确的 Scriverse Server Release tag，禁止通过可变仓库变量或人工输入绕过版本对齐。
+
+### Commit 与发布操作
 
 - Commit message 使用 Angular 格式：`<type>(<scope>): <subject>`，subject 使用英文祈使语气。
 - 每个独立功能或缺陷修复完成测试后立即单独提交，禁止把多个问题堆进同一个 commit。

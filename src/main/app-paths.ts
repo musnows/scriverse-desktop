@@ -12,6 +12,7 @@ export type DesktopPaths = {
   localAiProviders: string;
   desktopMasterKey: string;
   desktopSettings: string;
+  remoteMedia: string;
   localVault: string;
   localRuntime: string;
   localVaultLock: string;
@@ -63,6 +64,7 @@ export function resolveDesktopPaths(rootInput: string): DesktopPaths {
     localAiProviders: join(clientMeta, "local-ai-providers"),
     desktopMasterKey: join(clientMeta, "master.key"),
     desktopSettings: join(clientMeta, "desktop-settings.json"),
+    remoteMedia: join(root, "remote-media"),
     localVault,
     localRuntime: join(localVault, "runtime"),
     localVaultLock: join(localVault, "desktop-vault.lock"),

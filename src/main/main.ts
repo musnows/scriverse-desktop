@@ -35,6 +35,7 @@ import { applyWindowPlacement, captureWindowPlacement } from "./window-placement
 import { DesktopSettingsStore } from "./desktop-settings-store.js";
 import { BackgroundTray } from "./background-tray.js";
 import { installDesktopProcessLogging, type DesktopProcessLogging } from "./desktop-file-logger.js";
+import { REMOTE_MEDIA_REFRESH_INTERVAL_MS, RemoteMediaCache, formatRemoteMediaBytes } from "./remote-media-cache.js";
 import { LOCAL_PROFILE_ID, type RemoteWorkspaceProfile } from "../shared/contracts.js";
 import { desktopLogStorageLimitBytes } from "../shared/desktop-settings-contract.js";
 import { parseRemoteSessionResponse, type RemoteAuthUser } from "../shared/remote-auth-contract.js";
@@ -66,6 +67,7 @@ let desktopStartupError: unknown = null;
 let disposeSelectorIpc: (() => void) | null = null;
 let disposeWorkspaceIpc: (() => void) | null = null;
 let disposeWorkspaceDownloadPolicy: (() => void) | null = null;
+let disposeRemoteAvatarRefresh: (() => void) | null = null;
 let localServerManager: LocalServerManager | null = null;
 let desktopSettingsStore: DesktopSettingsStore | null = null;
 let remoteAuthCoordinator: RemoteAuthCoordinator | null = null;
@@ -78,6 +80,7 @@ let localAiRequestCoordinator: LocalAiRequestCoordinator | null = null;
 let desktopUpdater: DesktopUpdater | null = null;
 let backgroundTray: BackgroundTray | null = null;
 let desktopProcessLogging: DesktopProcessLogging | null = null;
+let remoteMediaCache: RemoteMediaCache | null = null;
 let quitAfterLocalShutdown = false;
 let allowWorkspaceWindowClose = false;
 let localWorkspaceOpenPromise: Promise<void> | null = null;
@@ -289,6 +292,48 @@ function updateBackgroundTrayStatus(): void {
   backgroundTray?.update({ localServerRunning: localServerManager?.getStatus().phase === "running" });
 }
 
+function startRemoteAvatarRefresh(window: BrowserWindow, profile: RemoteWorkspaceProfile, userId: string): () => void {
+  if (!remoteMediaCache) return () => undefined;
+  let running = false;
+  const refresh = async (): Promise<void> => {
+    if (running || window.isDestroyed()) return;
+    running = true;
+    try {
+      await remoteMediaCache!.refreshLoggedInUserAvatar(window.webContents.session, profile, userId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "unknown error";
+      process.stderr.write(`Remote user avatar refresh failed for profile ${profile.id}: ${message}\n`);
+    } finally {
+      running = false;
+    }
+  };
+  void refresh();
+  const timer = setInterval(() => { void refresh(); }, REMOTE_MEDIA_REFRESH_INTERVAL_MS);
+  return () => clearInterval(timer);
+}
+
+async function confirmAndCacheWorkImages(window: BrowserWindow, profile: RemoteWorkspaceProfile, userId: string, workId: string): Promise<unknown> {
+  if (!remoteMediaCache) throw new Error("Desktop 图片缓存尚未就绪");
+  const summary = await remoteMediaCache.describeWorkImages(window.webContents.session, profile, userId, workId);
+  if (summary.imageCount === 0) return { status: "empty", summary };
+  const detail = summary.alreadyCachedCount > 0
+    ? `共 ${summary.imageCount} 张作品图片，其中 ${summary.alreadyCachedCount} 张已在本地缓存。本次预计新增 ${formatRemoteMediaBytes(summary.additionalBytes)}。`
+    : `共 ${summary.imageCount} 张作品图片，预计新增 ${formatRemoteMediaBytes(summary.additionalBytes)}。`;
+  const result = await dialog.showMessageBox(window, {
+    type: "question",
+    title: "下载作品图片",
+    message: `“${summary.title}”包含 ${summary.imageCount} 张作品图片`,
+    detail: `${detail}\n\n封面已直接保存到本地。是否下载作品内图片以支持离线查看？`,
+    buttons: ["暂不下载", "下载图片"],
+    defaultId: 0,
+    cancelId: 0,
+    noLink: true
+  });
+  if (result.response !== 1) return { status: "declined", summary };
+  const downloaded = await remoteMediaCache.downloadWorkImages(window.webContents.session, profile, userId, workId);
+  return { status: "downloaded", ...downloaded };
+}
+
 function showDesktopWindow(): void {
   if (process.platform === "darwin" && app.dock) void app.dock.show();
   const target = workspaceWindow && !workspaceWindow.isDestroyed() ? workspaceWindow : mainWindow;
@@ -461,6 +506,7 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
   activeWorkspaceKind = "remote";
   activeRemoteProfileId = profile.id;
   const cachedUser = remoteAuthCoordinator.cachedUser(profile);
+  if (!cachedUser) return Promise.reject(new Error("当前 Desktop 登录不可用于远端图片缓存"));
   const persistedState = cachedUser ? remoteSyncStatusStore.user(profile, cachedUser.userId) : null;
   activeRemoteLeaveState = {
     dirty: false,
@@ -474,11 +520,17 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
     connectionMode,
     desktopRoot,
     offlineShellRoot: join(applicationRoot, "dist", "public"),
+    remoteMediaCache: remoteMediaCache ?? undefined,
+    remoteUserId: cachedUser.userId,
     ...(mainWindow && !mainWindow.isDestroyed() ? { placement: captureWindowPlacement(mainWindow) } : {}),
     onCreated: (window) => {
       workspaceWindow = window;
       disposeWorkspaceDownloadPolicy?.();
       disposeWorkspaceDownloadPolicy = registerDownloadPolicy(window.webContents.session, () => workspaceWindow === window ? window : null);
+      disposeRemoteAvatarRefresh?.();
+      disposeRemoteAvatarRefresh = connectionMode === "online"
+        ? startRemoteAvatarRefresh(window, profile, cachedUser.userId)
+        : null;
       bindWorkspaceReplacement(window);
       disposeWorkspaceIpc = registerWorkspaceIpc(window, profile, {
         activeProfileId: () => activeRemoteProfileId,
@@ -489,6 +541,11 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
         cancelLocalAi: (_userId, requestId) => localAiRequestCoordinator!.cancel(requestId),
         completeLocalAiAgentRound: (_userId, input, onEvent) => localAiRequestCoordinator!.completeAgentRound(input, onEvent),
         cancelLocalAiAgentRound: (_userId, requestId) => localAiRequestCoordinator!.cancelAgentRound(requestId),
+        cacheWorkCover: async (userId, workId) => {
+          if (!remoteMediaCache) throw new Error("Desktop 图片缓存尚未就绪");
+          return remoteMediaCache.cacheWorkCover(window.webContents.session, profile, userId, workId);
+        },
+        cacheWorkImages: (userId, workId) => confirmAndCacheWorkImages(window, profile, userId, workId),
         reportLeaveState: (state) => {
           activeRemoteLeaveState = state;
           const user = remoteAuthCoordinator!.cachedUser(profile);
@@ -501,6 +558,8 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
     onClosed: () => {
       disposeWorkspaceDownloadPolicy?.();
       disposeWorkspaceDownloadPolicy = null;
+      disposeRemoteAvatarRefresh?.();
+      disposeRemoteAvatarRefresh = null;
       disposeWorkspaceIpc?.();
       disposeWorkspaceIpc = null;
       localAiRequestCoordinator?.cancelAll();
@@ -801,6 +860,7 @@ if (handleSquirrelStartup()) {
       desktopSettingsStore = new DesktopSettingsStore(desktopEnvironment.paths.desktopSettings);
       void desktopProcessLogging.logger.setTotalMaxBytes(desktopLogStorageLimitBytes(desktopSettingsStore.get().logStorageLimitMiB));
       process.stderr.write("Desktop file logging initialized\n");
+      remoteMediaCache = new RemoteMediaCache(desktopEnvironment.paths.remoteMedia);
     } catch (error) {
       desktopStartupError = error;
     }

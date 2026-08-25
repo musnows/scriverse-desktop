@@ -142,6 +142,13 @@ describe("Desktop Web runtime overlay", () => {
     expect(syncStore).not.toContain("subtle.decrypt");
   });
 
+  it("updates Desktop workspace modules when media cache behavior changes", () => {
+    const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
+
+    expect(overlayPatch).toContain('desktop-workspace.js?v=20260825-desktop-media-cache-v1');
+    expect(overlayPatch).toContain('desktop-offline-api.js?v=20260825-desktop-media-cache-v1');
+  });
+
   it("keeps implementation details out of user-facing Desktop copy", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
     const addedLines = overlayPatch

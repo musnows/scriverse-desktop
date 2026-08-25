@@ -18,6 +18,7 @@ describe("Desktop Web runtime overlay", () => {
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-workspace.js"))).toBe(true);
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-local-ai-offline.js"))).toBe(true);
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-local-ai-catalog.js"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-local-ai-stream.js"))).toBe(true);
   });
 
   it("merges local models into every workspace picker and marks them with a local badge", () => {
@@ -50,7 +51,10 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain("desktopProviderChatResponse");
     expect(overlayPatch).toContain("completeWithDesktopProvider");
     expect(overlayPatch).toContain("bridge.completeAgentRound({");
-    expect(overlayPatch).toContain("if (forwardEvents) onProviderEvent(event, round)");
+    expect(overlayPatch).toContain("if (forwardEvents) onProviderEvent(event, generationRound)");
+    expect(overlayPatch).toContain("desktopProviderCompletedToolCalls(completion?.body, emittedToolCallIds)");
+    expect(overlayPatch).toContain('onProviderEvent({ type: "tool-call", toolCall }, Math.max(1, generationRound))');
+    expect(overlayPatch).toContain('emit("tool_call", { ...event.toolCall, round })');
     expect(overlayPatch).toContain("async function streamChat(requestHolder, body, idempotencyKey, responseFactory = null)");
     expect(overlayPatch).toContain('eventName === "replace"');
     expect(overlayPatch).toContain("feature=desktop-provider-stream-v1");

@@ -57,7 +57,7 @@ if (overlayCheck.status === 0) {
 }
 
 cpSync(overlayPublic, join(target, "public"), { recursive: true, force: true });
-for (const file of ["desktop-workspace.js", "desktop-sync-client.js", "desktop-local-ai-offline.js", "desktop-local-ai-catalog.js"]) {
+for (const file of ["desktop-workspace.js", "desktop-sync-client.js", "desktop-local-ai-offline.js", "desktop-local-ai-catalog.js", "desktop-local-ai-stream.js"]) {
   if (!existsSync(join(target, "public", file))) throw new Error(`Desktop Web overlay output is missing: ${file}`);
 }
 process.stdout.write(`Scriverse runtime staged from ${source} with Desktop Web overlay\n`);

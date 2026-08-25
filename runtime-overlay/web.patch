@@ -18,6 +18,7 @@ index b94fd30..5d9815a 100644
 +import { createDesktopOfflineApi } from "/desktop-offline-api.js?v=20260823-desktop-same-workspace-v1";
 +import { desktopOfflineLocalAiMessages, desktopOfflineLocalAiSystemPrompt } from "/desktop-local-ai-offline.js?v=20260823-desktop-local-ai-offline-v1";
 +import { mergeDesktopLocalAiModels } from "/desktop-local-ai-catalog.js?v=20260824-desktop-local-provider-prefix-v1";
++import { desktopProviderCompletedToolCalls } from "/desktop-local-ai-stream.js?v=20260825-desktop-provider-live-tools-v1";
  import { buildGlobalReplaceRefreshPlan, resolveGlobalReplaceChapterCount } from "/global-replace-refresh.js?v=20260812-global-replace-tree-v2";
  import {
    clampCropRect,
@@ -1101,7 +1102,8 @@ index b94fd30..5d9815a 100644
 +  const request = assertAiRequestCurrent(requestHolder.snapshot);
 +  let runId = "";
 +  let activeRoundRequestId = "";
-+  let round = 0;
++  let generationRound = 0;
++  const emittedToolCallIds = new Set();
 +  const cancel = () => {
 +    if (activeRoundRequestId) void bridge.cancelAgentRound({ requestId: activeRoundRequestId });
 +    if (runId) void api(`/api/works/${encodeURIComponent(request.workId)}/desktop-local-ai/runs/${encodeURIComponent(runId)}`, { method: "DELETE" }).catch(() => undefined);
@@ -1137,10 +1139,13 @@ index b94fd30..5d9815a 100644
 +      if (run.status === "cancelled") throw new Error("AI 请求已取消");
 +      if (run.status === "awaiting-completion") {
 +        const completion = run.completion;
++        for (const toolCall of desktopProviderCompletedToolCalls(completion?.body, emittedToolCallIds)) {
++          onProviderEvent({ type: "tool-call", toolCall }, Math.max(1, generationRound));
++        }
 +        activeRoundRequestId = String(completion?.requestId ?? "");
 +        if (!activeRoundRequestId) throw new Error("AI 请求状态异常");
-+        round += 1;
 +        const forwardEvents = completion.purpose === "generation";
++        if (forwardEvents) generationRound += 1;
 +        let providerResponse;
 +        try {
 +          providerResponse = unwrapDesktopLocalAiResult(await bridge.completeAgentRound({
@@ -1151,7 +1156,7 @@ index b94fd30..5d9815a 100644
 +            body: completion.body,
 +            timeoutMs: completion.timeoutMs
 +          }, (event) => {
-+            if (forwardEvents) onProviderEvent(event, round);
++            if (forwardEvents) onProviderEvent(event, generationRound);
 +          }));
 +        } catch (error) {
 +          if (request.signal.aborted) throw error;
@@ -1208,6 +1213,8 @@ index b94fd30..5d9815a 100644
 +            emit("delta", { delta: event.delta });
 +          } else if (event?.type === "reasoning-delta" && typeof event.delta === "string" && event.delta) {
 +            emit("process_step", { id: `provider-thinking-${round}`, type: "thinking", round, content: event.delta, append: true });
++          } else if (event?.type === "tool-call" && event.toolCall) {
++            emit("tool_call", { ...event.toolCall, round });
 +          }
 +        }
 +      }).then((completed) => {
@@ -1618,10 +1625,7 @@ index b94fd30..5d9815a 100644
      } else {
        const request = assertAiRequestCurrent(requestHolder.snapshot);
        suggestion = await api(`/api/works/${encodeURIComponent(request.workId)}/suggestions`, {
-@@ -16309,7 +17278,7 @@ function renderAiStreamingCharacterProgress(meta, visibleCharacters) {
-   meta.replaceChildren("正在生成 · ", createAiStreamCharacterCount(visible), " 字");
- }
-
+@@ -16312,4 +17281,4 @@
 -async function streamChat(requestHolder, body, idempotencyKey) {
 +async function streamChat(requestHolder, body, idempotencyKey, responseFactory = null) {
    const tab = aiChatTabForRequest(requestHolder.snapshot);
@@ -1635,7 +1639,6 @@ index b94fd30..5d9815a 100644
 +  const streamConnectionEstablishedEvents = new Set(["delta", "replace", "process_step", "tool_call", "context_compacted", "complete", "request_status", "error"]);
    const streamSpeedController = createStreamTypewriterSpeedController();
    let messageMounted = false;
-   const mountAssistantMessage = () => {
 @@ -16395,12 +17364,14 @@ async function streamChat(requestHolder, body, idempotencyKey) {
    };
    try {

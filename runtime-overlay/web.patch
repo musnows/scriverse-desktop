@@ -42,11 +42,11 @@ index 277ecf0..d09c0ab 100644
 +function desktopShellBridge() {
 +  return globalThis.scriverseDesktopWorkspace?.shell ?? globalThis.scriverseDesktopLocalShell ?? null;
 +}
-++
++
 +function desktopMenuCommandBridge() {
 +  return globalThis.scriverseDesktopWorkspace?.shell ?? globalThis.scriverseDesktopLocalShell ?? null;
 +}
-++
++
 +async function confirmDesktopQuit() {
 +  const shell = desktopShellBridge();
 +  if (typeof shell?.confirmQuit !== "function") {
@@ -62,7 +62,7 @@ index 277ecf0..d09c0ab 100644
 +  const result = await shell.confirmQuit();
 +  if (result?.ok !== true) throw new Error(result?.error?.message ?? "退出叙界失败");
 +}
-++
++
 +desktopMenuCommandBridge()?.onMenuCommand?.((command) => {
 +  if (command === "open-sync-center") void openDesktopSyncCenter();
 +  if (command === "request-quit") void confirmDesktopQuit().catch((error) => toast(error.message, "error"));

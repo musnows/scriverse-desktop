@@ -46,5 +46,6 @@ describe("Desktop 退出二次确认", () => {
     expect(overlay).toContain('confirmLabel: "退出叙界"');
     expect(overlay).toContain('command === "request-quit"');
     expect(overlay).toContain("feature=desktop-quit-confirmation-v1");
+    expect(overlay).not.toMatch(/^\+\+$/mu);
   });
 });

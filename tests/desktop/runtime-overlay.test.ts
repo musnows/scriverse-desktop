@@ -127,7 +127,8 @@ describe("Desktop Web runtime overlay", () => {
   it("preserves the upstream system administrator account identity UI", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 
-    expect(overlayPatch).toContain("feature=admin-account-identity-v2&feature=ai-provider-analysis-timeout-v1&feature=task-detail-failure-orange-v1&feature=book-import-progress-v1&feature=presence-multiple-users-v1&feature=desktop-same-workspace-v1");
+    expect(overlayPatch).toContain("feature=admin-account-identity-v2");
+    expect(overlayPatch).toContain("feature=presence-multiple-users-v1");
     expect(overlayPatch.match(/feature=task-detail-failure-orange-v1/g)).toHaveLength(4);
     expect(overlayPatch).not.toContain('-          <button id="account-button"');
     expect(overlayPatch).not.toContain("-  const isSystemAdmin = session.user.isSystemAdmin === true;");
@@ -155,26 +156,23 @@ describe("Desktop Web runtime overlay", () => {
   it("matches the smaller chapter title in the Desktop editor", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 
-    expect(overlayPatch).toContain("font-size: 25px; padding: 0;");
-    expect(overlayPatch).toContain(".editor-actions { grid-area: actions; display: flex; align-items: center; gap: 8px; }");
-    expect(overlayPatch).toContain(".editor-view .editor-actions > button { min-height: 32px; padding: 6px 10px; font-size: 11px; }");
-    expect(overlayPatch).toContain(".editor-view .editor-actions > button { min-width: 0; min-height: 34px; padding-inline: 6px; font-size: 11px; }");
-    expect(overlayPatch).toContain("  .chapter-title { font-size: 21px; }");
     expect(overlayPatch).toContain("feature=editor-toolbar-compact-v2");
+    expect(overlayPatch).not.toContain("font-size: 25px; padding: 0;");
+    expect(overlayPatch).not.toContain(".editor-actions { grid-area: actions; display: flex; align-items: center; gap: 8px; }");
+    expect(overlayPatch).not.toContain(".editor-view .editor-actions > button { min-height: 32px; padding: 6px 10px; font-size: 11px; }");
   });
 
-  it("preserves consecutive blank lines until the user tidies the chapter", () => {
+  it("keeps the Server blank-line behavior when applying the Desktop overlay", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
     const addedLines = overlayPatch
       .split("\n")
       .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
       .join("\n");
 
-    expect(addedLines).toContain("function collapseChapterInputBlankLines() {");
-    expect(addedLines).toContain("return false;");
-    expect(overlayPatch).toContain("normalizeParagraphSpacing");
-    expect(overlayPatch).toContain('content: $("#chapter-content").value');
-    expect(overlayPatch).toContain('$("#chapter-content").value = state.chapter.content;');
+    expect(addedLines).not.toContain("collapseChapterInputBlankLines");
+    expect(overlayPatch).not.toContain("collapseChapterInputBlankLines");
+    expect(overlayPatch).not.toContain("normalizeParagraphSpacing");
+    expect(overlayPatch).toContain("本机已保存，等待同步");
     expect(overlayPatch).toContain("feature=editor-blank-lines-preserved-v1");
   });
 

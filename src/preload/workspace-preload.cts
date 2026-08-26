@@ -1,6 +1,6 @@
 const { contextBridge, ipcRenderer } = require("electron") as typeof import("electron");
 
-const menuCommands = new Set(["open-sync-center"]);
+const menuCommands = new Set(["open-sync-center", "request-quit"]);
 const aiStreamChannel = "workspace:local-ai:stream-event";
 
 function invokeAiWithStream(channel: string, input: unknown, listener?: (event: unknown) => void): Promise<unknown> {
@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld("scriverseDesktopWorkspace", Object.freeze({
     getCapabilities: () => ipcRenderer.invoke("workspace:shell:get-capabilities"),
     reportLeaveState: (input: unknown) => ipcRenderer.invoke("workspace:shell:report-leave-state", input),
     requestSwitch: () => ipcRenderer.invoke("workspace:shell:request-switch"),
+    confirmQuit: () => ipcRenderer.invoke("workspace:shell:confirm-quit"),
     cacheWorkCover: (input: unknown) => ipcRenderer.invoke("workspace:shell:cache-work-cover", input),
     cacheWorkImages: (input: unknown) => ipcRenderer.invoke("workspace:shell:cache-work-images", input),
     onMenuCommand: (listener: (command: string) => void) => {

@@ -39,6 +39,13 @@ contextBridge.exposeInMainWorld("scriverseDesktop", Object.freeze({
   app: Object.freeze({
     getVersion: () => ipcRenderer.invoke("selector:app:get-version"),
     getPlatform: () => ipcRenderer.invoke("selector:app:get-platform"),
-    quit: () => ipcRenderer.invoke("selector:app:quit")
+    requestQuit: () => ipcRenderer.invoke("selector:app:request-quit"),
+    confirmQuit: () => ipcRenderer.invoke("selector:app:confirm-quit"),
+    onQuitRequested: (listener: () => void) => {
+      if (typeof listener !== "function") return () => undefined;
+      const handler = () => listener();
+      ipcRenderer.on("selector:app:request-quit", handler);
+      return () => ipcRenderer.removeListener("selector:app:request-quit", handler);
+    }
   })
 }));

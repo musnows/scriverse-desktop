@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, realpathSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, realpathSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join, resolve } from "node:path";
 
@@ -59,5 +59,14 @@ if (overlayCheck.status === 0) {
 cpSync(overlayPublic, join(target, "public"), { recursive: true, force: true });
 for (const file of ["desktop-workspace.js", "desktop-sync-client.js", "desktop-local-ai-offline.js", "desktop-local-ai-catalog.js", "desktop-local-ai-stream.js"]) {
   if (!existsSync(join(target, "public", file))) throw new Error(`Desktop Web overlay output is missing: ${file}`);
+}
+const stagedApplicationPath = join(target, "public", "app.js");
+const stagedApplication = readFileSync(stagedApplicationPath, "utf8");
+if (stagedApplication.split(/\r?\n/u).some((line) => line.trim() === "+" || line.trim() === "-")) {
+  throw new Error("Desktop Web overlay left a standalone patch operator in public/app.js");
+}
+const syntaxCheck = spawnSync(process.execPath, ["--check", stagedApplicationPath], { cwd: root, encoding: "utf8" });
+if (syntaxCheck.status !== 0) {
+  throw new Error(`Desktop Web overlay produced invalid JavaScript: ${syntaxCheck.stderr.trim() || "syntax check failed"}`);
 }
 process.stdout.write(`Scriverse runtime staged from ${source} with Desktop Web overlay\n`);

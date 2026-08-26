@@ -152,6 +152,32 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain('desktop-offline-api.js?v=20260825-desktop-media-cache-v1');
   });
 
+  it("matches the smaller chapter title in the Desktop editor", () => {
+    const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
+
+    expect(overlayPatch).toContain("font-size: 25px; padding: 0;");
+    expect(overlayPatch).toContain(".editor-actions { grid-area: actions; display: flex; align-items: center; gap: 8px; }");
+    expect(overlayPatch).toContain(".editor-view .editor-actions > button { min-height: 32px; padding: 6px 10px; font-size: 11px; }");
+    expect(overlayPatch).toContain(".editor-view .editor-actions > button { min-width: 0; min-height: 34px; padding-inline: 6px; font-size: 11px; }");
+    expect(overlayPatch).toContain("  .chapter-title { font-size: 21px; }");
+    expect(overlayPatch).toContain("feature=editor-toolbar-compact-v2");
+  });
+
+  it("preserves consecutive blank lines until the user tidies the chapter", () => {
+    const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
+    const addedLines = overlayPatch
+      .split("\n")
+      .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
+      .join("\n");
+
+    expect(addedLines).toContain("function collapseChapterInputBlankLines() {");
+    expect(addedLines).toContain("return false;");
+    expect(overlayPatch).toContain("normalizeParagraphSpacing");
+    expect(overlayPatch).toContain('content: $("#chapter-content").value');
+    expect(overlayPatch).toContain('$("#chapter-content").value = state.chapter.content;');
+    expect(overlayPatch).toContain("feature=editor-blank-lines-preserved-v1");
+  });
+
   it("keeps implementation details out of user-facing Desktop copy", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
     const addedLines = overlayPatch

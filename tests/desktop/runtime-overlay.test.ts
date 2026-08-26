@@ -12,7 +12,10 @@ describe("Desktop Web runtime overlay", () => {
     expect(prepareSource).toContain('gitApply("--check")');
     expect(prepareSource).toContain('"apply", "--recount"');
     expect(prepareSource).toContain("cpSync(overlayPublic");
+    expect(prepareSource).toContain("standalone patch operator");
+    expect(prepareSource).toContain('["--check", stagedApplicationPath]');
     expect(overlayPatch).toContain("diff --git a/public/app.js b/public/app.js");
+    expect(overlayPatch).not.toMatch(/^\+\+$/mu);
     expect(overlayPatch).toContain("createDesktopWorkspaceController");
     expect(gitAttributes).toContain("runtime-overlay/*.patch text eol=lf");
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-workspace.js"))).toBe(true);

@@ -17,6 +17,27 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain("diff --git a/public/app.js b/public/app.js");
     expect(overlayPatch).not.toMatch(/^\+\+$/mu);
     expect(overlayPatch).toContain("createDesktopWorkspaceController");
+    for (const id of [
+      "desktop-sync-dialog",
+      "desktop-sync-dialog-close",
+      "desktop-sync-list",
+      "desktop-sync-summary",
+      "desktop-sync-refresh",
+      "desktop-sync-switch",
+      "desktop-conflict-dialog",
+      "desktop-conflict-close",
+      "desktop-conflict-base",
+      "desktop-conflict-local",
+      "desktop-conflict-server",
+      "desktop-conflict-final",
+      "desktop-conflict-use-local",
+      "desktop-conflict-use-server",
+      "desktop-conflict-use-merged",
+      "desktop-conflict-cancel",
+      "desktop-conflict-resolve"
+    ]) {
+      expect(overlayPatch).toContain(`id="${id}"`);
+    }
     expect(gitAttributes).toContain("runtime-overlay/*.patch text eol=lf");
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-workspace.js"))).toBe(true);
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-local-ai-offline.js"))).toBe(true);

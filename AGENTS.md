@@ -4,7 +4,7 @@
 
 ## 1. 项目边界
 
-Scriverse Desktop 是 Scriverse 的 Electron 桌面客户端，当前版本为 `0.1.3`。仓库只维护桌面壳、本地工作区编排、远端 Server 连接、软件内登录、本地 AI、离线同步和打包安装能力。
+Scriverse Desktop 是 Scriverse 的 Electron 桌面客户端，当前版本为 `0.1.9`。仓库只维护桌面壳、本地工作区编排、远端 Server 连接、软件内登录、本地 AI、离线同步和打包安装能力。
 
 - Scriverse Server 与 Web 源码由 `musnows/Scriverse` 维护，禁止复制前后端、showcase 或 demo 源码到本仓库。
 - Desktop 通过 `scripts/prepare-runtime.mjs` 引入已构建 Server runtime，并通过 `runtime-overlay/` 维护必要的 Desktop Web 差异。

@@ -104,6 +104,7 @@ npm run verify:package
 ### 分支职责
 
 - `develop` 是唯一日常开发与功能集成分支。所有功能、修复、文档、CI 和构建改动都必须从最新的 `origin/develop` 派生，并通过指向 `develop` 的 PR 集成；禁止基于 `main` 开发或直接向 `main` 提交开发改动。
+- `develop` 是长期保留的集成分支，禁止删除远程或本地 `develop`；从 `develop` 向 `main` 发布时不得使用删除源分支的合并选项，合并后必须核对 `develop` 仍存在且指向预期提交。
 - `main` 只用于发版。只有准备发布时，才允许创建从 `develop` 指向 `main` 的 PR；禁止功能分支、修复分支或维护分支直接指向 `main`。
 - 指向 `develop` 的 PR 不运行 GitHub CI，也不要求远端状态检查；这不免除本地验证，提交者仍必须完成与改动直接相关的测试、`npm run check` 和必要的真实打包验证。
 - 指向 `main` 的 PR 才运行 `Desktop checks`。禁止为 `push`、指向 `develop` 的 PR 或其他普通分支自动触发该检查。

@@ -206,7 +206,19 @@ jobs:
         with:
           pattern: scriverse-desktop-release-*
           path: release-artifacts
-          merge-multiple: true
+          merge-multiple: false
+
+      - name: Disambiguate Linux artifacts
+        shell: bash
+        run: |
+          shopt -s nullglob
+          for artifact_dir in release-artifacts/scriverse-desktop-release-linux-*; do
+            label="${artifact_dir##*-release-}"
+            for file in "$artifact_dir"/*; do
+              test -f "$file" || continue
+              mv "$file" "$artifact_dir/${label}-$(basename "$file")"
+            done
+          done
 
       - name: Upload artifacts to existing release
         shell: bash

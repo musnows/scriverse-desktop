@@ -4,7 +4,7 @@
 
 ## 1. 项目边界
 
-Scriverse Desktop 是 Scriverse 的 Electron 桌面客户端，当前版本为 `0.1.3`。仓库只维护桌面壳、本地工作区编排、远端 Server 连接、软件内登录、本地 AI、离线同步和打包安装能力。
+Scriverse Desktop 是 Scriverse 的 Electron 桌面客户端，当前版本为 `0.1.9`。仓库只维护桌面壳、本地工作区编排、远端 Server 连接、软件内登录、本地 AI、离线同步和打包安装能力。
 
 - Scriverse Server 与 Web 源码由 `musnows/Scriverse` 维护，禁止复制前后端、showcase 或 demo 源码到本仓库。
 - Desktop 通过 `scripts/prepare-runtime.mjs` 引入已构建 Server runtime，并通过 `runtime-overlay/` 维护必要的 Desktop Web 差异。
@@ -93,6 +93,9 @@ npm run verify:package
 - Vitest 默认使用 8 workers。
 - 每次变更至少运行直接相关测试、类型检查和构建。
 - runtime overlay 变更必须验证 `runtime:prepare` 可对最新兼容 Server runtime 正向应用。
+- Runtime overlay 启动节点必须保持完整闭环：`runtime-overlay/web.patch` 中新增或保留的启动期 `querySelector`、`$("#...")`、`getElementById` 和 `addEventListener` 引用，必须在同一 overlay 应用后的 `public/index.html` 中存在对应静态节点；禁止只保留事件监听而遗漏 HTML 对话框、按钮或容器。
+- 每次重生成、rebase 或切换兼容 Server runtime 后，必须使用精确的 Server Release tag 在干净目录执行 `runtime:prepare`，运行 `node --check dist/public/app.js`，并用回归测试核对启动期 DOM 引用和静态节点一一对应；不得只根据 patch 文件能提交或 TypeScript 测试通过就判定客户端可启动。
+- 发布前必须实际启动打包后的 Desktop，确认工作区选择页或目标工作区能离开加载遮罩，并检查控制台没有 `Cannot read properties of null`、`addEventListener` 或其他新增启动错误；若发现启动错误，必须先修复并单独提交，再继续版本发布。
 - 最终安装前必须运行 `verify:package`、`codesign --verify --deep --strict`，并使用 Computer Use 验证安装后的 App。
 - 本地维护和安装只要求 Apple Silicon Mac；不在本机尝试 Intel Mac 打包。不得因此删除 CI。
 
@@ -101,6 +104,7 @@ npm run verify:package
 ### 分支职责
 
 - `develop` 是唯一日常开发与功能集成分支。所有功能、修复、文档、CI 和构建改动都必须从最新的 `origin/develop` 派生，并通过指向 `develop` 的 PR 集成；禁止基于 `main` 开发或直接向 `main` 提交开发改动。
+- `develop` 是长期保留的集成分支，禁止删除远程或本地 `develop`；从 `develop` 向 `main` 发布时不得使用删除源分支的合并选项，合并后必须核对 `develop` 仍存在且指向预期提交。
 - `main` 只用于发版。只有准备发布时，才允许创建从 `develop` 指向 `main` 的 PR；禁止功能分支、修复分支或维护分支直接指向 `main`。
 - 指向 `develop` 的 PR 不运行 GitHub CI，也不要求远端状态检查；这不免除本地验证，提交者仍必须完成与改动直接相关的测试、`npm run check` 和必要的真实打包验证。
 - 指向 `main` 的 PR 才运行 `Desktop checks`。禁止为 `push`、指向 `develop` 的 PR 或其他普通分支自动触发该检查。

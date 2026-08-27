@@ -93,6 +93,9 @@ npm run verify:package
 - Vitest 默认使用 8 workers。
 - 每次变更至少运行直接相关测试、类型检查和构建。
 - runtime overlay 变更必须验证 `runtime:prepare` 可对最新兼容 Server runtime 正向应用。
+- Runtime overlay 启动节点必须保持完整闭环：`runtime-overlay/web.patch` 中新增或保留的启动期 `querySelector`、`$("#...")`、`getElementById` 和 `addEventListener` 引用，必须在同一 overlay 应用后的 `public/index.html` 中存在对应静态节点；禁止只保留事件监听而遗漏 HTML 对话框、按钮或容器。
+- 每次重生成、rebase 或切换兼容 Server runtime 后，必须使用精确的 Server Release tag 在干净目录执行 `runtime:prepare`，运行 `node --check dist/public/app.js`，并用回归测试核对启动期 DOM 引用和静态节点一一对应；不得只根据 patch 文件能提交或 TypeScript 测试通过就判定客户端可启动。
+- 发布前必须实际启动打包后的 Desktop，确认工作区选择页或目标工作区能离开加载遮罩，并检查控制台没有 `Cannot read properties of null`、`addEventListener` 或其他新增启动错误；若发现启动错误，必须先修复并单独提交，再继续版本发布。
 - 最终安装前必须运行 `verify:package`、`codesign --verify --deep --strict`，并使用 Computer Use 验证安装后的 App。
 - 本地维护和安装只要求 Apple Silicon Mac；不在本机尝试 Intel Mac 打包。不得因此删除 CI。
 

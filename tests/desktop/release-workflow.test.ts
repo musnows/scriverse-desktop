@@ -76,6 +76,10 @@ describe("Desktop 发布链路", () => {
     expect(release).toContain('codesign --verify --deep --strict "$app_path"');
     expect(release).toContain('grep -F "Signature=adhoc"');
     expect(release).toContain('if: ${{ always() && !cancelled() }}');
+    expect(release).toContain("merge-multiple: false");
+    expect(release).toContain("Disambiguate Linux artifacts");
+    expect(release).toContain('label="${artifact_dir##*-release-}"');
+    expect(release).toContain('mv "$file" "$artifact_dir/${label}-$(basename "$file")"');
     expect(developPackage).toContain("SCRIVERSE_DESKTOP_GATE_SKIP_LOCAL_SERVER");
     expect(release).toContain("SCRIVERSE_DESKTOP_GATE_SKIP_LOCAL_SERVER");
     expect(release).not.toContain("secrets.DESKTOP_");

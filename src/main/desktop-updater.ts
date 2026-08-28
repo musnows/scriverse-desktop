@@ -1,9 +1,12 @@
-import { app, autoUpdater, dialog, powerMonitor, shell, type BrowserWindow } from "electron";
+import { app, autoUpdater as squirrelAutoUpdater, dialog, powerMonitor, shell, type BrowserWindow } from "electron";
+import { autoUpdater as nsisAutoUpdater } from "electron-updater";
 import { DESKTOP_DISPLAY_NAME } from "../shared/branding.js";
 import type { WorkspaceLeaveState } from "../shared/workspace-contract.js";
-import { desktopUpdateFeedUrl, updateInstallDetail } from "../shared/update-policy.js";
+import { desktopUpdateFeedUrl, updateInstallDetail, windowsNsisUpdateChannel } from "../shared/update-policy.js";
+import { isSquirrelWindowsInstallation } from "./windows-installation.js";
 
 const RELEASES_URL = "https://github.com/musnows/Scriverse/releases/latest";
+const WINDOWS_UPDATE_URL = "https://github.com/musnows/scriverse-desktop/releases/latest/download";
 const UPDATE_INTERVAL_MS = 10 * 60_000;
 
 export class DesktopUpdater {
@@ -11,6 +14,7 @@ export class DesktopUpdater {
   private manualCheck = false;
   private suspended = false;
   private initialized = false;
+  private useNsisUpdater = false;
   private initialTimer: ReturnType<typeof setTimeout> | null = null;
   private intervalTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -26,40 +30,71 @@ export class DesktopUpdater {
     this.initialized = true;
     const feedUrl = desktopUpdateFeedUrl(process.platform, this.options.version);
     if (!app.isPackaged || !feedUrl) return;
-    autoUpdater.setFeedURL({ url: feedUrl });
-    autoUpdater.on("checking-for-update", () => { this.checking = true; });
-    autoUpdater.on("update-available", () => { this.checking = false; });
-    autoUpdater.on("update-not-available", () => {
-      this.checking = false;
-      if (!this.manualCheck) return;
-      this.manualCheck = false;
-      void this.showMessageBox({
-        type: "info",
-        title: "检查更新",
-        message: `${DESKTOP_DISPLAY_NAME} ${this.options.version} 已是最新版本`
+    this.useNsisUpdater = process.platform === "win32" && !isSquirrelWindowsInstallation();
+    if (this.useNsisUpdater) {
+      nsisAutoUpdater.autoInstallOnAppQuit = false;
+      nsisAutoUpdater.channel = windowsNsisUpdateChannel(process.arch);
+      nsisAutoUpdater.allowDowngrade = false;
+      nsisAutoUpdater.setFeedURL({ provider: "generic", url: WINDOWS_UPDATE_URL });
+      nsisAutoUpdater.on("checking-for-update", this.handleCheckingForUpdate);
+      nsisAutoUpdater.on("update-available", this.handleUpdateAvailable);
+      nsisAutoUpdater.on("update-not-available", this.handleUpdateNotAvailable);
+      nsisAutoUpdater.on("error", this.handleUpdateError);
+      nsisAutoUpdater.on("update-downloaded", (event) => {
+        this.handleUpdateDownloaded(event.version);
       });
-    });
-    autoUpdater.on("error", (error) => {
-      this.checking = false;
-      process.stderr.write(`Desktop update check failed: ${error.message}\n`);
-      if (!this.manualCheck) return;
-      this.manualCheck = false;
-      void this.showMessageBox({
-        type: "error",
-        title: "检查更新失败",
-        message: `暂时无法检查${DESKTOP_DISPLAY_NAME}更新`,
-        detail: "当前版本仍可继续使用，请稍后重试。"
+    } else {
+      squirrelAutoUpdater.setFeedURL({ url: feedUrl });
+      squirrelAutoUpdater.on("checking-for-update", this.handleCheckingForUpdate);
+      squirrelAutoUpdater.on("update-available", this.handleUpdateAvailable);
+      squirrelAutoUpdater.on("update-not-available", this.handleUpdateNotAvailable);
+      squirrelAutoUpdater.on("error", this.handleUpdateError);
+      squirrelAutoUpdater.on("update-downloaded", (_event, _notes, releaseName) => {
+        this.handleUpdateDownloaded(releaseName);
       });
-    });
-    autoUpdater.on("update-downloaded", (_event, _notes, releaseName) => {
-      this.checking = false;
-      this.manualCheck = false;
-      void this.promptInstall(releaseName);
-    });
+    }
     powerMonitor.on("suspend", this.handleSuspend);
     powerMonitor.on("resume", this.handleResume);
     this.initialTimer = setTimeout(() => this.check(true), 15_000);
     this.intervalTimer = setInterval(() => this.check(true), UPDATE_INTERVAL_MS);
+  }
+
+  private readonly handleCheckingForUpdate = (): void => {
+    this.checking = true;
+  };
+
+  private readonly handleUpdateAvailable = (): void => {
+    this.checking = false;
+  };
+
+  private readonly handleUpdateNotAvailable = (): void => {
+    this.checking = false;
+    if (!this.manualCheck) return;
+    this.manualCheck = false;
+    void this.showMessageBox({
+      type: "info",
+      title: "检查更新",
+      message: `${DESKTOP_DISPLAY_NAME} ${this.options.version} 已是最新版本`
+    });
+  };
+
+  private readonly handleUpdateError = (error: Error): void => {
+    this.checking = false;
+    process.stderr.write(`Desktop update check failed: ${error.message}\n`);
+    if (!this.manualCheck) return;
+    this.manualCheck = false;
+    void this.showMessageBox({
+      type: "error",
+      title: "检查更新失败",
+      message: `暂时无法检查${DESKTOP_DISPLAY_NAME}更新`,
+      detail: "当前版本仍可继续使用，请稍后重试。"
+    });
+  };
+
+  private handleUpdateDownloaded(releaseName: string): void {
+    this.checking = false;
+    this.manualCheck = false;
+    void this.promptInstall(releaseName);
   }
 
   check(silent = false): void {
@@ -79,7 +114,11 @@ export class DesktopUpdater {
     this.manualCheck = !silent;
     this.checking = true;
     try {
-      autoUpdater.checkForUpdates();
+      if (this.useNsisUpdater) {
+        void nsisAutoUpdater.checkForUpdates().catch(() => undefined);
+      } else {
+        squirrelAutoUpdater.checkForUpdates();
+      }
     } catch (error) {
       this.checking = false;
       this.manualCheck = false;
@@ -139,6 +178,10 @@ export class DesktopUpdater {
     const discardUnsaved = state.dirty || state.activeAiRequests > 0;
     if (!await this.options.prepareInstall(discardUnsaved)) return;
     this.dispose();
-    autoUpdater.quitAndInstall();
+    if (this.useNsisUpdater) {
+      nsisAutoUpdater.quitAndInstall();
+    } else {
+      squirrelAutoUpdater.quitAndInstall();
+    }
   }
 }

@@ -5,6 +5,7 @@ import { MakerZIP } from "@electron-forge/maker-zip";
 import type { ForgeConfig } from "@electron-forge/shared-types";
 import { existsSync, renameSync } from "node:fs";
 import { join } from "node:path";
+import { WindowsNsisMaker } from "./scripts/windows-nsis-maker.js";
 import { DESKTOP_DISPLAY_NAME } from "./src/shared/branding.js";
 
 const desktopMainEntry = "build/main/main.js";
@@ -74,7 +75,10 @@ const config: ForgeConfig = {
       unpackDir: "node_modules/@img"
     },
     icon: packageIcon,
-    ...(process.platform === "darwin" ? { extraResource: [join(process.cwd(), desktopAssets, "zh-Hans.lproj")] } : {}),
+    extraResource: [
+      join(process.cwd(), desktopAssets, "app-update.yml"),
+      ...(process.platform === "darwin" ? [join(process.cwd(), desktopAssets, "zh-Hans.lproj")] : [])
+    ],
     osxSign: macSigningIdentity ? { identity: macSigningIdentity } : {
       identity: "-",
       identityValidation: false,
@@ -155,6 +159,10 @@ const config: ForgeConfig = {
         } : {})
       }
     },
+    new WindowsNsisMaker({
+      certificateFile: windowsCertificateFile,
+      certificatePassword: windowsCertificatePassword
+    }),
     {
       name: "@electron-forge/maker-deb",
       platforms: ["linux"],

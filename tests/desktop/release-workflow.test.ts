@@ -69,10 +69,13 @@ describe("Desktop 发布链路", () => {
     expect(release).toContain("New-SelfSignedCertificate");
     expect(release).not.toContain("Import-Certificate");
     expect(release).toContain("scriverse-desktop-darwin-${{ matrix.arch }}-$package_version.dmg");
-    expect(release).toContain("scriverse-desktop-win32-${{ matrix.arch }}-$packageVersion-Setup.exe");
+    expect(release).toContain("scriverse-desktop-win32-${{ matrix.arch }}-$packageVersion-Squirrel-Setup.exe");
     expect(release).toContain("scriverse-desktop-win32-${{ matrix.arch }}-$packageVersion-full.nupkg");
     expect(release).toContain("scriverse-desktop-win32-${{ matrix.arch }}-$packageVersion-RELEASES");
     expect(artifactVerifier).toContain('/(?:[\\\\/]|-)RELEASES$/u');
+    expect(artifactVerifier).toContain('/nsis\\.windows[\\\\/].*Setup\\.exe$/u');
+    expect(artifactVerifier).toContain('/Setup\\.exe\\.blockmap$/u');
+    expect(artifactVerifier).toContain('/latest(?:-arm64|-ia32)?\\.yml$/u');
     expect(release).toContain('codesign --verify --deep --strict "$app_path"');
     expect(release).toContain('grep -F "Signature=adhoc"');
     expect(release).toContain('if: ${{ always() && !cancelled() }}');
@@ -82,10 +85,13 @@ describe("Desktop 发布链路", () => {
     expect(release).toContain('mv "$file" "$artifact_dir/${label}-$(basename "$file")"');
     expect(developPackage).toContain("SCRIVERSE_DESKTOP_GATE_SKIP_LOCAL_SERVER");
     expect(release).toContain("SCRIVERSE_DESKTOP_GATE_SKIP_LOCAL_SERVER");
+    expect(developPackage).toContain("!out/make/**/builder-debug.yml");
+    expect(release).toContain("!out/make/**/builder-debug.yml");
     expect(release).not.toContain("secrets.DESKTOP_");
     expect(release).not.toContain("spctl --assess");
     expect(release).not.toContain("stapler validate");
     expect(release).toContain('app_path="out/scriverse-desktop-darwin-${{ matrix.arch }}/叙界.app"');
+    expect(release).toContain('$installers.Count -lt 2');
     expect(release).not.toMatch(/BEGIN (?:RSA )?PRIVATE KEY/u);
   });
 

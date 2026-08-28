@@ -137,7 +137,7 @@ jobs:
           $nupkg = Get-ChildItem -Path $squirrelDirectory -Filter "*-full.nupkg" | Select-Object -First 1
           $releases = Join-Path $squirrelDirectory "RELEASES"
           if (-not $setup -or -not $nupkg -or -not (Test-Path $releases)) { throw "Missing Windows release artifacts" }
-          Move-Item $setup.FullName (Join-Path $squirrelDirectory "scriverse-desktop-win32-${{ matrix.arch }}-$packageVersion-Setup.exe")
+          Move-Item $setup.FullName (Join-Path $squirrelDirectory "scriverse-desktop-win32-${{ matrix.arch }}-$packageVersion-Squirrel-Setup.exe")
           Move-Item $nupkg.FullName (Join-Path $squirrelDirectory "scriverse-desktop-win32-${{ matrix.arch }}-$packageVersion-full.nupkg")
           Move-Item $releases (Join-Path $squirrelDirectory "scriverse-desktop-win32-${{ matrix.arch }}-$packageVersion-RELEASES")
 
@@ -172,10 +172,9 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $files = @(
-            "out/Scriverse Desktop-win32-${{ matrix.arch }}/Scriverse Desktop.exe",
-            (Get-ChildItem -Path out/make -Recurse -Filter "*Setup.exe" | Select-Object -First 1 -ExpandProperty FullName)
-          )
+          $installers = @(Get-ChildItem -Path out/make -Recurse -Filter "*Setup.exe")
+          if ($installers.Count -lt 2) { throw "Missing signed Windows installers" }
+          $files = @("out/Scriverse Desktop-win32-${{ matrix.arch }}/Scriverse Desktop.exe") + $installers.FullName
           foreach ($file in $files) {
             $signature = Get-AuthenticodeSignature $file
             if (-not $signature.SignerCertificate) { throw "Missing signature: $file" }
@@ -187,7 +186,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: scriverse-desktop-release-${{ matrix.label }}
-          path: out/make/**
+          path: |
+            out/make/**
+            !out/make/**/builder-debug.yml
           if-no-files-found: error
           retention-days: 30
 

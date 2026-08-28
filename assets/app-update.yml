@@ -1,0 +1,5 @@
+provider: generic
+url: https://github.com/musnows/scriverse-desktop/releases/latest/download
+publisherName:
+  - CN=Scriverse Desktop
+updaterCacheDirName: scriverse-desktop-updater

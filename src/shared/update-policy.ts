@@ -2,6 +2,12 @@ import type { WorkspaceLeaveState } from "./workspace-contract.js";
 
 const UPDATE_SERVICE_ROOT = "https://update.electronjs.org/musnows/Scriverse";
 
+export function windowsNsisUpdateChannel(arch: string): string {
+  if (arch === "x64") return "latest";
+  if (!/^(?:arm64|ia32)$/u.test(arch)) throw new Error("Desktop Windows update architecture is invalid");
+  return `latest-${arch}`;
+}
+
 export function desktopUpdateFeedUrl(platform: NodeJS.Platform, version: string): string | null {
   if (platform !== "darwin" && platform !== "win32") return null;
   if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(version)) throw new Error("Desktop update version is invalid");

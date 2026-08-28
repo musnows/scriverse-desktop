@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { desktopUpdateFeedUrl, updateInstallDetail } from "../../src/shared/update-policy.js";
+import { desktopUpdateFeedUrl, updateInstallDetail, windowsNsisUpdateChannel } from "../../src/shared/update-policy.js";
 import { parseSquirrelCommand } from "../../src/shared/squirrel-command.js";
 
 describe("Desktop 更新策略", () => {
@@ -8,6 +8,13 @@ describe("Desktop 更新策略", () => {
     expect(desktopUpdateFeedUrl("win32", "0.8.7")).toBe("https://update.electronjs.org/musnows/Scriverse/win32/v0.8.7");
     expect(desktopUpdateFeedUrl("linux", "0.8.7")).toBeNull();
     expect(() => desktopUpdateFeedUrl("darwin", "../release")).toThrow();
+  });
+
+  it("为 Windows NSIS 安装器选择架构隔离的更新通道", () => {
+    expect(windowsNsisUpdateChannel("x64")).toBe("latest");
+    expect(windowsNsisUpdateChannel("arm64")).toBe("latest-arm64");
+    expect(windowsNsisUpdateChannel("ia32")).toBe("latest-ia32");
+    expect(() => windowsNsisUpdateChannel("armv7l")).toThrow(/architecture/u);
   });
 
   it("安装提示明确区分未保存内容与已持久化同步数据", () => {

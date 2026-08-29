@@ -1,6 +1,6 @@
 {
   "name": "@musnows/scriverse-desktop",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Scriverse desktop client",
   "license": "AGPL-3.0-only",
   "author": "musnows",
@@ -22,7 +22,7 @@
   "type": "module",
   "private": true,
   "main": "build/main/main.js",
-  "scriverseServerVersion": "0.9.4",
+  "scriverseServerVersion": "0.9.5",
   "engines": {
     "node": ">=22.5.0"
   },
@@ -42,7 +42,9 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1102.0",
     "@smithy/node-http-handler": "^4.9.13",
+    "compression": "^1.8.1",
     "docx": "^9.7.1",
+    "electron-updater": "^6.8.9",
     "express": "^5.1.0",
     "jszip": "^3.10.1",
     "mammoth": "^1.10.0",
@@ -56,6 +58,7 @@
   },
   "devDependencies": {
     "@electron-forge/cli": "7.11.2",
+    "@electron-forge/maker-base": "7.11.2",
     "@electron-forge/maker-deb": "7.11.2",
     "@electron-forge/maker-dmg": "7.11.2",
     "@electron-forge/maker-rpm": "7.11.2",
@@ -67,6 +70,7 @@
     "@electron/fuses": "1.8.0",
     "@types/node": "^24.10.0",
     "@types/yazl": "^3.3.1",
+    "app-builder-lib": "26.15.3",
     "electron": "43.4.1",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",

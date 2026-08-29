@@ -15,7 +15,14 @@ const artifacts = files(makeRoot).filter((path) => statSync(path).size > 0);
 const expected = process.platform === "darwin"
   ? [/\.dmg$/u, /\.zip$/u]
   : process.platform === "win32"
-    ? [/Setup\.exe$/u, /-full\.nupkg$/u, /(?:[\\/]|-)RELEASES$/u]
+    ? [
+        /squirrel\.windows[\\/].*Setup\.exe$/u,
+        /-full\.nupkg$/u,
+        /(?:[\\/]|-)RELEASES$/u,
+        /nsis\.windows[\\/].*Setup\.exe$/u,
+        /Setup\.exe\.blockmap$/u,
+        /latest(?:-arm64|-ia32)?\.yml$/u
+      ]
     : [/\.deb$/u, /\.rpm$/u, /\.zip$/u];
 for (const pattern of expected) {
   if (!artifacts.some((path) => pattern.test(path))) throw new Error(`Missing Desktop artifact: ${pattern}`);

@@ -136,6 +136,8 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: scriverse-desktop-develop-${{ matrix.label }}
-          path: out/make/**
+          path: |
+            out/make/**
+            !out/make/**/builder-debug.yml
           if-no-files-found: error
           retention-days: 14

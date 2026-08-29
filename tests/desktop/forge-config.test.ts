@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import config from "../../forge.config.js";
+import { windowsNsisBuilderConfiguration } from "../../scripts/windows-nsis-maker.js";
 
 describe("Desktop Forge configuration", () => {
   it("packages an ASAR app with supported platform makers and hardened fuses", () => {
@@ -17,11 +18,13 @@ describe("Desktop Forge configuration", () => {
       "dmg",
       "zip",
       "@electron-forge/maker-squirrel",
+      "nsis",
       "@electron-forge/maker-deb",
       "@electron-forge/maker-rpm"
     ]));
     expect(config.plugins).toHaveLength(2);
     expect(config.packagerConfig?.ignore?.some((pattern) => pattern.test("/runtime-overlay/web.patch"))).toBe(true);
+    expect(config.packagerConfig?.extraResource).toEqual(expect.arrayContaining([expect.stringContaining("assets/app-update.yml")]));
   });
 
   it("mutates only the packaged manifest entry point", async () => {
@@ -55,5 +58,31 @@ describe("Desktop Forge configuration", () => {
     const makers = config.makers ?? [];
     expect(makers.some((maker) => "name" in maker && maker.name === "dmg")).toBe(true);
     expect(makers.some((maker) => "name" in maker && maker.name === "zip")).toBe(true);
+  });
+
+  it("builds an assisted Windows installer that allows choosing the installation directory", () => {
+    const nsis = windowsNsisBuilderConfiguration({
+      targetArch: "arm64",
+      makeDir: "/workspace/out/make",
+      projectDir: "/workspace",
+      certificateFile: "/certificate/desktop.pfx",
+      certificatePassword: "secret"
+    });
+    expect(nsis.directories?.output).toBe("/workspace/out/make/nsis.windows/arm64");
+    expect(nsis.nsis).toMatchObject({
+      oneClick: false,
+      perMachine: false,
+      allowElevation: true,
+      allowToChangeInstallationDirectory: true,
+      artifactName: "scriverse-desktop-win32-arm64-${version}-Setup.${ext}"
+    });
+    expect(nsis.publish).toMatchObject({
+      provider: "generic",
+      channel: "latest-arm64"
+    });
+    expect(nsis.win?.signtoolOptions).toMatchObject({
+      certificateFile: "/certificate/desktop.pfx",
+      signingHashAlgorithms: ["sha256"]
+    });
   });
 });

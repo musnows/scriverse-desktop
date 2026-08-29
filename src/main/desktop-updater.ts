@@ -1,5 +1,5 @@
 import { app, autoUpdater as squirrelAutoUpdater, dialog, powerMonitor, shell, type BrowserWindow } from "electron";
-import { autoUpdater as nsisAutoUpdater } from "electron-updater";
+import electronUpdater from "electron-updater";
 import { DESKTOP_DISPLAY_NAME } from "../shared/branding.js";
 import type { WorkspaceLeaveState } from "../shared/workspace-contract.js";
 import { desktopUpdateFeedUrl, updateInstallDetail, windowsNsisUpdateChannel } from "../shared/update-policy.js";
@@ -8,6 +8,7 @@ import { isSquirrelWindowsInstallation } from "./windows-installation.js";
 const RELEASES_URL = "https://github.com/musnows/Scriverse/releases/latest";
 const WINDOWS_UPDATE_URL = "https://github.com/musnows/scriverse-desktop/releases/latest/download";
 const UPDATE_INTERVAL_MS = 10 * 60_000;
+const nsisAutoUpdater = electronUpdater.autoUpdater;
 
 export class DesktopUpdater {
   private checking = false;

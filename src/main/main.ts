@@ -7,6 +7,10 @@ import { registerDesktopScheme, registerSelectorProtocol } from "./app-protocol.
 import { resolveCompatibleServerVersion, resolveDesktopAppVersion } from "./app-version.js";
 import { DESKTOP_DISPLAY_NAME } from "../shared/branding.js";
 import { initializeDesktopEnvironment, type DesktopEnvironment } from "./desktop-environment.js";
+import {
+  developmentIsolationError,
+  resolveDevelopmentLocalServerPort
+} from "./development-isolation.js";
 import { LocalServerManager } from "./local-server-manager.js";
 import { ProfileStore } from "./profile-store.js";
 import { registerSelectorIpc } from "./selector-ipc.js";
@@ -65,6 +69,7 @@ const localServerGateRequested = process.argv.includes("--local-server-gate") ||
 let mainWindow: BrowserWindow | null = null;
 let workspaceWindow: BrowserWindow | null = null;
 let desktopEnvironment: DesktopEnvironment | null = null;
+let desktopEnvironmentInitialized = false;
 let desktopStartupError: unknown = null;
 let disposeSelectorIpc: (() => void) | null = null;
 let disposeWorkspaceIpc: (() => void) | null = null;
@@ -192,6 +197,28 @@ async function runRuntimeGate(): Promise<void> {
   });
 }
 
+function initializeDesktopRuntime(): void {
+  if (runtimeGateRequested || desktopEnvironmentInitialized) return;
+  try {
+    desktopEnvironment = initializeDesktopEnvironment();
+    desktopProcessLogging = installDesktopProcessLogging(desktopEnvironment.paths.logs);
+    desktopSettingsStore = new DesktopSettingsStore(desktopEnvironment.paths.desktopSettings);
+    void desktopProcessLogging.logger.setTotalMaxBytes(desktopLogStorageLimitBytes(desktopSettingsStore.get().logStorageLimitMiB));
+    process.stderr.write("Desktop file logging initialized\n");
+    remoteMediaCache = new RemoteMediaCache(desktopEnvironment.paths.remoteMedia);
+  } catch (error) {
+    desktopStartupError = error;
+  } finally {
+    desktopEnvironmentInitialized = true;
+  }
+}
+
+function requestDesktopSingleInstanceLock(): boolean {
+  if (runtimeGateRequested || localServerGateRequested) return true;
+  initializeDesktopRuntime();
+  return app.requestSingleInstanceLock();
+}
+
 function createLocalServerManager(environment: DesktopEnvironment, settings: DesktopSettingsStore): LocalServerManager {
   return new LocalServerManager({
     paths: environment.paths,
@@ -204,7 +231,7 @@ function createLocalServerManager(environment: DesktopEnvironment, settings: Des
     applicationRoot,
     desktopRoot,
     utilityWorkingDirectory,
-    getPreferredPort: () => settings.get().localServerPort
+    getPreferredPort: () => resolveDevelopmentLocalServerPort(process.env, app.isPackaged) ?? settings.get().localServerPort
   });
 }
 
@@ -892,24 +919,17 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
 
 registerDesktopScheme();
 app.enableSandbox();
+const startupIsolationError = developmentIsolationError({ env: process.env, packaged: app.isPackaged, runtimeGateRequested });
 
 if (handleSquirrelStartup()) {
   app.quit();
-} else if (!runtimeGateRequested && !localServerGateRequested && !app.requestSingleInstanceLock()) {
+} else if (startupIsolationError) {
+  process.stderr.write(`Desktop startup refused: ${startupIsolationError}\n`);
+  app.exit(1);
+} else if (!requestDesktopSingleInstanceLock()) {
   app.quit();
 } else {
-  if (!runtimeGateRequested) {
-    try {
-      desktopEnvironment = initializeDesktopEnvironment();
-      desktopProcessLogging = installDesktopProcessLogging(desktopEnvironment.paths.logs);
-      desktopSettingsStore = new DesktopSettingsStore(desktopEnvironment.paths.desktopSettings);
-      void desktopProcessLogging.logger.setTotalMaxBytes(desktopLogStorageLimitBytes(desktopSettingsStore.get().logStorageLimitMiB));
-      process.stderr.write("Desktop file logging initialized\n");
-      remoteMediaCache = new RemoteMediaCache(desktopEnvironment.paths.remoteMedia);
-    } catch (error) {
-      desktopStartupError = error;
-    }
-  }
+  initializeDesktopRuntime();
   app.on("second-instance", () => {
     showDesktopWindow();
   });

@@ -29,7 +29,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.main.json && tsc -p tsconfig.preload.json && node scripts/copy-renderer.mjs",
     "runtime:prepare": "node scripts/prepare-runtime.mjs",
-    "start": "npm run runtime:prepare && npm run build && electron build/main/main.js",
+    "start": "npm run start:isolated",
+    "start:isolated": "npm run runtime:prepare && npm run build && node scripts/start-dev-isolated.mjs",
     "package": "npm run runtime:prepare && npm run build && electron-forge package",
     "make": "npm run runtime:prepare && npm run build && electron-forge make",
     "verify:package": "node scripts/verify-package.mjs",

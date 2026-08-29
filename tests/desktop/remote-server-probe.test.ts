@@ -25,6 +25,8 @@ describe("Desktop Server health 探测", () => {
     const result = await new RemoteServerProbe(fetchImpl).probe("https://server.example", "0.8.7");
     expect(result).toMatchObject({
       product: "scriverse",
+      serverVersion: "0.8.7",
+      webAssetVersion: "0.8.7",
       compatibility: "compatible",
       shellProtocol: { min: 1, max: 1 },
       syncProtocol: { entityTypes: ["chapter", "setting"], maxMutationBytes: 2_500_000 }

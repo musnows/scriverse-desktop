@@ -45,6 +45,7 @@ describe("Desktop Selector UI", () => {
     expect(script).toContain("永久删除本机离线数据");
     expect(script).toContain("永久更换并删除本机副本");
     expect(script).toContain("bridge.profiles.status(profile.id)");
+    expect(script).toContain('detail("Server 版本", profile.capabilities?.serverVersion ?? "未检测")');
     expect(script).toContain('window.addEventListener("focus", () => { void loadProfiles(); });');
     expect(script).toContain("localServerPort: Number(localServerPort.value)");
     expect(script).toContain("logStorageLimitMiB: Number(logStorageLimit.value)");

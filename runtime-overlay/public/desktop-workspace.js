@@ -62,6 +62,36 @@ function downloadRescueBundle(bundle) {
   window.setTimeout(() => URL.revokeObjectURL(href), 1_000);
 }
 
+function externalUrlOrigin(url) {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return "外部网站";
+  }
+}
+
+export function installDesktopExternalUrlPrompt({ bridge = null, confirm = null, notify = () => undefined } = {}) {
+  if (
+    !bridge
+    || typeof bridge.onExternalUrlRequest !== "function"
+    || typeof bridge.openExternalUrl !== "function"
+    || typeof confirm !== "function"
+  ) return () => undefined;
+  const unsubscribe = bridge.onExternalUrlRequest((request) => {
+    if (!request || typeof request.requestId !== "string" || typeof request.url !== "string") return;
+    void (async () => {
+      const confirmed = await confirm(`即将打开外部网站：\n${externalUrlOrigin(request.url)}`, {
+        title: "打开外部网站？",
+        confirmLabel: "继续访问",
+        cancelLabel: "取消"
+      });
+      const result = await bridge.openExternalUrl({ requestId: request.requestId, confirmed });
+      if (result?.ok !== true) notify(result?.error?.message ?? "外部网站跳转失败", "error");
+    })().catch((error) => notify(error?.message ?? "外部网站跳转失败", "error"));
+  });
+  return typeof unsubscribe === "function" ? unsubscribe : () => undefined;
+}
+
 export class DesktopWorkspaceController {
   constructor({ bridge, profile, user, client }) {
     this.bridge = bridge;

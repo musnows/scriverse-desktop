@@ -17,6 +17,8 @@ describe("Desktop 本地工作区窗口", () => {
     expect(workspaceSource).toContain('title: `本地工作区 - ${DESKTOP_DISPLAY_NAME}`');
     expect(workspaceSource).toContain("setPermissionRequestHandler");
     expect(workspaceSource).toContain('action: "deny"');
+    expect(workspaceSource).toContain("onExternalUrlRequest(window, details.url)");
+    expect(workspaceSource).toContain("onExternalUrlRequest(window, target)");
   });
 
   it("只由 Main 持久化 Bearer 并禁止浏览器 Cookie 与系统凭据存储", () => {

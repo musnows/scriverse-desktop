@@ -1,5 +1,7 @@
 const { contextBridge, ipcRenderer } = require("electron") as typeof import("electron");
 
+const externalUrlRequestChannel = "selector:shell:external-url-request";
+
 contextBridge.exposeInMainWorld("scriverseDesktop", Object.freeze({
   shellProtocol: 1,
   profiles: Object.freeze({
@@ -46,6 +48,21 @@ contextBridge.exposeInMainWorld("scriverseDesktop", Object.freeze({
       const handler = () => listener();
       ipcRenderer.on("selector:app:request-quit", handler);
       return () => ipcRenderer.removeListener("selector:app:request-quit", handler);
+    }
+  }),
+  external: Object.freeze({
+    openExternalUrl: (input: unknown) => ipcRenderer.invoke("selector:shell:open-external-url", input),
+    onExternalUrlRequest: (listener: (request: { requestId: string; url: string }) => void) => {
+      if (typeof listener !== "function") return () => undefined;
+      const handler = (_event: Electron.IpcRendererEvent, payload: unknown) => {
+        if (!payload || typeof payload !== "object" || Array.isArray(payload)) return;
+        const request = payload as Record<string, unknown>;
+        if (typeof request.requestId === "string" && typeof request.url === "string") {
+          listener({ requestId: request.requestId, url: request.url });
+        }
+      };
+      ipcRenderer.on(externalUrlRequestChannel, handler);
+      return () => ipcRenderer.removeListener(externalUrlRequestChannel, handler);
     }
   })
 }));

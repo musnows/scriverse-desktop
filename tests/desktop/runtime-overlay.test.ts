@@ -170,8 +170,19 @@ describe("Desktop Web runtime overlay", () => {
   it("updates Desktop workspace modules when media cache behavior changes", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 
-    expect(overlayPatch).toContain('desktop-workspace.js?v=20260825-desktop-media-cache-v1');
+    expect(overlayPatch).toContain('desktop-workspace.js?v=20260829-desktop-external-url-v1');
     expect(overlayPatch).toContain('desktop-offline-api.js?v=20260825-desktop-media-cache-v1');
+  });
+
+  it("confirms external website navigation while leaving image resources alone", () => {
+    const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
+    const workspace = readFileSync(join(process.cwd(), "runtime-overlay/public/desktop-workspace.js"), "utf8");
+
+    expect(overlayPatch).toContain("installDesktopExternalUrlPrompt({ bridge: desktopShellBridge(), confirm: confirmToast, notify: toast });");
+    expect(workspace).toContain("打开外部网站？");
+    expect(workspace).toContain("继续访问");
+    expect(workspace).toContain("bridge.openExternalUrl");
+    expect(workspace).not.toContain("webRequest");
   });
 
   it("matches the smaller chapter title in the Desktop editor", () => {

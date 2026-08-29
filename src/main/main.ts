@@ -27,6 +27,7 @@ import { LocalAiClient } from "./local-ai-client.js";
 import { LocalAiRequestCoordinator } from "./local-ai-request-coordinator.js";
 import { registerLocalWorkspaceIpc } from "./local-workspace-ipc.js";
 import { registerWorkspaceIpc } from "./workspace-ipc.js";
+import { ExternalUrlNavigationController } from "./external-url-navigation.js";
 import { registerDownloadPolicy } from "./download-policy.js";
 import { installDesktopMenu } from "./native-menu.js";
 import { DesktopUpdater } from "./desktop-updater.js";
@@ -40,6 +41,7 @@ import { LOCAL_PROFILE_ID, type RemoteWorkspaceProfile } from "../shared/contrac
 import { desktopLogStorageLimitBytes } from "../shared/desktop-settings-contract.js";
 import { parseRemoteSessionResponse, type RemoteAuthUser } from "../shared/remote-auth-contract.js";
 import type { WorkspaceLeaveState } from "../shared/workspace-contract.js";
+import { LOCAL_EXTERNAL_URL_REQUEST_CHANNEL, SELECTOR_EXTERNAL_URL_REQUEST_CHANNEL } from "../shared/external-url-contract.js";
 
 type RuntimeGateResult = {
   ok: boolean;
@@ -88,6 +90,7 @@ let localWorkspaceOpenPromise: Promise<void> | null = null;
 let remoteWorkspaceOpenPromise: Promise<void> | null = null;
 let activeWorkspaceKind: "local" | "remote" | null = null;
 let activeRemoteProfileId: string | null = null;
+const externalUrlNavigation = new ExternalUrlNavigationController();
 let activeRemoteLeaveState: WorkspaceLeaveState = {
   dirty: false,
   activeAiRequests: 0,
@@ -235,6 +238,7 @@ async function runLocalServerGate(manager: LocalServerManager): Promise<void> {
         onReady: () => undefined,
         onClosed: () => undefined,
         enableLocalAiBridge: false,
+        onExternalUrlRequest: () => false,
         show: false
       });
       workspaceLoaded = gateWindow.webContents.getURL().startsWith(`${provision.url}/`);
@@ -487,17 +491,21 @@ function openLocalWorkspace(origin: string): Promise<void> {
         completeLocalAi: (input, onEvent) => localAiRequestCoordinator!.complete(input, onEvent),
         cancelLocalAi: (requestId) => localAiRequestCoordinator!.cancel(requestId),
         completeLocalAiAgentRound: (input, onEvent) => localAiRequestCoordinator!.completeAgentRound(input, onEvent),
-        cancelLocalAiAgentRound: (requestId) => localAiRequestCoordinator!.cancelAgentRound(requestId)
+        cancelLocalAiAgentRound: (requestId) => localAiRequestCoordinator!.cancelAgentRound(requestId),
+        openExternalUrl: (input) => externalUrlNavigation.respond(window, input)
       });
     },
     onReady: () => mainWindow?.hide(),
+    onExternalUrlRequest: (requestWindow, target) => externalUrlNavigation.request(requestWindow, target, LOCAL_EXTERNAL_URL_REQUEST_CHANNEL),
     onClosed: () => {
       disposeWorkspaceDownloadPolicy?.();
       disposeWorkspaceDownloadPolicy = null;
       disposeWorkspaceIpc?.();
       disposeWorkspaceIpc = null;
       localAiRequestCoordinator?.cancelAll();
+      const closedWorkspace = workspaceWindow;
       workspaceWindow = null;
+      if (closedWorkspace) externalUrlNavigation.dispose(closedWorkspace);
       activeWorkspaceKind = null;
       activeRemoteProfileId = null;
       if (quitAfterLocalShutdown) return;
@@ -547,6 +555,7 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
     remoteMediaCache: remoteMediaCache ?? undefined,
     remoteUserId: cachedUser.userId,
     ...(mainWindow && !mainWindow.isDestroyed() ? { placement: captureWindowPlacement(mainWindow) } : {}),
+    onExternalUrlRequest: (requestWindow, target) => externalUrlNavigation.request(requestWindow, target),
     onCreated: (window) => {
       workspaceWindow = window;
       disposeWorkspaceDownloadPolicy?.();
@@ -576,7 +585,8 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
           if (user) remoteSyncStatusStore!.update(profile, user.userId, state);
         },
         requestSwitch: requestWorkspaceSwitch,
-        confirmQuit: confirmDesktopQuit
+        confirmQuit: confirmDesktopQuit,
+        openExternalUrl: (input) => externalUrlNavigation.respond(window, input)
       });
     },
     onReady: () => mainWindow?.hide(),
@@ -588,7 +598,9 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
       disposeWorkspaceIpc?.();
       disposeWorkspaceIpc = null;
       localAiRequestCoordinator?.cancelAll();
+      const closedWorkspace = workspaceWindow;
       workspaceWindow = null;
+      if (closedWorkspace) externalUrlNavigation.dispose(closedWorkspace);
       activeWorkspaceKind = null;
       activeRemoteProfileId = null;
       activeRemoteLeaveState = { dirty: false, activeAiRequests: 0, pendingMutations: 0, conflicts: 0, rejected: 0 };
@@ -749,7 +761,9 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
     }
     return true;
   };
-  mainWindow = createSelectorWindow(desktopRoot);
+  mainWindow = createSelectorWindow(desktopRoot, {
+    onExternalUrlRequest: (requestWindow, target) => externalUrlNavigation.request(requestWindow, target, SELECTOR_EXTERNAL_URL_REQUEST_CHANNEL)
+  });
   mainWindow.on("close", (event) => {
     if (quitAfterLocalShutdown) return;
     event.preventDefault();
@@ -864,9 +878,12 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
     removeLocalAiModel: (modelId) => localAiProviderStore!.removeModel(modelId),
     testLocalAiProvider,
     requestQuit: requestDesktopQuitConfirmation,
-    confirmQuit: confirmDesktopQuit
+    confirmQuit: confirmDesktopQuit,
+    openExternalUrl: (input) => externalUrlNavigation.respond(mainWindow!, input)
   });
   mainWindow.once("closed", () => {
+    const closedWindow = mainWindow;
+    if (closedWindow) externalUrlNavigation.dispose(closedWindow);
     disposeSelectorIpc?.();
     disposeSelectorIpc = null;
     mainWindow = null;

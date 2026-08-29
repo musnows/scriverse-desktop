@@ -21,6 +21,7 @@ const localWorkspaceChannels = [
   "local-workspace:shell:request-switch",
   "local-workspace:shell:logout",
   "local-workspace:shell:confirm-quit",
+  "local-workspace:shell:open-external-url",
   "local-workspace:local-ai:catalog",
   "local-workspace:local-ai:complete",
   "local-workspace:local-ai:cancel",
@@ -91,6 +92,7 @@ export function registerLocalWorkspaceIpc(workspaceWindow: BrowserWindow, origin
   requestSwitch: () => Promise<void> | void;
   logout: () => Promise<void> | void;
   confirmQuit: () => void;
+  openExternalUrl: (input: unknown) => Promise<null>;
   getLocalAiCatalog: () => LocalAiWorkspaceCatalog;
   completeLocalAi: (input: LocalAiCompletionRequestInput, onEvent: (event: LocalAiStreamEvent) => void) => Promise<LocalAiCompletionResult>;
   cancelLocalAi: (requestId: string) => boolean;
@@ -101,6 +103,9 @@ export function registerLocalWorkspaceIpc(workspaceWindow: BrowserWindow, origin
   handle("local-workspace:shell:request-switch", workspaceWindow, origin, options.isActive, () => options.requestSwitch());
   handle("local-workspace:shell:logout", workspaceWindow, origin, options.isActive, () => options.logout());
   handle("local-workspace:shell:confirm-quit", workspaceWindow, origin, options.isActive, () => options.confirmQuit());
+  handle("local-workspace:shell:open-external-url", workspaceWindow, origin, options.isActive, (input) => (
+    options.openExternalUrl(input)
+  ));
   handle("local-workspace:local-ai:catalog", workspaceWindow, origin, options.isActive, () => options.getLocalAiCatalog());
   handle("local-workspace:local-ai:complete", workspaceWindow, origin, options.isActive, (input) => {
     const parsed = parseLocalAiCompletionRequestInput(input);

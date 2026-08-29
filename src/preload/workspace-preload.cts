@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer } = require("electron") as typeof import("ele
 
 const menuCommands = new Set(["open-sync-center", "request-quit"]);
 const aiStreamChannel = "workspace:local-ai:stream-event";
+const externalUrlRequestChannel = "workspace:shell:external-url-request";
 
 function invokeAiWithStream(channel: string, input: unknown, listener?: (event: unknown) => void): Promise<unknown> {
   const requestId = input && typeof input === "object" && "requestId" in input && typeof input.requestId === "string"
@@ -26,6 +27,19 @@ contextBridge.exposeInMainWorld("scriverseDesktopWorkspace", Object.freeze({
     confirmQuit: () => ipcRenderer.invoke("workspace:shell:confirm-quit"),
     cacheWorkCover: (input: unknown) => ipcRenderer.invoke("workspace:shell:cache-work-cover", input),
     cacheWorkImages: (input: unknown) => ipcRenderer.invoke("workspace:shell:cache-work-images", input),
+    openExternalUrl: (input: unknown) => ipcRenderer.invoke("workspace:shell:open-external-url", input),
+    onExternalUrlRequest: (listener: (request: { requestId: string; url: string }) => void) => {
+      if (typeof listener !== "function") return () => undefined;
+      const handler = (_event: Electron.IpcRendererEvent, payload: unknown) => {
+        if (!payload || typeof payload !== "object" || Array.isArray(payload)) return;
+        const request = payload as Record<string, unknown>;
+        if (typeof request.requestId === "string" && typeof request.url === "string") {
+          listener({ requestId: request.requestId, url: request.url });
+        }
+      };
+      ipcRenderer.on(externalUrlRequestChannel, handler);
+      return () => ipcRenderer.removeListener(externalUrlRequestChannel, handler);
+    },
     onMenuCommand: (listener: (command: string) => void) => {
       if (typeof listener !== "function") return () => undefined;
       const handler = (_event: Electron.IpcRendererEvent, command: unknown) => {

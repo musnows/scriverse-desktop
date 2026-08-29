@@ -16,6 +16,7 @@ export async function createLocalWorkspaceWindow(options: {
   enableLocalAiBridge?: boolean;
   placement?: DesktopWindowPlacement;
   show?: boolean;
+  onExternalUrlRequest: (window: BrowserWindow, target: string) => boolean;
 }): Promise<BrowserWindow> {
   const origin = normalizeLocalWorkspaceOrigin(options.origin);
   const window = new BrowserWindow({
@@ -46,12 +47,19 @@ export async function createLocalWorkspaceWindow(options: {
   const workspaceSession = window.webContents.session;
   workspaceSession.setPermissionCheckHandler(() => false);
   workspaceSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
-  window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  window.webContents.setWindowOpenHandler((details) => {
+    options.onExternalUrlRequest(window, details.url);
+    return { action: "deny" };
+  });
   window.webContents.on("will-navigate", (event, target) => {
-    if (!isAllowedWorkspaceNavigation(target, origin)) event.preventDefault();
+    if (isAllowedWorkspaceNavigation(target, origin)) return;
+    event.preventDefault();
+    options.onExternalUrlRequest(window, target);
   });
   window.webContents.on("will-redirect", (event, target) => {
-    if (!isAllowedWorkspaceNavigation(target, origin)) event.preventDefault();
+    if (isAllowedWorkspaceNavigation(target, origin)) return;
+    event.preventDefault();
+    options.onExternalUrlRequest(window, target);
   });
   window.webContents.on("did-fail-load", (_event, errorCode, errorDescription, _validatedUrl, isMainFrame) => {
     if (isMainFrame) process.stderr.write(`Local workspace load failed (${errorCode}): ${errorDescription}\n`);

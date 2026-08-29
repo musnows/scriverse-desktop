@@ -1,3 +1,5 @@
+import { installExternalUrlPrompt } from "../external-url-prompt.js";
+
 const bridge = window.scriverseDesktop;
 const workspaceList = document.querySelector("#workspace-list");
 const profileSummary = document.querySelector("#profile-summary");
@@ -137,6 +139,8 @@ function showToast(message, isError = false) {
     toast.hidden = true;
   }, 4_200);
 }
+
+installExternalUrlPrompt({ bridge: bridge?.external, toast, notify: showToast });
 
 function closeQuitConfirmation() {
   window.clearTimeout(state.toastTimer);

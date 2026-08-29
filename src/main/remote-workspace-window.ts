@@ -21,6 +21,7 @@ export async function createRemoteWorkspaceWindow(options: {
   placement?: DesktopWindowPlacement;
   onCreated?: (window: BrowserWindow) => void;
   show?: boolean;
+  onExternalUrlRequest: (window: BrowserWindow, target: string) => boolean;
 }): Promise<BrowserWindow> {
   const shellUrl = remoteWorkspaceShellUrl(options.profile.id);
   const window = new BrowserWindow({
@@ -48,13 +49,20 @@ export async function createRemoteWorkspaceWindow(options: {
   captureRendererConsole(window.webContents, "remote-workspace");
   const loadingCover = createWorkspaceLoadingCover(window);
   options.onCreated?.(window);
-  window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  window.webContents.setWindowOpenHandler((details) => {
+    options.onExternalUrlRequest(window, details.url);
+    return { action: "deny" };
+  });
   window.webContents.on("will-attach-webview", (event) => event.preventDefault());
   window.webContents.on("will-navigate", (event, target) => {
-    if (!isAllowedRemoteWorkspaceNavigation(target, shellUrl)) event.preventDefault();
+    if (isAllowedRemoteWorkspaceNavigation(target, shellUrl)) return;
+    event.preventDefault();
+    options.onExternalUrlRequest(window, target);
   });
   window.webContents.on("will-redirect", (event, target) => {
-    if (!isAllowedRemoteWorkspaceNavigation(target, shellUrl)) event.preventDefault();
+    if (isAllowedRemoteWorkspaceNavigation(target, shellUrl)) return;
+    event.preventDefault();
+    options.onExternalUrlRequest(window, target);
   });
   window.webContents.on("did-fail-load", (_event, errorCode, errorDescription, _validatedUrl, isMainFrame) => {
     if (isMainFrame) process.stderr.write(`Remote workspace load failed for profile ${options.profile.id} (${errorCode}): ${errorDescription}\n`);

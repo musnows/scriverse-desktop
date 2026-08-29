@@ -87,6 +87,8 @@ describe("Desktop Selector UI", () => {
     expect(preload).toContain("localAi: Object.freeze");
     expect(preload).toContain("selector:local-ai:configuration");
     expect(preload).toContain("selector:local-ai:update-system-prompt");
+    expect(preload).toContain("selector:shell:open-external-url");
+    expect(preload).toContain("onExternalUrlRequest");
     expect(preload).not.toContain("token");
     expect(preload).not.toContain("ipcRenderer: ipcRenderer");
     expect(preload).not.toContain("send: (");

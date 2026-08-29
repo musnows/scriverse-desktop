@@ -8,7 +8,7 @@ index 5e342a6..a06c8a1 100644
  import { connectivityConfigurationSavedToast, connectivityTestErrorToast, connectivityTestResultToast } from "/ai-connectivity-test.js?v=20260822-private-ai-endpoint-hint-v1";
 @@ -111,2 +112,7 @@ import { normalizeUploadProgress, uploadProgressText } from "/upload-progress.js
  import { resolveToastRegionHost } from "/toast-layer.js?v=20260822-toast-modal-host-v1";
-+import { createDesktopWorkspaceController } from "/desktop-workspace.js?v=20260825-desktop-media-cache-v1";
++import { createDesktopWorkspaceController, installDesktopExternalUrlPrompt } from "/desktop-workspace.js?v=20260829-desktop-external-url-v1";
 +import { createDesktopOfflineApi } from "/desktop-offline-api.js?v=20260825-desktop-media-cache-v1";
 +import { desktopOfflineLocalAiMessages, desktopOfflineLocalAiSystemPrompt } from "/desktop-local-ai-offline.js?v=20260823-desktop-local-ai-offline-v1";
 +import { mergeDesktopLocalAiModels } from "/desktop-local-ai-catalog.js?v=20260824-desktop-local-provider-prefix-v1";
@@ -35,6 +35,8 @@ index 5e342a6..a06c8a1 100644
 +function desktopMenuCommandBridge() {
 +  return globalThis.scriverseDesktopWorkspace?.shell ?? globalThis.scriverseDesktopLocalShell ?? null;
 +}
++
++installDesktopExternalUrlPrompt({ bridge: desktopShellBridge(), confirm: confirmToast, notify: toast });
 +
 +async function confirmDesktopQuit() {
 +  const shell = desktopShellBridge();

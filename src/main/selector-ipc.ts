@@ -71,7 +71,8 @@ const channels = [
   "selector:app:get-version",
   "selector:app:get-platform",
   "selector:app:request-quit",
-  "selector:app:confirm-quit"
+  "selector:app:confirm-quit",
+  "selector:shell:open-external-url"
 ] as const;
 
 function errorResult(error: unknown): IpcFailure {
@@ -92,11 +93,12 @@ function ok<T>(data: T): IpcSuccess<T> {
   return { ok: true, data };
 }
 
-function assertSelectorSender(event: IpcMainInvokeEvent, selectorWindow: BrowserWindow, expectedUrl: string): void {
+function assertSelectorSender(event: IpcMainInvokeEvent, selectorWindow: BrowserWindow, expectedUrl: string | readonly string[]): void {
+  const expectedUrls = typeof expectedUrl === "string" ? [expectedUrl] : expectedUrl;
   if (
     selectorWindow.isDestroyed()
     || event.sender.id !== selectorWindow.webContents.id
-    || event.senderFrame?.url !== expectedUrl
+    || !expectedUrls.includes(event.senderFrame?.url ?? "")
   ) {
     const error = new Error("已拒绝非 Selector 页面调用 Desktop 能力") as Error & { code: string };
     error.code = "SELECTOR_SENDER_FORBIDDEN";
@@ -131,7 +133,7 @@ function handle<T>(
   channel: typeof channels[number],
   selectorWindow: BrowserWindow,
   operation: (event: IpcMainInvokeEvent, input: unknown) => T | Promise<T>,
-  expectedUrl = SELECTOR_ENTRY_URL
+  expectedUrl: string | readonly string[] = SELECTOR_ENTRY_URL
 ): void {
   ipcMain.handle(channel, async (event, input: unknown): Promise<IpcResult<T>> => {
     try {
@@ -169,6 +171,7 @@ export function registerSelectorIpc(selectorWindow: BrowserWindow, profileStore:
   testLocalAiProvider: (providerId: string) => Promise<unknown>;
   requestQuit: () => void;
   confirmQuit: () => void;
+  openExternalUrl: (input: unknown) => Promise<null>;
 }): () => void {
   handle("selector:profiles:list", selectorWindow, () => sortProfilesForSelector(profileStore.list()));
   handle("selector:profiles:status", selectorWindow, (_event, input) => {
@@ -283,6 +286,7 @@ export function registerSelectorIpc(selectorWindow: BrowserWindow, profileStore:
     options.confirmQuit();
     return null;
   });
+  handle("selector:shell:open-external-url", selectorWindow, (_event, input) => options.openExternalUrl(input), [SELECTOR_ENTRY_URL, LOCAL_AI_CONFIG_ENTRY_URL]);
   return () => {
     channels.forEach((channel) => ipcMain.removeHandler(channel));
   };

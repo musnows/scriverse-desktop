@@ -19,6 +19,8 @@ describe("Desktop 本地 AI 配置界面", () => {
     expect(html).toContain('class="config-section platform-system-prompt-section"');
     expect(html).toContain('class="dialog"');
     expect(script).toContain("renderAiProviderConfigurationCards");
+    expect(script).toContain("installExternalUrlPrompt");
+    expect(script).toContain("window.scriverseDesktop?.external");
     expect(sharedView).toContain('provider-scope-badge ${provider.scope === "local" ? "is-local"');
     expect(script).toContain("{ showScope: false }");
     expect(html).not.toContain("本地模型");

@@ -27,6 +27,8 @@ describe("Desktop 工作区最小 bridge", () => {
     expect(preloadSource).toContain("reportLeaveState");
     expect(preloadSource).toContain("requestSwitch");
     expect(preloadSource).toContain("onMenuCommand");
+    expect(preloadSource).toContain("onExternalUrlRequest");
+    expect(preloadSource).toContain('ipcRenderer.invoke("workspace:shell:open-external-url"');
     expect(preloadSource).toContain("localAi: Object.freeze");
     expect(preloadSource).toContain('ipcRenderer.invoke("workspace:local-ai:catalog"');
     expect(preloadSource).toContain('invokeAiWithStream("workspace:local-ai:complete"');
@@ -51,6 +53,8 @@ describe("Desktop 工作区最小 bridge", () => {
     expect(ipcSource).toContain("parseLocalAiAgentRoundInput");
     expect(ipcSource).toContain("parseCancelLocalAiAgentRoundInput");
     expect(localPreloadSource).toContain('exposeInMainWorld("scriverseDesktopLocalAi"');
+    expect(localPreloadSource).toContain("onExternalUrlRequest");
+    expect(localPreloadSource).toContain('ipcRenderer.invoke("local-workspace:shell:open-external-url"');
     expect(localPreloadSource).not.toContain("getOfflineKey");
     expect(localPreloadSource).toContain('invokeAiWithStream("local-workspace:local-ai:agent-round"');
     expect(localPreloadSource).toContain('const aiStreamChannel = "local-workspace:local-ai:stream-event"');
@@ -58,5 +62,7 @@ describe("Desktop 工作区最小 bridge", () => {
     expect(localIpcSource).toContain("workspaceWindow.webContents.send(aiStreamEventChannel");
     expect(localIpcSource).toContain("event.sender.session !== workspaceWindow.webContents.session");
     expect(localIpcSource).toContain("senderOrigin !== origin");
+    expect(ipcSource).toContain('workspace:shell:open-external-url');
+    expect(localIpcSource).toContain('local-workspace:shell:open-external-url');
   });
 });

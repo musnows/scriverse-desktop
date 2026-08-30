@@ -1,6 +1,6 @@
 import type { WorkspaceLeaveState } from "./workspace-contract.js";
 
-const UPDATE_SERVICE_ROOT = "https://update.electronjs.org/musnows/Scriverse";
+const UPDATE_SERVICE_ROOT = "https://update.electronjs.org/musnows/scriverse-desktop";
 
 export function windowsNsisUpdateChannel(arch: string): string {
   if (arch === "x64") return "latest";

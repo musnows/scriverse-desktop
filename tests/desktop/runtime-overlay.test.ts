@@ -6,6 +6,10 @@ describe("Desktop Web runtime overlay", () => {
   it("keeps Desktop Web modules outside the Scriverse runtime source", () => {
     const prepareSource = readFileSync(join(process.cwd(), "scripts/prepare-runtime.mjs"), "utf8");
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
+    const addedLines = overlayPatch
+      .split("\n")
+      .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
+      .join("\n");
     const gitAttributes = readFileSync(join(process.cwd(), ".gitattributes"), "utf8");
 
     expect(prepareSource).not.toContain('"public/desktop-workspace.js",\n  "public/vendor');
@@ -17,6 +21,9 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain("diff --git a/public/app.js b/public/app.js");
     expect(overlayPatch).not.toMatch(/^\+\+$/mu);
     expect(overlayPatch).toContain("createDesktopWorkspaceController");
+    expect(overlayPatch).toContain('createLatestAsyncQueue((options) => persistChapterOnce(options), mergeLatestChapterSaveRequest)');
+    expect(overlayPatch).toContain("return chapterSaveQueue.request({ automatic: options.automatic === true });");
+    expect(addedLines).not.toContain("return persistChapter({ automatic });");
     for (const id of [
       "desktop-sync-dialog",
       "desktop-sync-dialog-close",
@@ -43,6 +50,7 @@ describe("Desktop Web runtime overlay", () => {
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-local-ai-offline.js"))).toBe(true);
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-local-ai-catalog.js"))).toBe(true);
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-local-ai-stream.js"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "runtime-overlay/public/latest-async-queue.js"))).toBe(true);
   });
 
   it("merges local models into every workspace picker and marks them with a local badge", () => {

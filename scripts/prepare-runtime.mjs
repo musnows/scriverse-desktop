@@ -57,7 +57,7 @@ if (overlayCheck.status === 0) {
 }
 
 cpSync(overlayPublic, join(target, "public"), { recursive: true, force: true });
-for (const file of ["desktop-workspace.js", "desktop-sync-client.js", "desktop-local-ai-offline.js", "desktop-local-ai-catalog.js", "desktop-local-ai-stream.js"]) {
+for (const file of ["desktop-workspace.js", "desktop-sync-client.js", "desktop-local-ai-offline.js", "desktop-local-ai-catalog.js", "desktop-local-ai-stream.js", "latest-async-queue.js"]) {
   if (!existsSync(join(target, "public", file))) throw new Error(`Desktop Web overlay output is missing: ${file}`);
 }
 const stagedApplicationPath = join(target, "public", "app.js");

@@ -1659,3 +1659,46 @@ index 255bd1f..3b0abbd 100644
 -  .book-card-settings { opacity: 1; }
 +  .book-card-settings { position: static; margin: 6px 4px 0; opacity: 1; }
    .welcome-view { padding: 28px var(--mobile-gutter); }
+diff --git a/public/app.js b/public/app.js
+index 4fae25f..a5590fd 100644
+--- a/public/app.js
++++ b/public/app.js
+@@ -119,2 +119,3 @@ import { backgroundTaskActivityCount, backgroundTaskPollDelay, collectBackground
+ import { createModuleRequestCache } from "/module-request-cache.js?v=20260730-module-request-cache-v1";
++import { createLatestAsyncQueue, mergeLatestChapterSaveRequest } from "/latest-async-queue.js?v=20260830-chapter-save-coalescing-v1";
+ import { systemStatusPresentation } from "/system-status.js?v=20260801-system-health-v1";
+@@ -1495,3 +1496,3 @@ let chapterAutoSaveTimer = null;
+ let chapterSaveInFlight = null;
+-let chapterSaveGuardInFlight = null;
++const chapterSaveQueue = createLatestAsyncQueue((options) => persistChapterOnce(options), mergeLatestChapterSaveRequest);
+ let lastSavedChapterSnapshot = null;
+@@ -6418,3 +6419,7 @@ function scheduleChapterAutoSave(delay = chapterAutoSaveDelay) {
+
+-async function persistChapter({ automatic = false } = {}) {
++function persistChapter(options = {}) {
++  return chapterSaveQueue.request({ automatic: options.automatic === true });
++}
++
++async function persistChapterOnce({ automatic = false } = {}) {
+   if (!canEditProse() || chapterEditorReadOnly) return null;
+@@ -6432,12 +6437,2 @@ async function persistChapter({ automatic = false } = {}) {
+   }
+-  if (chapterSaveInFlight) {
+-    await chapterSaveInFlight;
+-    const pendingDraft = chapterDraftSnapshot();
+-    if (!sameChapterSnapshot(pendingDraft, lastSavedChapterSnapshot)) return persistChapter({ automatic });
+-    return state.chapter;
+-  }
+-  if (chapterSaveGuardInFlight) {
+-    await chapterSaveGuardInFlight;
+-    return persistChapter({ automatic });
+-  }
+   const draft = chapterDraftSnapshot();
+@@ -6453,6 +6448,3 @@ async function persistChapter({ automatic = false } = {}) {
+   }
+-  const saveGuard = confirmConcurrentSave();
+-  chapterSaveGuardInFlight = saveGuard;
+-  const confirmed = await saveGuard;
+-  if (chapterSaveGuardInFlight === saveGuard) chapterSaveGuardInFlight = null;
++  const confirmed = await confirmConcurrentSave();
+   if (!confirmed) {

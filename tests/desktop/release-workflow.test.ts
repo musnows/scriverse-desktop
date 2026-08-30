@@ -9,6 +9,9 @@ const release = readFileSync(join(root, ".github/workflows/desktop-release.yml")
 const agents = readFileSync(join(root, "AGENTS.md"), "utf8");
 const forge = readFileSync(join(root, "forge.config.ts"), "utf8");
 const artifactVerifier = readFileSync(join(root, "scripts/verify-artifacts.mjs"), "utf8");
+const packageMetadata = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
+  allowScripts?: Record<string, boolean>;
+};
 
 describe("Desktop 发布链路", () => {
   it("只为 main PR 自动检查并分别隔离 develop 人工打包与 Release 打包", () => {
@@ -93,6 +96,16 @@ describe("Desktop 发布链路", () => {
     expect(release).toContain('app_path="out/scriverse-desktop-darwin-${{ matrix.arch }}/叙界.app"');
     expect(release).toContain('$installers.Count -lt 2');
     expect(release).not.toMatch(/BEGIN (?:RSA )?PRIVATE KEY/u);
+  });
+
+  it("允许三平台打包必需的固定版本安装脚本", () => {
+    expect(packageMetadata.allowScripts).toMatchObject({
+      "macos-alias@0.2.12": true,
+      "fs-xattr@0.3.1": true,
+      "electron-winstaller@5.4.4": true,
+      "electron-winstaller@5.4.0": true,
+      "esbuild@0.28.2": true
+    });
   });
 
   it("记录 develop 开发、main 发版和 Server Release 能力对齐门禁", () => {

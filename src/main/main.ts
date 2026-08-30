@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, shell, utilityProcess, type Session, type UtilityProcess } from "electron";
+import { app, BrowserWindow, dialog, shell, utilityProcess, type RenderProcessGoneDetails, type Session, type UtilityProcess } from "electron";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -90,6 +90,8 @@ let desktopProcessLogging: DesktopProcessLogging | null = null;
 let remoteMediaCache: RemoteMediaCache | null = null;
 let quitAfterLocalShutdown = false;
 let desktopQuitConfirmed = false;
+let nativeQuitConfirmationInFlight: Promise<void> | null = null;
+let rendererRecoveryDialogOpen = false;
 let allowWorkspaceWindowClose = false;
 let localWorkspaceOpenPromise: Promise<void> | null = null;
 let remoteWorkspaceOpenPromise: Promise<void> | null = null;
@@ -370,10 +372,61 @@ function showDesktopWindow(): void {
   if (process.platform === "darwin" && app.dock) void app.dock.show();
   const target = workspaceWindow && !workspaceWindow.isDestroyed() ? workspaceWindow : mainWindow;
   if (!target || target.isDestroyed()) return;
+  if (!target.webContents.isDestroyed() && target.webContents.isCrashed()) {
+    process.stderr.write("Desktop foreground request found a crashed renderer; reloading\n");
+    target.webContents.reloadIgnoringCache();
+  }
   if (target.isMinimized()) target.restore();
   target.show();
   target.focus();
   if (target === workspaceWindow) mainWindow?.hide();
+}
+
+function requestNativeQuitConfirmation(target: BrowserWindow | null): void {
+  if (nativeQuitConfirmationInFlight) return;
+  const options = {
+    type: "warning" as const,
+    title: "退出叙界？",
+    message: "页面进程已经停止，无法显示页面内退出确认",
+    detail: "未保存的页面状态已随 Renderer 退出。退出后可以重新启动叙界，已保存内容和离线副本不会删除。",
+    buttons: ["取消", "退出叙界"],
+    defaultId: 1,
+    cancelId: 0,
+    noLink: true
+  };
+  const confirmation = target && !target.isDestroyed()
+    ? dialog.showMessageBox(target, options)
+    : dialog.showMessageBox(options);
+  nativeQuitConfirmationInFlight = confirmation.then((result) => {
+    if (result.response === 1) confirmDesktopQuit();
+  }).finally(() => {
+    nativeQuitConfirmationInFlight = null;
+  });
+}
+
+function handleRendererRecoveryFailed(window: BrowserWindow, _details: RenderProcessGoneDetails): void {
+  if (rendererRecoveryDialogOpen) return;
+  rendererRecoveryDialogOpen = true;
+  const options = {
+    type: "error" as const,
+    title: "工作区恢复失败",
+    message: "工作区页面连续异常退出",
+    detail: "叙界已停止自动重载，避免反复崩溃。可以再次重新加载工作区，或彻底退出后重新启动。",
+    buttons: ["重新加载工作区", "退出叙界"],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true
+  };
+  const prompt = window.isDestroyed() ? dialog.showMessageBox(options) : dialog.showMessageBox(window, options);
+  void prompt.then((result) => {
+    if (result.response === 0 && !window.isDestroyed() && !window.webContents.isDestroyed()) {
+      window.webContents.reloadIgnoringCache();
+      return;
+    }
+    confirmDesktopQuit();
+  }).finally(() => {
+    rendererRecoveryDialogOpen = false;
+  });
 }
 
 function requestDesktopQuitConfirmation(): void {
@@ -388,9 +441,17 @@ function requestDesktopQuitConfirmation(): void {
     app.quit();
     return;
   }
+  const contents = target.webContents;
+  if (contents.isDestroyed() || contents.isCrashed()) {
+    if (target.isMinimized()) target.restore();
+    target.show();
+    target.focus();
+    requestNativeQuitConfirmation(target);
+    return;
+  }
   showDesktopWindow();
-  if (target === activeWorkspace) target.webContents.send("workspace:shell:menu-command", "request-quit");
-  else target.webContents.send("selector:app:request-quit");
+  if (target === activeWorkspace) contents.send("workspace:shell:menu-command", "request-quit");
+  else contents.send("selector:app:request-quit");
 }
 
 function confirmDesktopQuit(): void {
@@ -524,6 +585,7 @@ function openLocalWorkspace(origin: string): Promise<void> {
     },
     onReady: () => mainWindow?.hide(),
     onExternalUrlRequest: (requestWindow, target) => externalUrlNavigation.request(requestWindow, target, LOCAL_EXTERNAL_URL_REQUEST_CHANNEL),
+    onRendererRecoveryFailed: handleRendererRecoveryFailed,
     onClosed: () => {
       disposeWorkspaceDownloadPolicy?.();
       disposeWorkspaceDownloadPolicy = null;
@@ -583,6 +645,7 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
     remoteUserId: cachedUser.userId,
     ...(mainWindow && !mainWindow.isDestroyed() ? { placement: captureWindowPlacement(mainWindow) } : {}),
     onExternalUrlRequest: (requestWindow, target) => externalUrlNavigation.request(requestWindow, target),
+    onRendererRecoveryFailed: handleRendererRecoveryFailed,
     onCreated: (window) => {
       workspaceWindow = window;
       disposeWorkspaceDownloadPolicy?.();
@@ -789,7 +852,8 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
     return true;
   };
   mainWindow = createSelectorWindow(desktopRoot, {
-    onExternalUrlRequest: (requestWindow, target) => externalUrlNavigation.request(requestWindow, target, SELECTOR_EXTERNAL_URL_REQUEST_CHANNEL)
+    onExternalUrlRequest: (requestWindow, target) => externalUrlNavigation.request(requestWindow, target, SELECTOR_EXTERNAL_URL_REQUEST_CHANNEL),
+    onRendererRecoveryFailed: handleRendererRecoveryFailed
   });
   mainWindow.on("close", (event) => {
     if (quitAfterLocalShutdown) return;

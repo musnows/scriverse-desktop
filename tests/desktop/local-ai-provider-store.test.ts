@@ -39,6 +39,7 @@ function modelInput(providerId: string): LocalAiModelInput {
     providerId,
     displayName: "Qwen 3 8B",
     modelId: "qwen3:8b",
+    modelKind: "chat",
     purposes: ["chat", "continue"],
     contextNote: "",
     contextWindow: 128_000,
@@ -95,11 +96,37 @@ describe("Desktop 本地 AI 供应商存储", () => {
     expect(store.updateModel({ ...modelInput(provider.id), localModelId: model.id, enabled: false })).toMatchObject({ enabled: false });
   });
 
+  it("保存 embedding 与 rerank 专用模型类型", () => {
+    const store = new LocalAiProviderStore(testDirectory(), credentialVault());
+    const provider = store.create({ ...providerInput(), protocol: "openai-responses" });
+    const embedding = store.createModel({
+      ...modelInput(provider.id),
+      displayName: "Embedding",
+      modelId: "embedding-local",
+      modelKind: "embedding",
+      purposes: [],
+      thinkingEnabled: false
+    });
+    const rerank = store.createModel({
+      ...modelInput(provider.id),
+      displayName: "Rerank",
+      modelId: "rerank-local",
+      modelKind: "rerank",
+      purposes: [],
+      thinkingEnabled: false
+    });
+    expect(store.configuration().models).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: embedding.id, modelKind: "embedding", purposes: [] }),
+      expect.objectContaining({ id: rerank.id, modelKind: "rerank", purposes: [] })
+    ]));
+  });
+
   it("无 Keychain 地迁移 v2 配置并保留供应商与模型", () => {
     const directory = testDirectory();
     const providerId = "11111111-1111-4111-8111-111111111111";
     const modelId = "22222222-2222-4222-8222-222222222222";
     const timestamp = "2026-08-23T12:16:15.692Z";
+    const { modelKind: _modelKind, ...legacyModel } = modelInput(providerId);
     mkdirSync(directory, { recursive: true });
     const legacy = {
       version: 2,
@@ -122,7 +149,7 @@ describe("Desktop 本地 AI 供应商存储", () => {
         createdAt: timestamp,
         updatedAt: timestamp
       }],
-      models: [{ id: modelId, ...modelInput(providerId), createdAt: timestamp, updatedAt: timestamp }],
+      models: [{ id: modelId, ...legacyModel, createdAt: timestamp, updatedAt: timestamp }],
       updatedAt: timestamp
     };
     writeFileSync(join(directory, "config.json"), `${JSON.stringify(legacy, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
@@ -136,7 +163,11 @@ describe("Desktop 本地 AI 供应商存储", () => {
     expect(store.credential(modelId).provider.apiKey).toBe("");
 
     const migrated = JSON.parse(readFileSync(join(directory, "config.json"), "utf8"));
-    expect(migrated).toMatchObject({ version: 3, providers: [{ id: providerId, apiKeyCiphertext: null }] });
+    expect(migrated).toMatchObject({
+      version: 4,
+      providers: [{ id: providerId, apiKeyCiphertext: null }],
+      models: [{ id: modelId, modelKind: "chat" }]
+    });
     expect(migrated.providers[0]).not.toHaveProperty("encryptedApiKey");
     const backupPath = join(directory, LEGACY_LOCAL_AI_PROVIDER_BACKUP_FILENAME);
     expect(existsSync(backupPath)).toBe(true);

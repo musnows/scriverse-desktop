@@ -36,7 +36,8 @@ contextBridge.exposeInMainWorld("scriverseDesktop", Object.freeze({
     createModel: (input: unknown) => ipcRenderer.invoke("selector:local-ai:create-model", input),
     updateModel: (input: unknown) => ipcRenderer.invoke("selector:local-ai:update-model", input),
     removeModel: (input: unknown) => ipcRenderer.invoke("selector:local-ai:remove-model", input),
-    testProvider: (input: unknown) => ipcRenderer.invoke("selector:local-ai:test-provider", input)
+    testProvider: (input: unknown) => ipcRenderer.invoke("selector:local-ai:test-provider", input),
+    testModel: (input: unknown) => ipcRenderer.invoke("selector:local-ai:test-model", input)
   }),
   app: Object.freeze({
     getVersion: () => ipcRenderer.invoke("selector:app:get-version"),

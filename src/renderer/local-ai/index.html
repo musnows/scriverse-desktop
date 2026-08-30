@@ -38,13 +38,13 @@
       <form id="local-ai-dynamic-form" method="dialog">
         <div class="dialog-header">
           <div><span id="local-ai-dialog-eyebrow" class="eyebrow">新增</span><h2 id="local-ai-dialog-title">创建记录</h2><p id="local-ai-dialog-meta" class="dialog-header-meta"></p></div>
-          <button class="dialog-close" value="cancel" aria-label="关闭" type="submit">×</button>
+          <button class="dialog-close" data-local-ai-dialog-cancel aria-label="关闭" type="button">×</button>
         </div>
         <div id="local-ai-dialog-fields" class="dialog-fields"></div>
         <p id="local-ai-dialog-error" class="local-ai-form-error" role="alert" hidden></p>
         <div class="dialog-actions">
           <button id="local-ai-dialog-danger" class="danger-button hidden" type="button">删除</button>
-          <button class="ghost-button" value="cancel" type="submit">取消</button>
+          <button class="ghost-button" data-local-ai-dialog-cancel type="button">取消</button>
           <button id="local-ai-dialog-submit" class="primary-button" value="default" type="submit">保存</button>
         </div>
       </form>

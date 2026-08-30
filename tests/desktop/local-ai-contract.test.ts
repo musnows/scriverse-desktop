@@ -5,6 +5,7 @@ import {
   localAiPromptXml,
   mergeRemoteAndLocalAiPrompt,
   normalizeLocalAiBaseUrl,
+  parseCreateLocalAiModelInput,
   parseCreateLocalAiProviderInput,
   parseLocalAiCompletionInput,
   parseLocalAiCompletionRequestInput
@@ -42,6 +43,64 @@ describe("Desktop 本地 AI 输入契约", () => {
     expect(parseCreateLocalAiProviderInput(base).analysisTimeoutSeconds).toBe(300);
     expect(() => parseCreateLocalAiProviderInput({ ...base, analysisTimeoutSeconds: 29 })).toThrowError(/分析请求超时/u);
     expect(parseCreateLocalAiProviderInput({ ...base, analysisTimeoutSeconds: 3_600 }).analysisTimeoutSeconds).toBe(3_600);
+  });
+
+  it("接受 Server 的全部供应商协议并校验 Google Vertex 凭据与官方地址", () => {
+    for (const protocol of ["openai-chat-completions", "openai-responses", "anthropic-messages"] as const) {
+      expect(parseCreateLocalAiProviderInput({
+        name: protocol,
+        baseUrl: "http://127.0.0.1:12345/v1",
+        apiKey: "",
+        protocol
+      }).protocol).toBe(protocol);
+    }
+    const serviceAccount = JSON.stringify({
+      type: "service_account",
+      client_email: "desktop@example.iam.gserviceaccount.com",
+      private_key: "test-private-key",
+      project_id: "desktop"
+    });
+    expect(parseCreateLocalAiProviderInput({
+      name: "Vertex",
+      baseUrl: "https://aiplatform.googleapis.com/v1/projects/desktop/locations/global/endpoints/openapi",
+      apiKey: serviceAccount,
+      protocol: "google-vertex"
+    }).protocol).toBe("google-vertex");
+    expect(() => parseCreateLocalAiProviderInput({
+      name: "Vertex",
+      baseUrl: "https://vertex-proxy.example/v1",
+      apiKey: serviceAccount,
+      protocol: "google-vertex"
+    })).toThrowError(/官方区域/u);
+    expect(() => parseCreateLocalAiProviderInput({
+      name: "Vertex",
+      baseUrl: "https://aiplatform.googleapis.com/v1/projects/desktop/locations/global/endpoints/openapi",
+      apiKey: "{}",
+      protocol: "google-vertex"
+    })).toThrowError(/service_account/u);
+  });
+
+  it("区分 chat、embedding 与 rerank 模型并清除专用模型聊天能力", () => {
+    const base = {
+      providerId: "11111111-1111-4111-8111-111111111111",
+      displayName: "向量模型",
+      modelId: "embedding-local",
+      modelKind: "embedding",
+      purposes: ["chat"],
+      contextNote: "",
+      contextWindow: 128_000,
+      outputNote: "",
+      preset: { temperature: 0.7, max_tokens: 2048 },
+      thinkingEnabled: false,
+      thinkingEffort: "default",
+      multimodalEnabled: false,
+      imageToolDefault: false,
+      enabled: true,
+      note: ""
+    };
+    expect(parseCreateLocalAiModelInput(base)).toMatchObject({ modelKind: "embedding", purposes: [], multimodalEnabled: false });
+    expect(parseCreateLocalAiModelInput({ ...base, modelKind: "rerank" })).toMatchObject({ modelKind: "rerank", purposes: [] });
+    expect(() => parseCreateLocalAiModelInput({ ...base, multimodalEnabled: true })).toThrowError(/不能启用聊天或多模态/u);
   });
 
   it("固定使用 local 前缀展示供应商且保存时不会重复前缀", () => {

@@ -802,16 +802,26 @@ async function testLocalAiProvider(providerId: string): Promise<{ ok: boolean; e
     throw error;
   }
   try {
-    await localAiClient.complete(localAiProviderStore.credential(model.id), {
-      modelId: model.id,
-      remoteSystemPrompt: "",
-      messages: [{ role: "user", content: "请仅回复 OK。" }]
-    });
+    await localAiClient.testModel(localAiProviderStore.credential(model.id));
     localAiProviderStore.markConnection(providerId, { ok: true });
     return { ok: true, error: null };
   } catch (error) {
     const message = error instanceof Error ? error.message.slice(0, 500) : "本地 AI 连接测试失败";
     localAiProviderStore.markConnection(providerId, { ok: false, error: message });
+    return { ok: false, error: message };
+  }
+}
+
+async function testLocalAiModel(modelId: string): Promise<{ ok: boolean; error: string | null; vectorDimension?: number }> {
+  if (!localAiProviderStore || !localAiClient) throw new Error("Desktop AI 供应商尚未就绪");
+  const credential = localAiProviderStore.credential(modelId);
+  try {
+    const result = await localAiClient.testModel(credential);
+    localAiProviderStore.markConnection(credential.provider.id, { ok: true });
+    return { ok: true, error: null, ...(result.vectorDimension === undefined ? {} : { vectorDimension: result.vectorDimension }) };
+  } catch (error) {
+    const message = error instanceof Error ? error.message.slice(0, 500) : "本地 AI 模型连接测试失败";
+    localAiProviderStore.markConnection(credential.provider.id, { ok: false, error: message });
     return { ok: false, error: message };
   }
 }
@@ -968,6 +978,7 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
     updateLocalAiModel: (input) => localAiProviderStore!.updateModel(input),
     removeLocalAiModel: (modelId) => localAiProviderStore!.removeModel(modelId),
     testLocalAiProvider,
+    testLocalAiModel,
     requestQuit: requestDesktopQuitConfirmation,
     confirmQuit: confirmDesktopQuit,
     openExternalUrl: (input) => externalUrlNavigation.respond(mainWindow!, input)

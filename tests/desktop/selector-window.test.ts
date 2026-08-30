@@ -21,4 +21,9 @@ describe("Desktop Selector 外部网站跳转", () => {
     expect(promptSource).toContain("bridge.openExternalUrl");
     expect(promptSource).not.toContain("innerHTML");
   });
+
+  it("Selector Renderer 异常退出时使用统一恢复策略", () => {
+    expect(selectorWindowSource).toContain("installRendererRecovery(window");
+    expect(selectorWindowSource).toContain("onRendererRecoveryFailed?.(window, details)");
+  });
 });

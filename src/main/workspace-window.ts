@@ -1,4 +1,4 @@
-import { BrowserWindow } from "electron";
+import { BrowserWindow, type RenderProcessGoneDetails } from "electron";
 import { join } from "node:path";
 import { DESKTOP_DISPLAY_NAME } from "../shared/branding.js";
 import { LOCAL_PROFILE_PARTITION } from "../shared/contracts.js";
@@ -6,6 +6,7 @@ import { isAllowedWorkspaceNavigation, normalizeLocalWorkspaceOrigin } from "../
 import { createWorkspaceLoadingCover } from "./workspace-loading-cover.js";
 import { applyWindowPlacement, type DesktopWindowPlacement } from "./window-placement.js";
 import { captureRendererConsole } from "./renderer-console-logging.js";
+import { installRendererRecovery } from "./renderer-recovery.js";
 
 export async function createLocalWorkspaceWindow(options: {
   origin: string;
@@ -17,6 +18,7 @@ export async function createLocalWorkspaceWindow(options: {
   placement?: DesktopWindowPlacement;
   show?: boolean;
   onExternalUrlRequest: (window: BrowserWindow, target: string) => boolean;
+  onRendererRecoveryFailed?: (window: BrowserWindow, details: RenderProcessGoneDetails) => void;
 }): Promise<BrowserWindow> {
   const origin = normalizeLocalWorkspaceOrigin(options.origin);
   const window = new BrowserWindow({
@@ -42,6 +44,9 @@ export async function createLocalWorkspaceWindow(options: {
     }
   });
   captureRendererConsole(window.webContents, "local-workspace");
+  installRendererRecovery(window, "Local workspace", {
+    onExhausted: (details) => options.onRendererRecoveryFailed?.(window, details)
+  });
   const loadingCover = createWorkspaceLoadingCover(window);
   options.onCreated?.(window);
   const workspaceSession = window.webContents.session;
@@ -63,9 +68,6 @@ export async function createLocalWorkspaceWindow(options: {
   });
   window.webContents.on("did-fail-load", (_event, errorCode, errorDescription, _validatedUrl, isMainFrame) => {
     if (isMainFrame) process.stderr.write(`Local workspace load failed (${errorCode}): ${errorDescription}\n`);
-  });
-  window.webContents.on("render-process-gone", (_event, details) => {
-    process.stderr.write(`Local workspace renderer stopped: ${details.reason}\n`);
   });
   window.once("ready-to-show", () => {
     void loadingCover.prepare().catch(() => undefined).finally(() => {

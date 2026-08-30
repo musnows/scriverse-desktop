@@ -1659,3 +1659,108 @@ index 255bd1f..3b0abbd 100644
 -  .book-card-settings { opacity: 1; }
 +  .book-card-settings { position: static; margin: 6px 4px 0; opacity: 1; }
    .welcome-view { padding: 28px var(--mobile-gutter); }
+diff --git a/public/app.js b/public/app.js
+index 4fae25f..a5590fd 100644
+--- a/public/app.js
++++ b/public/app.js
+@@ -119,2 +119,3 @@ import { backgroundTaskActivityCount, backgroundTaskPollDelay, collectBackground
+ import { createModuleRequestCache } from "/module-request-cache.js?v=20260730-module-request-cache-v1";
++import { createLatestAsyncQueue, mergeLatestChapterSaveRequest } from "/latest-async-queue.js?v=20260830-chapter-save-coalescing-v1";
+ import { systemStatusPresentation } from "/system-status.js?v=20260801-system-health-v1";
+@@ -1495,3 +1496,3 @@ let chapterAutoSaveTimer = null;
+ let chapterSaveInFlight = null;
+-let chapterSaveGuardInFlight = null;
++const chapterSaveQueue = createLatestAsyncQueue((options) => persistChapterOnce(options), mergeLatestChapterSaveRequest);
+ let lastSavedChapterSnapshot = null;
+@@ -6418,3 +6419,7 @@ function scheduleChapterAutoSave(delay = chapterAutoSaveDelay) {
+
+-async function persistChapter({ automatic = false } = {}) {
++function persistChapter(options = {}) {
++  return chapterSaveQueue.request({ automatic: options.automatic === true });
++}
++
++async function persistChapterOnce({ automatic = false } = {}) {
+   if (!canEditProse() || chapterEditorReadOnly) return null;
+@@ -6432,12 +6437,2 @@ async function persistChapter({ automatic = false } = {}) {
+   }
+-  if (chapterSaveInFlight) {
+-    await chapterSaveInFlight;
+-    const pendingDraft = chapterDraftSnapshot();
+-    if (!sameChapterSnapshot(pendingDraft, lastSavedChapterSnapshot)) return persistChapter({ automatic });
+-    return state.chapter;
+-  }
+-  if (chapterSaveGuardInFlight) {
+-    await chapterSaveGuardInFlight;
+-    return persistChapter({ automatic });
+-  }
+   const draft = chapterDraftSnapshot();
+@@ -6453,6 +6448,3 @@ async function persistChapter({ automatic = false } = {}) {
+   }
+-  const saveGuard = confirmConcurrentSave();
+-  chapterSaveGuardInFlight = saveGuard;
+-  const confirmed = await saveGuard;
+-  if (chapterSaveGuardInFlight === saveGuard) chapterSaveGuardInFlight = null;
++  const confirmed = await confirmConcurrentSave();
+   if (!confirmed) {
+diff --git a/public/app.js b/public/app.js
+index 4fae25f..85ab8c9 100644
+--- a/public/app.js
++++ b/public/app.js
+@@ -1553,2 +1553,3 @@ const relationshipFilters = { fromCharacterIds: [], toCharacterIds: [] };
+ let relationshipFiltersPanelOpen = false;
++let relationshipRenderRequestId = 0;
+
+@@ -6675,2 +6676,3 @@ async function initializePage() {
+ function showShelf() {
++  disposeRelationshipRenderers();
+   stopBackgroundTaskCenter();
+@@ -8126,2 +8128,3 @@ function renderShelf() {
+ function resetWorkScopedUiCaches() {
++  disposeRelationshipRenderers();
+   chapterSelectionRequestId += 1;
+@@ -9398,2 +9401,3 @@ function tidyChapterBlankLines() {
+ function showWelcome(hasWork = false) {
++  disposeRelationshipRenderers();
+   chapterSelectionRequestId += 1;
+@@ -9415,2 +9419,14 @@ function markActiveModule(module) {
+
++function disposeRelationshipRenderers({ invalidateRequest = true } = {}) {
++  if (invalidateRequest) relationshipRenderRequestId += 1;
++  state.galaxy?.destroy();
++  state.galaxy = null;
++  state.relationshipMindMap?.destroy?.();
++  state.relationshipMindMap = null;
++  state.relationshipExpandedMap?.destroy?.();
++  state.relationshipExpandedMap = null;
++  state.relationshipGraph = null;
++  if ($("#relationship-map-dialog").open) $("#relationship-map-dialog").close();
++}
++
+ const moduleMeta = {
+@@ -9446,2 +9462,3 @@ async function showModule(module) {
+   if (module !== "editor" && state.module === "editor" && state.dirty) setSaveState("已放弃修改");
++  disposeRelationshipRenderers();
+   dismissDeleteToasts();
+@@ -9494,2 +9511,3 @@ async function showModule(module) {
+   }
++  if (state.module !== module) return;
+   replacePageRoute({ view: "module", workId: state.work.id, module });
+@@ -11215,4 +11233,8 @@ async function renderOutlines(foreshadowPage = moduleListPages.foreshadows, boar
+ async function renderRelationships(page = moduleListPages.relationships) {
+-  state.characters = canReadModule("characters") ? await moduleApiAllPages("relationships", `/api/works/${state.work.id}/characters`) : [];
+-  const relationships = await moduleApiAllPages("relationships", `/api/works/${state.work.id}/relationships`);
++  const workId = state.work?.id;
++  const requestId = ++relationshipRenderRequestId;
++  const characters = canReadModule("characters") ? await moduleApiAllPages("relationships", `/api/works/${workId}/characters`) : [];
++  const relationships = await moduleApiAllPages("relationships", `/api/works/${workId}/relationships`);
++  if (requestId !== relationshipRenderRequestId || state.work?.id !== workId || state.module !== "relationships") return;
++  state.characters = characters;
+   const filteredRelationships = filterRelationships(relationships, relationshipFilters);
+@@ -11238,6 +11260,3 @@ async function renderRelationships(page = moduleListPages.relationships) {
+   mountRelationshipFilterToggle();
+-  state.galaxy?.destroy();
+-  state.galaxy = null;
+-  state.relationshipExpandedMap?.destroy?.();
+-  if ($("#relationship-map-dialog").open) $("#relationship-map-dialog").close();
++  disposeRelationshipRenderers({ invalidateRequest: false });
+   const graph = buildRelationshipGraph(state.characters, relationships);

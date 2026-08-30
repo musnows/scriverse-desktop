@@ -44,6 +44,11 @@ describe("Desktop 本地工作区窗口", () => {
     expect(mainSource).not.toContain('window.webContents.off("will-prevent-unload", handlePreventedUnload)');
   });
 
+  it("本地 Renderer 异常退出时使用统一恢复策略", () => {
+    expect(workspaceSource).toContain("installRendererRecovery(window");
+    expect(workspaceSource).toContain("onRendererRecoveryFailed?.(window, details)");
+  });
+
   it("切换回 Selector 时保持本地 Server 与登录会话运行", () => {
     const localClosedHandler = mainSource.slice(
       mainSource.indexOf("function openLocalWorkspace"),

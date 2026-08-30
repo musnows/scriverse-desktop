@@ -5,7 +5,7 @@ import type { WorkspaceLeaveState } from "../shared/workspace-contract.js";
 import { desktopUpdateFeedUrl, updateInstallDetail, windowsNsisUpdateChannel } from "../shared/update-policy.js";
 import { isSquirrelWindowsInstallation } from "./windows-installation.js";
 
-const RELEASES_URL = "https://github.com/musnows/Scriverse/releases/latest";
+const RELEASES_URL = "https://github.com/musnows/scriverse-desktop/releases/latest";
 const WINDOWS_UPDATE_URL = "https://github.com/musnows/scriverse-desktop/releases/latest/download";
 const UPDATE_INTERVAL_MS = 10 * 60_000;
 const nsisAutoUpdater = electronUpdater.autoUpdater;

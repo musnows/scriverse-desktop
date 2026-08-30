@@ -1,13 +1,21 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { desktopUpdateFeedUrl, updateInstallDetail, windowsNsisUpdateChannel } from "../../src/shared/update-policy.js";
 import { parseSquirrelCommand } from "../../src/shared/squirrel-command.js";
 
 describe("Desktop 更新策略", () => {
   it("只为 macOS 和 Windows 构造公开 GitHub Release 更新源", () => {
-    expect(desktopUpdateFeedUrl("darwin", "0.8.7")).toBe("https://update.electronjs.org/musnows/Scriverse/darwin/v0.8.7");
-    expect(desktopUpdateFeedUrl("win32", "0.8.7")).toBe("https://update.electronjs.org/musnows/Scriverse/win32/v0.8.7");
+    expect(desktopUpdateFeedUrl("darwin", "0.8.7")).toBe("https://update.electronjs.org/musnows/scriverse-desktop/darwin/v0.8.7");
+    expect(desktopUpdateFeedUrl("win32", "0.8.7")).toBe("https://update.electronjs.org/musnows/scriverse-desktop/win32/v0.8.7");
     expect(desktopUpdateFeedUrl("linux", "0.8.7")).toBeNull();
     expect(() => desktopUpdateFeedUrl("darwin", "../release")).toThrow();
+  });
+
+  it("所有公开更新入口都指向 Desktop 仓库而不是 Server 仓库", () => {
+    const updater = readFileSync(join(process.cwd(), "src/main/desktop-updater.ts"), "utf8");
+    expect(updater).toContain("https://github.com/musnows/scriverse-desktop/releases/latest");
+    expect(updater).not.toContain("github.com/musnows/Scriverse/releases/latest");
   });
 
   it("为 Windows NSIS 安装器选择架构隔离的更新通道", () => {

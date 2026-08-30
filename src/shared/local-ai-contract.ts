@@ -1,4 +1,5 @@
-export const LOCAL_AI_PROTOCOL = "openai-chat-completions" as const;
+export const LOCAL_AI_PROTOCOLS = ["openai-chat-completions", "openai-responses", "anthropic-messages", "google-vertex"] as const;
+export const LOCAL_AI_PROTOCOL = LOCAL_AI_PROTOCOLS[0];
 export const LOCAL_AI_PROVIDER_NAME_PREFIX = "local/";
 export const LOCAL_AI_DEFAULT_ANALYSIS_TIMEOUT_SECONDS = 300;
 export const LOCAL_AI_MIN_ANALYSIS_TIMEOUT_SECONDS = 30;
@@ -6,6 +7,7 @@ export const LOCAL_AI_MAX_ANALYSIS_TIMEOUT_SECONDS = 3_600;
 export const LOCAL_AI_MAX_TOKENS_PARAMETERS = ["max_tokens", "max_completion_tokens"] as const;
 export const LOCAL_AI_THINKING_TYPES = ["enabled", "adaptive"] as const;
 export const LOCAL_AI_THINKING_EFFORTS = ["default", "auto", "low", "medium", "high", "xhigh", "max"] as const;
+export const LOCAL_AI_MODEL_KINDS = ["chat", "embedding", "rerank"] as const;
 export const LOCAL_AI_MODEL_PURPOSES = [
   "chat",
   "continue",
@@ -21,7 +23,7 @@ export type LocalAiProviderInput = {
   name: string;
   baseUrl: string;
   apiKey: string;
-  protocol: typeof LOCAL_AI_PROTOCOL;
+  protocol: typeof LOCAL_AI_PROTOCOLS[number];
   maxTokensParameter: typeof LOCAL_AI_MAX_TOKENS_PARAMETERS[number];
   thinkingType: typeof LOCAL_AI_THINKING_TYPES[number];
   concurrencyLimit: number;
@@ -52,6 +54,7 @@ export type LocalAiModelInput = {
   providerId: string;
   displayName: string;
   modelId: string;
+  modelKind: typeof LOCAL_AI_MODEL_KINDS[number];
   purposes: typeof LOCAL_AI_MODEL_PURPOSES[number][];
   contextNote: string;
   contextWindow: number;
@@ -74,7 +77,7 @@ export type LocalAiModelSummary = LocalAiModelInput & {
   id: string;
   scope: "local";
   providerName: string;
-  providerProtocol: typeof LOCAL_AI_PROTOCOL;
+  providerProtocol: typeof LOCAL_AI_PROTOCOLS[number];
   providerMaxTokensParameter: typeof LOCAL_AI_MAX_TOKENS_PARAMETERS[number];
   providerThinkingType: typeof LOCAL_AI_THINKING_TYPES[number];
   providerConcurrencyLimit: number;
@@ -126,6 +129,13 @@ export type LocalAiStreamEvent = {
   delta: string;
 };
 
+export type GoogleServiceAccountCredential = {
+  type: "service_account";
+  client_email: string;
+  private_key: string;
+  project_id?: string;
+};
+
 export type LocalAiAgentRoundInput = {
   requestId: string;
   modelId: string;
@@ -162,6 +172,53 @@ export class LocalAiContractError extends Error {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function isOfficialGoogleVertexBaseUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    const hostname = url.hostname.toLowerCase();
+    return url.protocol === "https:"
+      && url.username === ""
+      && url.password === ""
+      && (url.port === "" || url.port === "443")
+      && (hostname === "aiplatform.googleapis.com" || /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?-aiplatform\.googleapis\.com$/u.test(hostname));
+  } catch {
+    return false;
+  }
+}
+
+function assertOfficialGoogleVertexBaseUrl(value: unknown): void {
+  if (typeof value !== "string" || !isOfficialGoogleVertexBaseUrl(value)) {
+    throw new LocalAiContractError(
+      "LOCAL_AI_VERTEX_BASE_URL_INVALID",
+      "Google Vertex 接口地址必须使用 aiplatform.googleapis.com 或官方区域 *-aiplatform.googleapis.com 域名"
+    );
+  }
+}
+
+export function parseGoogleServiceAccount(value: string): GoogleServiceAccountCredential {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value) as unknown;
+  } catch {
+    throw new LocalAiContractError("LOCAL_AI_SERVICE_ACCOUNT_INVALID", "服务账号 JSON 无法解析");
+  }
+  if (!isRecord(parsed) || parsed.type !== "service_account") {
+    throw new LocalAiContractError("LOCAL_AI_SERVICE_ACCOUNT_INVALID", "服务账号 JSON 的 type 必须为 service_account");
+  }
+  const clientEmail = typeof parsed.client_email === "string" ? parsed.client_email.trim() : "";
+  const privateKey = typeof parsed.private_key === "string" ? parsed.private_key.trim() : "";
+  if (!clientEmail || !privateKey) {
+    throw new LocalAiContractError("LOCAL_AI_SERVICE_ACCOUNT_INVALID", "服务账号 JSON 缺少 client_email 或 private_key");
+  }
+  const projectId = typeof parsed.project_id === "string" ? parsed.project_id.trim() : "";
+  return {
+    type: "service_account",
+    client_email: clientEmail,
+    private_key: privateKey,
+    ...(projectId ? { project_id: projectId } : {})
+  };
 }
 
 function assertExactKeys(value: Record<string, unknown>, keys: readonly string[], label: string): void {
@@ -266,7 +323,14 @@ export function parseCreateLocalAiProviderInput(value: unknown): LocalAiProvider
   const maxTokensParameter = value.maxTokensParameter ?? "max_tokens";
   const thinkingType = value.thinkingType ?? "enabled";
   const status = value.status ?? "enabled";
-  if (protocol !== LOCAL_AI_PROTOCOL) throw new LocalAiContractError("LOCAL_AI_PROTOCOL_INVALID", "本地 AI 当前仅支持 OpenAI Chat Completions");
+  const apiKey = optionalString(value.apiKey ?? "", 50_000, "LOCAL_AI_API_KEY_INVALID", "本地 AI API Key");
+  if (!LOCAL_AI_PROTOCOLS.includes(protocol as typeof LOCAL_AI_PROTOCOLS[number])) {
+    throw new LocalAiContractError("LOCAL_AI_PROTOCOL_INVALID", "本地 AI 供应商协议无效");
+  }
+  if (protocol === "google-vertex") {
+    assertOfficialGoogleVertexBaseUrl(value.baseUrl);
+    if (apiKey !== "") parseGoogleServiceAccount(apiKey);
+  }
   if (!LOCAL_AI_MAX_TOKENS_PARAMETERS.includes(maxTokensParameter as typeof LOCAL_AI_MAX_TOKENS_PARAMETERS[number])) {
     throw new LocalAiContractError("LOCAL_AI_MAX_TOKENS_PARAMETER_INVALID", "本地 AI 最大输出令牌参数无效");
   }
@@ -276,14 +340,13 @@ export function parseCreateLocalAiProviderInput(value: unknown): LocalAiProvider
   if (status !== "enabled" && status !== "disabled") {
     throw new LocalAiContractError("LOCAL_AI_STATUS_INVALID", "本地 AI 供应商状态无效");
   }
-  const apiKey = optionalString(value.apiKey ?? "", 8_192, "LOCAL_AI_API_KEY_INVALID", "本地 AI API Key");
   const name = localAiProviderStoredName(requiredString(value.name, 200, "LOCAL_AI_NAME_INVALID", "本地 AI 供应商名称"));
   if (!name) throw new LocalAiContractError("LOCAL_AI_NAME_INVALID", "本地 AI 供应商名称不能只包含 local 前缀");
   return {
     name,
     baseUrl: normalizeLocalAiBaseUrl(value.baseUrl),
     apiKey,
-    protocol,
+    protocol: protocol as LocalAiProviderInput["protocol"],
     maxTokensParameter: maxTokensParameter as LocalAiProviderInput["maxTokensParameter"],
     thinkingType: thinkingType as LocalAiProviderInput["thinkingType"],
     concurrencyLimit: boundedInteger(value.concurrencyLimit ?? 10, 1, 100, "LOCAL_AI_CONCURRENCY_INVALID", "本地 AI 最大并发请求数"),
@@ -344,9 +407,13 @@ export function parseRemoveLocalAiProviderInput(value: unknown): { providerId: s
 }
 
 function parseLocalAiModelInput(value: Record<string, unknown>): LocalAiModelInput {
+  const modelKind = value.modelKind ?? "chat";
+  if (!LOCAL_AI_MODEL_KINDS.includes(modelKind as typeof LOCAL_AI_MODEL_KINDS[number])) {
+    throw new LocalAiContractError("LOCAL_AI_MODEL_KIND_INVALID", "AI 模型类型无效");
+  }
   const purposes = Array.isArray(value.purposes) ? [...new Set(value.purposes)] : [];
   if (
-    purposes.length === 0
+    (modelKind === "chat" && purposes.length === 0)
     || purposes.length > LOCAL_AI_MODEL_PURPOSES.length
     || purposes.some((purpose) => typeof purpose !== "string" || !LOCAL_AI_MODEL_PURPOSES.includes(purpose as typeof LOCAL_AI_MODEL_PURPOSES[number]))
   ) throw new LocalAiContractError("LOCAL_AI_MODEL_PURPOSES_INVALID", "AI 模型用途无效");
@@ -366,11 +433,15 @@ function parseLocalAiModelInput(value: Record<string, unknown>): LocalAiModelInp
   if (value.imageToolDefault === true && (value.multimodalEnabled !== true || value.enabled !== true)) {
     throw new LocalAiContractError("LOCAL_AI_MODEL_IMAGE_DEFAULT_INVALID", "只有已启用的多模态模型才能设为默认读图模型");
   }
+  if (modelKind !== "chat" && (value.multimodalEnabled === true || value.imageToolDefault === true)) {
+    throw new LocalAiContractError("LOCAL_AI_MODEL_KIND_INVALID", "Embedding 与 rerank 模型不能启用聊天或多模态能力");
+  }
   return {
     providerId: parseLocalAiProviderId(value.providerId),
     displayName: requiredString(value.displayName, 200, "LOCAL_AI_MODEL_NAME_INVALID", "AI 模型显示名称"),
     modelId: requiredString(value.modelId, 300, "LOCAL_AI_MODEL_NAME_INVALID", "AI 模型标识符"),
-    purposes: purposes as LocalAiModelInput["purposes"],
+    modelKind: modelKind as LocalAiModelInput["modelKind"],
+    purposes: modelKind === "chat" ? purposes as LocalAiModelInput["purposes"] : [],
     contextNote: optionalString(value.contextNote ?? "", 10_000, "LOCAL_AI_MODEL_NOTE_INVALID", "AI 模型上下文说明"),
     contextWindow: boundedInteger(value.contextWindow, 32_768, 2_000_000, "LOCAL_AI_CONTEXT_WINDOW_INVALID", "AI 模型上下文令牌总量"),
     outputNote: optionalString(value.outputNote ?? "", 10_000, "LOCAL_AI_MODEL_NOTE_INVALID", "AI 模型输出说明"),
@@ -380,8 +451,8 @@ function parseLocalAiModelInput(value: Record<string, unknown>): LocalAiModelInp
     },
     thinkingEnabled: value.thinkingEnabled as boolean,
     thinkingEffort: thinkingEffort as LocalAiModelInput["thinkingEffort"],
-    multimodalEnabled: value.multimodalEnabled as boolean,
-    imageToolDefault: value.imageToolDefault as boolean,
+    multimodalEnabled: modelKind === "chat" && value.multimodalEnabled as boolean,
+    imageToolDefault: modelKind === "chat" && value.imageToolDefault as boolean,
     enabled: value.enabled as boolean,
     note: optionalString(value.note ?? "", 10_000, "LOCAL_AI_MODEL_NOTE_INVALID", "AI 模型用途备注")
   };
@@ -393,6 +464,7 @@ export function parseCreateLocalAiModelInput(value: unknown): LocalAiModelInput 
     "providerId",
     "displayName",
     "modelId",
+    "modelKind",
     "purposes",
     "contextNote",
     "contextWindow",
@@ -415,6 +487,7 @@ export function parseUpdateLocalAiModelInput(value: unknown): LocalAiModelUpdate
     "providerId",
     "displayName",
     "modelId",
+    "modelKind",
     "purposes",
     "contextNote",
     "contextWindow",
@@ -511,13 +584,15 @@ export function parseLocalAiAgentRoundInput(value: unknown): LocalAiAgentRoundIn
   }
   if (!isRecord(value.body)) throw new LocalAiContractError("LOCAL_AI_INPUT_INVALID", "本地 AI Agent 请求正文无效");
   const body = structuredClone(value.body);
+  const messageCount = Array.isArray(body.messages) ? body.messages.length : 0;
+  const inputCount = Array.isArray(body.input) ? body.input.length : 0;
   if (
     typeof body.model !== "string"
     || body.model.length === 0
     || body.model.length > 300
-    || !Array.isArray(body.messages)
-    || body.messages.length === 0
-    || body.messages.length > 512
+    || (messageCount === 0 && inputCount === 0)
+    || messageCount > 512
+    || inputCount > 512
     || body.stream === true
   ) throw new LocalAiContractError("LOCAL_AI_INPUT_INVALID", "本地 AI Agent 请求正文格式无效");
   let serialized = "";

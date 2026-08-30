@@ -10,7 +10,7 @@ export function mergeDesktopLocalAiModels(serverModels, localModels) {
   const localCatalog = Array.isArray(localModels) ? localModels : [];
   const serverModelIds = new Set(serverCatalog.map((model) => model?.id));
   const isolatedLocalModels = localCatalog
-    .filter((model) => model?.scope === "local" && !serverModelIds.has(model.id))
+    .filter((model) => model?.scope === "local" && (model.modelKind ?? "chat") === "chat" && !serverModelIds.has(model.id))
     .map((model) => ({ ...model, providerName: localProviderName(model.providerName) }));
   return [...serverCatalog, ...isolatedLocalModels];
 }

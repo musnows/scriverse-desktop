@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import {
-  LOCAL_AI_PROTOCOL,
   localAiProviderDisplayName,
   parseCreateLocalAiModelInput,
   parseCreateLocalAiProviderInput,
@@ -23,7 +22,8 @@ import {
 import { writeDesktopJsonAtomically } from "../shared/storage-manifest.js";
 import type { CredentialVault, EncryptedSecret } from "./credential-vault.js";
 
-export const LOCAL_AI_PROVIDER_STORE_VERSION = 3;
+export const LOCAL_AI_PROVIDER_STORE_VERSION = 4;
+export const PREVIOUS_LOCAL_AI_PROVIDER_STORE_VERSION = 3;
 export const LEGACY_LOCAL_AI_PROVIDER_STORE_VERSION = 2;
 export const LEGACY_LOCAL_AI_PROVIDER_BACKUP_FILENAME = "config.keychain-v2.backup.json";
 const LOCAL_AI_PROVIDER_LIMIT = 64;
@@ -101,7 +101,7 @@ function encryptedApiKeyValue(value: unknown): EncryptedSecret | null {
   if (!isRecord(value)) throw new LocalAiProviderStoreError("LOCAL_AI_STORE_INVALID", "本地 AI API Key 密文无效");
   assertExactKeys(value, ["encrypted", "iv", "tag"], "本地 AI API Key 密文");
   const parts = [value.encrypted, value.iv, value.tag];
-  if (parts.some((part) => typeof part !== "string" || part.length > 16_384 || !/^[A-Za-z0-9+/=]+$/u.test(part))) {
+  if (parts.some((part) => typeof part !== "string" || part.length > 100_000 || !/^[A-Za-z0-9+/=]+$/u.test(part))) {
     throw new LocalAiProviderStoreError("LOCAL_AI_STORE_INVALID", "本地 AI API Key 密文无效");
   }
   return { encrypted: String(value.encrypted), iv: String(value.iv), tag: String(value.tag) };
@@ -128,7 +128,7 @@ function providerSummary(provider: StoredLocalAiProvider): LocalAiProviderSummar
     scope: "local",
     name: localAiProviderDisplayName(provider.name),
     baseUrl: provider.baseUrl,
-    protocol: LOCAL_AI_PROTOCOL,
+    protocol: provider.protocol,
     maxTokensParameter: provider.maxTokensParameter,
     thinkingType: provider.thinkingType,
     concurrencyLimit: provider.concurrencyLimit,
@@ -205,6 +205,9 @@ export class LocalAiProviderStore {
 
   create(value: LocalAiProviderInput): LocalAiProviderSummary {
     const input = parseCreateLocalAiProviderInput(value);
+    if (input.protocol === "google-vertex" && input.apiKey === "") {
+      throw new LocalAiProviderStoreError("LOCAL_AI_SERVICE_ACCOUNT_REQUIRED", "Google Vertex 需要服务账号 JSON");
+    }
     const document = this.read();
     if (document.providers.length >= LOCAL_AI_PROVIDER_LIMIT) {
       throw new LocalAiProviderStoreError("LOCAL_AI_PROVIDER_LIMIT_REACHED", `本机最多保存 ${LOCAL_AI_PROVIDER_LIMIT} 个 AI 供应商`);
@@ -214,7 +217,7 @@ export class LocalAiProviderStore {
       id: randomUUID(),
       name: input.name,
       baseUrl: input.baseUrl,
-      protocol: LOCAL_AI_PROTOCOL,
+      protocol: input.protocol,
       maxTokensParameter: input.maxTokensParameter,
       thinkingType: input.thinkingType,
       concurrencyLimit: input.concurrencyLimit,
@@ -352,7 +355,7 @@ export class LocalAiProviderStore {
       } catch {
         throw new LocalAiProviderStoreError("LOCAL_AI_API_KEY_DECRYPT_FAILED", "无法解锁本地 AI API Key");
       }
-      if (apiKey.length === 0 || apiKey.length > 8_192) {
+      if (apiKey.length === 0 || apiKey.length > 50_000) {
         throw new LocalAiProviderStoreError("LOCAL_AI_STORE_INVALID", "本地 AI API Key 密文无效");
       }
     }
@@ -386,7 +389,11 @@ export class LocalAiProviderStore {
     if (!isRecord(value)) throw new LocalAiProviderStoreError("LOCAL_AI_STORE_INVALID", "本地 AI 配置存储格式无效");
     assertExactKeys(value, ["version", "systemPrompt", "providers", "models", "updatedAt"], "本地 AI 配置存储");
     if (
-      (value.version !== LOCAL_AI_PROVIDER_STORE_VERSION && value.version !== LEGACY_LOCAL_AI_PROVIDER_STORE_VERSION)
+      (
+        value.version !== LOCAL_AI_PROVIDER_STORE_VERSION
+        && value.version !== PREVIOUS_LOCAL_AI_PROVIDER_STORE_VERSION
+        && value.version !== LEGACY_LOCAL_AI_PROVIDER_STORE_VERSION
+      )
       || !Array.isArray(value.providers)
       || value.providers.length > LOCAL_AI_PROVIDER_LIMIT
       || !Array.isArray(value.models)
@@ -394,6 +401,7 @@ export class LocalAiProviderStore {
     ) throw new LocalAiProviderStoreError("LOCAL_AI_STORE_INVALID", "本地 AI 配置存储版本或数量无效");
     const systemPrompt = parseLocalAiSystemPromptInput({ systemPrompt: value.systemPrompt }).systemPrompt;
     const legacyKeychainDocument = value.version === LEGACY_LOCAL_AI_PROVIDER_STORE_VERSION;
+    const previousDocument = value.version === PREVIOUS_LOCAL_AI_PROVIDER_STORE_VERSION;
     const providers = value.providers.map((item) => (
       legacyKeychainDocument ? this.parseLegacyKeychainProvider(item) : this.parseProvider(item)
     ));
@@ -421,6 +429,8 @@ export class LocalAiProviderStore {
     if (legacyKeychainDocument) {
       const backupPath = join(this.directory, LEGACY_LOCAL_AI_PROVIDER_BACKUP_FILENAME);
       if (!existsSync(backupPath)) writeDesktopJsonAtomically(backupPath, value);
+    }
+    if (legacyKeychainDocument || previousDocument) {
       this.write(document);
     }
     return document;
@@ -532,6 +542,7 @@ export class LocalAiProviderStore {
       "providerId",
       "displayName",
       "modelId",
+      "modelKind",
       "purposes",
       "contextNote",
       "contextWindow",
@@ -552,6 +563,7 @@ export class LocalAiProviderStore {
         providerId: value.providerId,
         displayName: value.displayName,
         modelId: value.modelId,
+        modelKind: value.modelKind,
         purposes: value.purposes,
         contextNote: value.contextNote,
         contextWindow: value.contextWindow,

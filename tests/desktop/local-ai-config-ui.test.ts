@@ -18,6 +18,8 @@ describe("Desktop 本地 AI 配置界面", () => {
     expect(html).toContain("模型供应商配置");
     expect(html).toContain('class="config-section platform-system-prompt-section"');
     expect(html).toContain('class="dialog"');
+    expect(html.match(/data-local-ai-dialog-cancel/gu)).toHaveLength(2);
+    expect(script).toContain('button.addEventListener("click", () => formDialog.close("cancel"))');
     expect(script).toContain("renderAiProviderConfigurationCards");
     expect(script).toContain("installExternalUrlPrompt");
     expect(script).toContain("window.scriverseDesktop?.external");
@@ -30,6 +32,17 @@ describe("Desktop 本地 AI 配置界面", () => {
     expect(sharedView).toContain("data-add-model");
     expect(sharedView).toContain('model.modelKind === "embedding" ? "Embedding"');
     expect(sharedView).toContain('modelKind === "chat" ? ` · 思考模式');
+    for (const protocol of ["openai-chat-completions", "openai-responses", "anthropic-messages", "google-vertex"]) {
+      expect(script).toContain(`value: "${protocol}"`);
+    }
+    expect(script).toContain('credentialKind: "service-account-json"');
+    expect(script).toContain('name="embeddingModel"');
+    expect(script).toContain('name="rerankModel"');
+    expect(script).toContain("syncModelKind");
+    expect(script).toContain("bridge.testModel");
+    expect(script).toContain("data-test-model");
+    expect(css).toContain(".model-kind-fields");
+    expect(css).toContain(".model-connection-test");
   });
 
   it("本地配置允许局域网地址并只通过具名 Desktop bridge 写入", () => {

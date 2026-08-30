@@ -30,4 +30,13 @@ describe("Desktop 本地 AI 目录隔离", () => {
     expect(result).not.toBe(serverModels);
     expect(serverModels).toEqual([{ id: "shared-model", scope: "platform", providerName: "Cloud", displayName: "Cloud Model" }]);
   });
+
+  it("保留专用模型配置但不把 embedding 与 rerank 放入生成选择器", () => {
+    const localModels = [
+      { id: "chat", scope: "local", modelKind: "chat", providerName: "Local", displayName: "Chat" },
+      { id: "embedding", scope: "local", modelKind: "embedding", providerName: "Local", displayName: "Embedding" },
+      { id: "rerank", scope: "local", modelKind: "rerank", providerName: "Local", displayName: "Rerank" }
+    ];
+    expect(mergeDesktopLocalAiModels([], localModels).map((model) => model.id)).toEqual(["chat"]);
+  });
 });

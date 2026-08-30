@@ -26,9 +26,9 @@ describe("Desktop 系统设置与本地端口", () => {
     expect(updated).toMatchObject({ localServerPort: 24_321, logStorageLimitMiB: 2_048, updatedAt: expect.any(String) });
     expect(new DesktopSettingsStore(path).get()).toEqual(updated);
     expect(JSON.parse(readFileSync(path, "utf8"))).toMatchObject({ version: 1, localServerPort: 24_321, logStorageLimitMiB: 2_048 });
-    expect(store.update({ localServerPort: 10_000, logStorageLimitMiB: 500 }).localServerPort).toBe(10_000);
+    expect(store.update({ localServerPort: 20_001, logStorageLimitMiB: 500 }).localServerPort).toBe(20_001);
     expect(store.update({ localServerPort: 60_000, logStorageLimitMiB: 500 }).localServerPort).toBe(60_000);
-    expect(() => store.update({ localServerPort: 9_999, logStorageLimitMiB: 500 })).toThrowError(/10000/u);
+    expect(() => store.update({ localServerPort: 20_000, logStorageLimitMiB: 500 })).toThrowError(/20001/u);
     expect(() => store.update({ localServerPort: 60_001, logStorageLimitMiB: 500 })).toThrowError(/60000/u);
     expect(() => store.update({ localServerPort: 23_241.5, logStorageLimitMiB: 500 })).toThrowError(/整数/u);
   });
@@ -55,6 +55,19 @@ describe("Desktop 系统设置与本地端口", () => {
     writeFileSync(path, JSON.stringify({ version: 1, localServerPort: 24_321, updatedAt }));
     expect(new DesktopSettingsStore(path).get()).toEqual({
       localServerPort: 24_321,
+      logStorageLimitMiB: 500,
+      updatedAt
+    });
+  });
+
+  it("将旧版 20001 以下端口安全迁移回当前默认端口", () => {
+    const directory = join(tmpdir(), `scriverse-desktop-legacy-port-${process.pid}-${crypto.randomUUID()}`);
+    const path = join(directory, "settings.json");
+    mkdirSync(directory, { recursive: true });
+    const updatedAt = new Date().toISOString();
+    writeFileSync(path, JSON.stringify({ version: 1, localServerPort: 10_000, logStorageLimitMiB: 500, updatedAt }));
+    expect(new DesktopSettingsStore(path).get()).toEqual({
+      localServerPort: DEFAULT_LOCAL_SERVER_PORT,
       logStorageLimitMiB: 500,
       updatedAt
     });

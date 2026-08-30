@@ -3,6 +3,7 @@ import {
   DEFAULT_DESKTOP_LOG_STORAGE_LIMIT_MIB,
   DEFAULT_LOCAL_SERVER_PORT,
   DESKTOP_SETTINGS_VERSION,
+  MIN_LOCAL_SERVER_PORT,
   DesktopSettingsContractError,
   parseDesktopSettingsUpdate,
   parseDesktopLogStorageLimitMiB,
@@ -25,6 +26,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function parseStoredLocalServerPort(value: unknown): number {
+  if (typeof value === "number" && Number.isInteger(value) && value >= 10_000 && value < MIN_LOCAL_SERVER_PORT) {
+    return DEFAULT_LOCAL_SERVER_PORT;
+  }
+  return parseLocalServerPort(value);
+}
+
 function parseDocument(value: unknown): DesktopSettingsDocument {
   if (!isRecord(value)) {
     throw new DesktopSettingsContractError("DESKTOP_SETTINGS_INVALID", "Desktop 系统设置格式无效");
@@ -38,7 +46,7 @@ function parseDocument(value: unknown): DesktopSettingsDocument {
   }
   return {
     version: DESKTOP_SETTINGS_VERSION,
-    localServerPort: parseLocalServerPort(value.localServerPort),
+    localServerPort: parseStoredLocalServerPort(value.localServerPort),
     logStorageLimitMiB: value.logStorageLimitMiB === undefined
       ? DEFAULT_DESKTOP_LOG_STORAGE_LIMIT_MIB
       : parseDesktopLogStorageLimitMiB(value.logStorageLimitMiB),

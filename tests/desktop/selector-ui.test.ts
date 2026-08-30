@@ -20,7 +20,7 @@ describe("Desktop Selector UI", () => {
     expect(html).toContain('id="system-settings-button"');
     expect(html).toContain('id="local-server-port"');
     expect(html).toContain("本地服务首选端口");
-    expect(html).toContain('min="10000" max="60000"');
+    expect(html).toContain('min="20001" max="60000"');
     expect(html).toContain('id="log-storage-limit"');
     expect(html).toContain('id="open-log-directory"');
     for (const option of ["500 MB", "1 GB", "2 GB", "5 GB", "10 GB"]) expect(html).toContain(`>${option}</option>`);

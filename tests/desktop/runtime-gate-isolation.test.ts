@@ -11,7 +11,9 @@ describe("Desktop runtime gate isolation", () => {
 
   it("uses the Desktop high-port scan instead of an ephemeral port", () => {
     const source = readFileSync(join(process.cwd(), "src/utility/runtime-gate.mts"), "utf8");
+    const contract = readFileSync(join(process.cwd(), "src/shared/desktop-settings-contract.ts"), "utf8");
     expect(source).toContain("selectLocalServerPort(MIN_LOCAL_SERVER_PORT, canBindLoopbackPort)");
+    expect(contract).toContain("MIN_LOCAL_SERVER_PORT = 20_001");
     expect(source).toContain("port: gatePort");
     expect(source).not.toContain("port: 0");
   });

@@ -1,4 +1,4 @@
-import { BrowserWindow } from "electron";
+import { BrowserWindow, type RenderProcessGoneDetails } from "electron";
 import { join } from "node:path";
 import { DESKTOP_DISPLAY_NAME } from "../shared/branding.js";
 import type { RemoteWorkspaceProfile } from "../shared/contracts.js";
@@ -8,6 +8,7 @@ import { createWorkspaceLoadingCover } from "./workspace-loading-cover.js";
 import { applyWindowPlacement, type DesktopWindowPlacement } from "./window-placement.js";
 import { captureRendererConsole } from "./renderer-console-logging.js";
 import type { RemoteMediaCache } from "./remote-media-cache.js";
+import { installRendererRecovery } from "./renderer-recovery.js";
 
 export async function createRemoteWorkspaceWindow(options: {
   profile: RemoteWorkspaceProfile;
@@ -21,6 +22,8 @@ export async function createRemoteWorkspaceWindow(options: {
   placement?: DesktopWindowPlacement;
   onCreated?: (window: BrowserWindow) => void;
   show?: boolean;
+  onExternalUrlRequest: (window: BrowserWindow, target: string) => boolean;
+  onRendererRecoveryFailed?: (window: BrowserWindow, details: RenderProcessGoneDetails) => void;
 }): Promise<BrowserWindow> {
   const shellUrl = remoteWorkspaceShellUrl(options.profile.id);
   const window = new BrowserWindow({
@@ -46,21 +49,28 @@ export async function createRemoteWorkspaceWindow(options: {
     }
   });
   captureRendererConsole(window.webContents, "remote-workspace");
+  installRendererRecovery(window, `Remote workspace ${options.profile.id}`, {
+    onExhausted: (details) => options.onRendererRecoveryFailed?.(window, details)
+  });
   const loadingCover = createWorkspaceLoadingCover(window);
   options.onCreated?.(window);
-  window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  window.webContents.setWindowOpenHandler((details) => {
+    options.onExternalUrlRequest(window, details.url);
+    return { action: "deny" };
+  });
   window.webContents.on("will-attach-webview", (event) => event.preventDefault());
   window.webContents.on("will-navigate", (event, target) => {
-    if (!isAllowedRemoteWorkspaceNavigation(target, shellUrl)) event.preventDefault();
+    if (isAllowedRemoteWorkspaceNavigation(target, shellUrl)) return;
+    event.preventDefault();
+    options.onExternalUrlRequest(window, target);
   });
   window.webContents.on("will-redirect", (event, target) => {
-    if (!isAllowedRemoteWorkspaceNavigation(target, shellUrl)) event.preventDefault();
+    if (isAllowedRemoteWorkspaceNavigation(target, shellUrl)) return;
+    event.preventDefault();
+    options.onExternalUrlRequest(window, target);
   });
   window.webContents.on("did-fail-load", (_event, errorCode, errorDescription, _validatedUrl, isMainFrame) => {
     if (isMainFrame) process.stderr.write(`Remote workspace load failed for profile ${options.profile.id} (${errorCode}): ${errorDescription}\n`);
-  });
-  window.webContents.on("render-process-gone", (_event, details) => {
-    process.stderr.write(`Remote workspace renderer stopped for profile ${options.profile.id}: ${details.reason}\n`);
   });
   window.once("ready-to-show", () => {
     void loadingCover.prepare().catch(() => undefined).finally(() => {

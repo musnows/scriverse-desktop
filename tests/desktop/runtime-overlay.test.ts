@@ -6,6 +6,10 @@ describe("Desktop Web runtime overlay", () => {
   it("keeps Desktop Web modules outside the Scriverse runtime source", () => {
     const prepareSource = readFileSync(join(process.cwd(), "scripts/prepare-runtime.mjs"), "utf8");
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
+    const addedLines = overlayPatch
+      .split("\n")
+      .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
+      .join("\n");
     const gitAttributes = readFileSync(join(process.cwd(), ".gitattributes"), "utf8");
 
     expect(prepareSource).not.toContain('"public/desktop-workspace.js",\n  "public/vendor');
@@ -17,6 +21,9 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain("diff --git a/public/app.js b/public/app.js");
     expect(overlayPatch).not.toMatch(/^\+\+$/mu);
     expect(overlayPatch).toContain("createDesktopWorkspaceController");
+    expect(overlayPatch).toContain('createLatestAsyncQueue((options) => persistChapterOnce(options), mergeLatestChapterSaveRequest)');
+    expect(overlayPatch).toContain("return chapterSaveQueue.request({ automatic: options.automatic === true });");
+    expect(addedLines).not.toContain("return persistChapter({ automatic });");
     for (const id of [
       "desktop-sync-dialog",
       "desktop-sync-dialog-close",
@@ -43,6 +50,7 @@ describe("Desktop Web runtime overlay", () => {
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-local-ai-offline.js"))).toBe(true);
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-local-ai-catalog.js"))).toBe(true);
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-local-ai-stream.js"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "runtime-overlay/public/latest-async-queue.js"))).toBe(true);
   });
 
   it("merges local models into every workspace picker and marks them with a local badge", () => {
@@ -83,6 +91,10 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain("desktopProviderCompletedToolCalls(completion?.body, emittedToolCallIds)");
     expect(overlayPatch).toContain('onProviderEvent({ type: "tool-call", toolCall }, Math.max(1, generationRound))');
     expect(overlayPatch).toContain('emit("tool_call", { ...event.toolCall, round })');
+    expect(overlayPatch).toContain('taskType: "chat"');
+    expect(overlayPatch).toContain("messageId: completed.conversationMessage?.id");
+    expect(overlayPatch).toContain('writingSuggestion: ["continue", "polish"].includes(completed.taskType) ? completed : null');
+    expect(overlayPatch).not.toContain('if (taskType !== "chat" || desktopProviderModel)');
     expect(overlayPatch).toContain("async function streamChat(requestHolder, body, idempotencyKey, responseFactory = null)");
     expect(overlayPatch).toContain('eventName === "replace"');
     expect(overlayPatch).toContain("createDesktopProviderPendingMessage(tab)");
@@ -129,6 +141,18 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain("feature=desktop-route-ready-cover-v1");
   });
 
+  it("releases relationship renderers when leaving the module", () => {
+    const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
+
+    expect(overlayPatch).toContain("function disposeRelationshipRenderers({ invalidateRequest = true } = {})");
+    expect(overlayPatch).toContain("state.relationshipMindMap = null;");
+    expect(overlayPatch).toContain("state.relationshipExpandedMap = null;");
+    expect(overlayPatch).toContain("state.relationshipGraph = null;");
+    expect(overlayPatch).toContain("requestId !== relationshipRenderRequestId");
+    expect(overlayPatch).toContain('state.module !== "relationships"');
+    expect(overlayPatch).toContain("if (state.module !== module) return;");
+  });
+
   it("shows remote offline download progress in the top bar and opens sync details", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 
@@ -170,8 +194,19 @@ describe("Desktop Web runtime overlay", () => {
   it("updates Desktop workspace modules when media cache behavior changes", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 
-    expect(overlayPatch).toContain('desktop-workspace.js?v=20260825-desktop-media-cache-v1');
+    expect(overlayPatch).toContain('desktop-workspace.js?v=20260829-desktop-external-url-v1');
     expect(overlayPatch).toContain('desktop-offline-api.js?v=20260825-desktop-media-cache-v1');
+  });
+
+  it("confirms external website navigation while leaving image resources alone", () => {
+    const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
+    const workspace = readFileSync(join(process.cwd(), "runtime-overlay/public/desktop-workspace.js"), "utf8");
+
+    expect(overlayPatch).toContain("installDesktopExternalUrlPrompt({ bridge: desktopShellBridge(), confirm: confirmToast, notify: toast });");
+    expect(workspace).toContain("打开外部网站？");
+    expect(workspace).toContain("继续访问");
+    expect(workspace).toContain("bridge.openExternalUrl");
+    expect(workspace).not.toContain("webRequest");
   });
 
   it("matches the smaller chapter title in the Desktop editor", () => {

@@ -19,6 +19,8 @@ describe("Desktop 本地 AI 配置界面", () => {
     expect(html).toContain('class="config-section platform-system-prompt-section"');
     expect(html).toContain('class="dialog"');
     expect(script).toContain("renderAiProviderConfigurationCards");
+    expect(script).toContain("installExternalUrlPrompt");
+    expect(script).toContain("window.scriverseDesktop?.external");
     expect(sharedView).toContain('provider-scope-badge ${provider.scope === "local" ? "is-local"');
     expect(script).toContain("{ showScope: false }");
     expect(html).not.toContain("本地模型");
@@ -26,6 +28,8 @@ describe("Desktop 本地 AI 配置界面", () => {
     expect(script).not.toContain("本地助手");
     expect(sharedView).toContain("data-edit-provider");
     expect(sharedView).toContain("data-add-model");
+    expect(sharedView).toContain('model.modelKind === "embedding" ? "Embedding"');
+    expect(sharedView).toContain('modelKind === "chat" ? ` · 思考模式');
   });
 
   it("本地配置允许局域网地址并只通过具名 Desktop bridge 写入", () => {

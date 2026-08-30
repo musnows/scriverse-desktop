@@ -4,7 +4,7 @@
 
 ## 1. 项目边界
 
-Scriverse Desktop 是 Scriverse 的 Electron 桌面客户端，当前版本为 `0.1.10`。仓库只维护桌面壳、本地工作区编排、远端 Server 连接、软件内登录、本地 AI、离线同步和打包安装能力。
+Scriverse Desktop 是 Scriverse 的 Electron 桌面客户端，当前版本为 `0.1.11`。仓库只维护桌面壳、本地工作区编排、远端 Server 连接、软件内登录、本地 AI、离线同步和打包安装能力。
 
 - Scriverse Server 与 Web 源码由 `musnows/Scriverse` 维护，禁止复制前后端、showcase 或 demo 源码到本仓库。
 - Desktop 通过 `scripts/prepare-runtime.mjs` 引入已构建 Server runtime，并通过 `runtime-overlay/` 维护必要的 Desktop Web 差异。
@@ -63,12 +63,23 @@ Desktop 使用与 Scriverse Server `CredentialVault` 一致的方式保存有限
 ## 4. 数据与测试边界
 
 - 默认数据目录包含真实用户数据，禁止用于写入型测试、删除、覆盖或重建。
-- Desktop 原生验收必须设置独立的 `SCRIVERSE_DESKTOP_DATA_DIR`；结束后只清理本次明确创建的目录。
+- Desktop 开发、原生验收和写入型测试必须使用第 5 节的隔离启动方式；禁止把用户已安装的 Desktop 作为测试目标。
 - 离线内容按 profile 与用户隔离，但不加密；不得重新引入离线密钥桥接或 AES-GCM 快照字段。
 - 文件写入使用原子替换和受控权限；不得把密码、Bearer Token 或 AI API Key 写入日志、错误消息或测试快照。
 - 禁止使用 `rm`，清理临时文件使用 `rmtrash`。数据库 `DROP`、`DELETE` 仅可针对本次构造的测试数据库，否则必须先征得用户同意。
 
-## 5. 窗口、端口与 UI
+## 5. 开发与测试 Electron 实例隔离（强制）
+
+开发或测试必须创建当前 worktree 的独立 Electron 实例，不得启动、覆盖、替换或退出用户正在使用的已安装 Desktop。macOS 上的 `/Applications/叙界.app` 是用户应用，任何开发验收都不得以它为目标。
+
+- 默认使用 `npm run start`。该命令会准备兼容 Server runtime、构建当前 worktree，并调用 `scripts/start-dev-isolated.mjs` 启动 `node_modules` 中的 Electron 和当前 worktree 的 `build/main/main.js`；它不会打开或修改 `/Applications/叙界.app`。
+- `start-dev-isolated.mjs` 每次启动都创建新的系统临时数据根目录，并在 `20001` 到 `60000` 范围内分配独立的本地 Server 首选端口，然后注入 `SCRIVERSE_DESKTOP_DEV_MODE=isolated`、`SCRIVERSE_DESKTOP_DATA_DIR` 和 `SCRIVERSE_DESKTOP_DEV_PORT`。必须记录启动日志中的数据目录、端口和进程；并行启动多个实例时每个实例都要单独执行该命令，不得复用数据目录或端口。
+- Main 进程只允许带有完整隔离环境的非打包正常启动。缺少隔离模式、绝对数据目录或有效开发端口时必须拒绝启动；`app.setPath("userData")`、`sessionData`、`crashDumps` 和日志路径必须在申请单实例锁之前指向该实例目录。这样每个实例的 profile、master key、本地数据库、浏览器会话、远端媒体缓存、日志、崩溃转储、Electron 锁和本地 Server 端口都彼此独立。
+- 禁止直接执行没有隔离环境的 `electron build/main/main.js`、`npm run start` 之外的自定义 Electron 启动命令，或通过 `open` 启动已安装应用。若必须调试主进程，仍需显式设置 `SCRIVERSE_DESKTOP_DEV_MODE=isolated`、绝对且本次新建的 `SCRIVERSE_DESKTOP_DATA_DIR` 和未占用的 `SCRIVERSE_DESKTOP_DEV_PORT`；优先复用隔离启动脚本。
+- `npm run gate` 是只做 runtime gate 的例外，不打开正常 Desktop 窗口，也不申请正常 UI 的单实例锁；打包验收必须运行当前 worktree `out/` 下刚生成的 App，并使用专用 gate 数据目录，禁止把产物复制或安装到 `/Applications`、用户桌面或其他实际安装位置。
+- 写入型 E2E 必须使用专用测试数据目录和端口；禁止指向默认 Desktop 数据目录、用户本地数据库或已安装应用。临时目录只允许在确认目标是本次创建的目录后使用 `rmtrash` 清理，不得使用 `rm`，也不得清理整个系统临时目录。
+
+## 6. 窗口、端口与 UI
 
 - 本地 Server 端口必须大于 `20000`；首选端口占用时向上探测最多 20 个端口。
 - 涉及 bind port 的开发服务使用 tmux 启动，并显式指定有效工作目录或独立 socket。
@@ -77,7 +88,7 @@ Desktop 使用与 Scriverse Server `CredentialVault` 一致的方式保存有限
 - 前端修改必须使用 Computer Use 或内置浏览器检查真实截图；至少覆盖桌面和 `390×844` 窄屏、控制台错误、溢出、遮挡和可访问名称。
 - 不使用 Emoji；中文使用非衬线字体，英文和标识符使用等宽字体。
 
-## 6. 构建与验证
+## 7. 构建与验证
 
 常用命令：
 
@@ -99,7 +110,7 @@ npm run verify:package
 - 最终安装前必须运行 `verify:package`、`codesign --verify --deep --strict`，并使用 Computer Use 验证安装后的 App。
 - 本地维护和安装只要求 Apple Silicon Mac；不在本机尝试 Intel Mac 打包。不得因此删除 CI。
 
-## 7. Git 分支、CI 与发布规范
+## 8. Git 分支、CI 与发布规范
 
 ### 分支职责
 

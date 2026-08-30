@@ -18,6 +18,7 @@ const selectorAssets = new Map<string, string>([
   ["/selector/selector.css", "text/css; charset=utf-8"],
   ["/selector/selector.js", "text/javascript; charset=utf-8"],
   ["/selector/icon.svg", "image/svg+xml"],
+  ["/external-url-prompt.js", "text/javascript; charset=utf-8"],
   ["/local-ai/index.html", "text/html; charset=utf-8"],
   ["/local-ai/styles.css", "text/css; charset=utf-8"],
   ["/local-ai/local-ai.css", "text/css; charset=utf-8"],

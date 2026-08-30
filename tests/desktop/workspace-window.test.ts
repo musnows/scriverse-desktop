@@ -17,6 +17,8 @@ describe("Desktop 本地工作区窗口", () => {
     expect(workspaceSource).toContain('title: `本地工作区 - ${DESKTOP_DISPLAY_NAME}`');
     expect(workspaceSource).toContain("setPermissionRequestHandler");
     expect(workspaceSource).toContain('action: "deny"');
+    expect(workspaceSource).toContain("onExternalUrlRequest(window, details.url)");
+    expect(workspaceSource).toContain("onExternalUrlRequest(window, target)");
   });
 
   it("只由 Main 持久化 Bearer 并禁止浏览器 Cookie 与系统凭据存储", () => {
@@ -40,6 +42,11 @@ describe("Desktop 本地工作区窗口", () => {
     expect(mainSource).toContain("const contents = window.webContents;");
     expect(mainSource).toContain('contents.off("will-prevent-unload", handlePreventedUnload)');
     expect(mainSource).not.toContain('window.webContents.off("will-prevent-unload", handlePreventedUnload)');
+  });
+
+  it("本地 Renderer 异常退出时使用统一恢复策略", () => {
+    expect(workspaceSource).toContain("installRendererRecovery(window");
+    expect(workspaceSource).toContain("onRendererRecoveryFailed?.(window, details)");
   });
 
   it("切换回 Selector 时保持本地 Server 与登录会话运行", () => {

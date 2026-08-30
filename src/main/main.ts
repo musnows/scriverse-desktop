@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, shell, utilityProcess, type Session, type UtilityProcess } from "electron";
+import { app, BrowserWindow, dialog, shell, utilityProcess, type RenderProcessGoneDetails, type Session, type UtilityProcess } from "electron";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -7,6 +7,10 @@ import { registerDesktopScheme, registerSelectorProtocol } from "./app-protocol.
 import { resolveCompatibleServerVersion, resolveDesktopAppVersion } from "./app-version.js";
 import { DESKTOP_DISPLAY_NAME } from "../shared/branding.js";
 import { initializeDesktopEnvironment, type DesktopEnvironment } from "./desktop-environment.js";
+import {
+  developmentIsolationError,
+  resolveDevelopmentLocalServerPort
+} from "./development-isolation.js";
 import { LocalServerManager } from "./local-server-manager.js";
 import { ProfileStore } from "./profile-store.js";
 import { registerSelectorIpc } from "./selector-ipc.js";
@@ -27,6 +31,7 @@ import { LocalAiClient } from "./local-ai-client.js";
 import { LocalAiRequestCoordinator } from "./local-ai-request-coordinator.js";
 import { registerLocalWorkspaceIpc } from "./local-workspace-ipc.js";
 import { registerWorkspaceIpc } from "./workspace-ipc.js";
+import { ExternalUrlNavigationController } from "./external-url-navigation.js";
 import { registerDownloadPolicy } from "./download-policy.js";
 import { installDesktopMenu } from "./native-menu.js";
 import { DesktopUpdater } from "./desktop-updater.js";
@@ -40,6 +45,7 @@ import { LOCAL_PROFILE_ID, type RemoteWorkspaceProfile } from "../shared/contrac
 import { desktopLogStorageLimitBytes } from "../shared/desktop-settings-contract.js";
 import { parseRemoteSessionResponse, type RemoteAuthUser } from "../shared/remote-auth-contract.js";
 import type { WorkspaceLeaveState } from "../shared/workspace-contract.js";
+import { LOCAL_EXTERNAL_URL_REQUEST_CHANNEL, SELECTOR_EXTERNAL_URL_REQUEST_CHANNEL } from "../shared/external-url-contract.js";
 
 type RuntimeGateResult = {
   ok: boolean;
@@ -63,6 +69,7 @@ const localServerGateRequested = process.argv.includes("--local-server-gate") ||
 let mainWindow: BrowserWindow | null = null;
 let workspaceWindow: BrowserWindow | null = null;
 let desktopEnvironment: DesktopEnvironment | null = null;
+let desktopEnvironmentInitialized = false;
 let desktopStartupError: unknown = null;
 let disposeSelectorIpc: (() => void) | null = null;
 let disposeWorkspaceIpc: (() => void) | null = null;
@@ -83,11 +90,14 @@ let desktopProcessLogging: DesktopProcessLogging | null = null;
 let remoteMediaCache: RemoteMediaCache | null = null;
 let quitAfterLocalShutdown = false;
 let desktopQuitConfirmed = false;
+let nativeQuitConfirmationInFlight: Promise<void> | null = null;
+let rendererRecoveryDialogOpen = false;
 let allowWorkspaceWindowClose = false;
 let localWorkspaceOpenPromise: Promise<void> | null = null;
 let remoteWorkspaceOpenPromise: Promise<void> | null = null;
 let activeWorkspaceKind: "local" | "remote" | null = null;
 let activeRemoteProfileId: string | null = null;
+const externalUrlNavigation = new ExternalUrlNavigationController();
 let activeRemoteLeaveState: WorkspaceLeaveState = {
   dirty: false,
   activeAiRequests: 0,
@@ -189,6 +199,28 @@ async function runRuntimeGate(): Promise<void> {
   });
 }
 
+function initializeDesktopRuntime(): void {
+  if (runtimeGateRequested || desktopEnvironmentInitialized) return;
+  try {
+    desktopEnvironment = initializeDesktopEnvironment();
+    desktopProcessLogging = installDesktopProcessLogging(desktopEnvironment.paths.logs);
+    desktopSettingsStore = new DesktopSettingsStore(desktopEnvironment.paths.desktopSettings);
+    void desktopProcessLogging.logger.setTotalMaxBytes(desktopLogStorageLimitBytes(desktopSettingsStore.get().logStorageLimitMiB));
+    process.stderr.write("Desktop file logging initialized\n");
+    remoteMediaCache = new RemoteMediaCache(desktopEnvironment.paths.remoteMedia);
+  } catch (error) {
+    desktopStartupError = error;
+  } finally {
+    desktopEnvironmentInitialized = true;
+  }
+}
+
+function requestDesktopSingleInstanceLock(): boolean {
+  if (runtimeGateRequested || localServerGateRequested) return true;
+  initializeDesktopRuntime();
+  return app.requestSingleInstanceLock();
+}
+
 function createLocalServerManager(environment: DesktopEnvironment, settings: DesktopSettingsStore): LocalServerManager {
   return new LocalServerManager({
     paths: environment.paths,
@@ -201,7 +233,7 @@ function createLocalServerManager(environment: DesktopEnvironment, settings: Des
     applicationRoot,
     desktopRoot,
     utilityWorkingDirectory,
-    getPreferredPort: () => settings.get().localServerPort
+    getPreferredPort: () => resolveDevelopmentLocalServerPort(process.env, app.isPackaged) ?? settings.get().localServerPort
   });
 }
 
@@ -235,6 +267,7 @@ async function runLocalServerGate(manager: LocalServerManager): Promise<void> {
         onReady: () => undefined,
         onClosed: () => undefined,
         enableLocalAiBridge: false,
+        onExternalUrlRequest: () => false,
         show: false
       });
       workspaceLoaded = gateWindow.webContents.getURL().startsWith(`${provision.url}/`);
@@ -339,10 +372,61 @@ function showDesktopWindow(): void {
   if (process.platform === "darwin" && app.dock) void app.dock.show();
   const target = workspaceWindow && !workspaceWindow.isDestroyed() ? workspaceWindow : mainWindow;
   if (!target || target.isDestroyed()) return;
+  if (!target.webContents.isDestroyed() && target.webContents.isCrashed()) {
+    process.stderr.write("Desktop foreground request found a crashed renderer; reloading\n");
+    target.webContents.reloadIgnoringCache();
+  }
   if (target.isMinimized()) target.restore();
   target.show();
   target.focus();
   if (target === workspaceWindow) mainWindow?.hide();
+}
+
+function requestNativeQuitConfirmation(target: BrowserWindow | null): void {
+  if (nativeQuitConfirmationInFlight) return;
+  const options = {
+    type: "warning" as const,
+    title: "退出叙界？",
+    message: "页面进程已经停止，无法显示页面内退出确认",
+    detail: "未保存的页面状态已随 Renderer 退出。退出后可以重新启动叙界，已保存内容和离线副本不会删除。",
+    buttons: ["取消", "退出叙界"],
+    defaultId: 1,
+    cancelId: 0,
+    noLink: true
+  };
+  const confirmation = target && !target.isDestroyed()
+    ? dialog.showMessageBox(target, options)
+    : dialog.showMessageBox(options);
+  nativeQuitConfirmationInFlight = confirmation.then((result) => {
+    if (result.response === 1) confirmDesktopQuit();
+  }).finally(() => {
+    nativeQuitConfirmationInFlight = null;
+  });
+}
+
+function handleRendererRecoveryFailed(window: BrowserWindow, _details: RenderProcessGoneDetails): void {
+  if (rendererRecoveryDialogOpen) return;
+  rendererRecoveryDialogOpen = true;
+  const options = {
+    type: "error" as const,
+    title: "工作区恢复失败",
+    message: "工作区页面连续异常退出",
+    detail: "叙界已停止自动重载，避免反复崩溃。可以再次重新加载工作区，或彻底退出后重新启动。",
+    buttons: ["重新加载工作区", "退出叙界"],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true
+  };
+  const prompt = window.isDestroyed() ? dialog.showMessageBox(options) : dialog.showMessageBox(window, options);
+  void prompt.then((result) => {
+    if (result.response === 0 && !window.isDestroyed() && !window.webContents.isDestroyed()) {
+      window.webContents.reloadIgnoringCache();
+      return;
+    }
+    confirmDesktopQuit();
+  }).finally(() => {
+    rendererRecoveryDialogOpen = false;
+  });
 }
 
 function requestDesktopQuitConfirmation(): void {
@@ -357,9 +441,17 @@ function requestDesktopQuitConfirmation(): void {
     app.quit();
     return;
   }
+  const contents = target.webContents;
+  if (contents.isDestroyed() || contents.isCrashed()) {
+    if (target.isMinimized()) target.restore();
+    target.show();
+    target.focus();
+    requestNativeQuitConfirmation(target);
+    return;
+  }
   showDesktopWindow();
-  if (target === activeWorkspace) target.webContents.send("workspace:shell:menu-command", "request-quit");
-  else target.webContents.send("selector:app:request-quit");
+  if (target === activeWorkspace) contents.send("workspace:shell:menu-command", "request-quit");
+  else contents.send("selector:app:request-quit");
 }
 
 function confirmDesktopQuit(): void {
@@ -487,17 +579,22 @@ function openLocalWorkspace(origin: string): Promise<void> {
         completeLocalAi: (input, onEvent) => localAiRequestCoordinator!.complete(input, onEvent),
         cancelLocalAi: (requestId) => localAiRequestCoordinator!.cancel(requestId),
         completeLocalAiAgentRound: (input, onEvent) => localAiRequestCoordinator!.completeAgentRound(input, onEvent),
-        cancelLocalAiAgentRound: (requestId) => localAiRequestCoordinator!.cancelAgentRound(requestId)
+        cancelLocalAiAgentRound: (requestId) => localAiRequestCoordinator!.cancelAgentRound(requestId),
+        openExternalUrl: (input) => externalUrlNavigation.respond(window, input)
       });
     },
     onReady: () => mainWindow?.hide(),
+    onExternalUrlRequest: (requestWindow, target) => externalUrlNavigation.request(requestWindow, target, LOCAL_EXTERNAL_URL_REQUEST_CHANNEL),
+    onRendererRecoveryFailed: handleRendererRecoveryFailed,
     onClosed: () => {
       disposeWorkspaceDownloadPolicy?.();
       disposeWorkspaceDownloadPolicy = null;
       disposeWorkspaceIpc?.();
       disposeWorkspaceIpc = null;
       localAiRequestCoordinator?.cancelAll();
+      const closedWorkspace = workspaceWindow;
       workspaceWindow = null;
+      if (closedWorkspace) externalUrlNavigation.dispose(closedWorkspace);
       activeWorkspaceKind = null;
       activeRemoteProfileId = null;
       if (quitAfterLocalShutdown) return;
@@ -547,6 +644,8 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
     remoteMediaCache: remoteMediaCache ?? undefined,
     remoteUserId: cachedUser.userId,
     ...(mainWindow && !mainWindow.isDestroyed() ? { placement: captureWindowPlacement(mainWindow) } : {}),
+    onExternalUrlRequest: (requestWindow, target) => externalUrlNavigation.request(requestWindow, target),
+    onRendererRecoveryFailed: handleRendererRecoveryFailed,
     onCreated: (window) => {
       workspaceWindow = window;
       disposeWorkspaceDownloadPolicy?.();
@@ -576,7 +675,8 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
           if (user) remoteSyncStatusStore!.update(profile, user.userId, state);
         },
         requestSwitch: requestWorkspaceSwitch,
-        confirmQuit: confirmDesktopQuit
+        confirmQuit: confirmDesktopQuit,
+        openExternalUrl: (input) => externalUrlNavigation.respond(window, input)
       });
     },
     onReady: () => mainWindow?.hide(),
@@ -588,7 +688,9 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
       disposeWorkspaceIpc?.();
       disposeWorkspaceIpc = null;
       localAiRequestCoordinator?.cancelAll();
+      const closedWorkspace = workspaceWindow;
       workspaceWindow = null;
+      if (closedWorkspace) externalUrlNavigation.dispose(closedWorkspace);
       activeWorkspaceKind = null;
       activeRemoteProfileId = null;
       activeRemoteLeaveState = { dirty: false, activeAiRequests: 0, pendingMutations: 0, conflicts: 0, rejected: 0 };
@@ -749,7 +851,10 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
     }
     return true;
   };
-  mainWindow = createSelectorWindow(desktopRoot);
+  mainWindow = createSelectorWindow(desktopRoot, {
+    onExternalUrlRequest: (requestWindow, target) => externalUrlNavigation.request(requestWindow, target, SELECTOR_EXTERNAL_URL_REQUEST_CHANNEL),
+    onRendererRecoveryFailed: handleRendererRecoveryFailed
+  });
   mainWindow.on("close", (event) => {
     if (quitAfterLocalShutdown) return;
     event.preventDefault();
@@ -864,9 +969,12 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
     removeLocalAiModel: (modelId) => localAiProviderStore!.removeModel(modelId),
     testLocalAiProvider,
     requestQuit: requestDesktopQuitConfirmation,
-    confirmQuit: confirmDesktopQuit
+    confirmQuit: confirmDesktopQuit,
+    openExternalUrl: (input) => externalUrlNavigation.respond(mainWindow!, input)
   });
   mainWindow.once("closed", () => {
+    const closedWindow = mainWindow;
+    if (closedWindow) externalUrlNavigation.dispose(closedWindow);
     disposeSelectorIpc?.();
     disposeSelectorIpc = null;
     mainWindow = null;
@@ -875,24 +983,17 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
 
 registerDesktopScheme();
 app.enableSandbox();
+const startupIsolationError = developmentIsolationError({ env: process.env, packaged: app.isPackaged, runtimeGateRequested });
 
 if (handleSquirrelStartup()) {
   app.quit();
-} else if (!runtimeGateRequested && !localServerGateRequested && !app.requestSingleInstanceLock()) {
+} else if (startupIsolationError) {
+  process.stderr.write(`Desktop startup refused: ${startupIsolationError}\n`);
+  app.exit(1);
+} else if (!requestDesktopSingleInstanceLock()) {
   app.quit();
 } else {
-  if (!runtimeGateRequested) {
-    try {
-      desktopEnvironment = initializeDesktopEnvironment();
-      desktopProcessLogging = installDesktopProcessLogging(desktopEnvironment.paths.logs);
-      desktopSettingsStore = new DesktopSettingsStore(desktopEnvironment.paths.desktopSettings);
-      void desktopProcessLogging.logger.setTotalMaxBytes(desktopLogStorageLimitBytes(desktopSettingsStore.get().logStorageLimitMiB));
-      process.stderr.write("Desktop file logging initialized\n");
-      remoteMediaCache = new RemoteMediaCache(desktopEnvironment.paths.remoteMedia);
-    } catch (error) {
-      desktopStartupError = error;
-    }
-  }
+  initializeDesktopRuntime();
   app.on("second-instance", () => {
     showDesktopWindow();
   });

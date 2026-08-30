@@ -19,6 +19,7 @@ describe("Selector app 协议资源", () => {
       contentType: "text/html; charset=utf-8"
     });
     expect(resolveSelectorAsset("app://desktop/local-ai/ai-provider-config-view.js", "/trusted/renderer")?.contentType).toBe("text/javascript; charset=utf-8");
+    expect(resolveSelectorAsset("app://desktop/external-url-prompt.js", "/trusted/renderer")?.contentType).toBe("text/javascript; charset=utf-8");
     expect(resolveSelectorAsset("app://evil/selector/index.html", "/trusted/renderer")).toBeNull();
     expect(resolveSelectorAsset("app://desktop/selector/index.html?path=/secret", "/trusted/renderer")).toBeNull();
     expect(resolveSelectorAsset("app://desktop/package.json", "/trusted/renderer")).toBeNull();

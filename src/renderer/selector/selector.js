@@ -1,3 +1,5 @@
+import { installExternalUrlPrompt } from "../external-url-prompt.js";
+
 const bridge = window.scriverseDesktop;
 const workspaceList = document.querySelector("#workspace-list");
 const profileSummary = document.querySelector("#profile-summary");
@@ -138,6 +140,8 @@ function showToast(message, isError = false) {
   }, 4_200);
 }
 
+installExternalUrlPrompt({ bridge: bridge?.external, toast, notify: showToast });
+
 function closeQuitConfirmation() {
   window.clearTimeout(state.toastTimer);
   state.quitConfirmationOpen = false;
@@ -257,7 +261,10 @@ function renderProfile(profile) {
     ...(profile.kind === "local" && state.desktopSettings
       ? [detail("本地端口", String(state.desktopSettings.localServerPort))]
       : []),
-    ...(profile.kind === "remote" ? [detail("离线状态", offlineStatusLabel(profile))] : [])
+    ...(profile.kind === "remote" ? [
+      detail("Server 版本", profile.capabilities?.serverVersion ?? "未检测"),
+      detail("离线状态", offlineStatusLabel(profile))
+    ] : [])
   );
 
   const actions = element("div", "card-actions");

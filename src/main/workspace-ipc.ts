@@ -30,6 +30,7 @@ const workspaceChannels = [
   "workspace:shell:confirm-quit",
   "workspace:shell:cache-work-cover",
   "workspace:shell:cache-work-images",
+  "workspace:shell:open-external-url",
   "workspace:local-ai:catalog",
   "workspace:local-ai:complete",
   "workspace:local-ai:cancel",
@@ -120,6 +121,7 @@ export function registerWorkspaceIpc(workspaceWindow: BrowserWindow, profile: Re
   cancelLocalAiAgentRound: (userId: string, requestId: string) => boolean;
   cacheWorkCover: (userId: string, workId: string) => Promise<boolean>;
   cacheWorkImages: (userId: string, workId: string) => Promise<unknown>;
+  openExternalUrl: (input: unknown) => Promise<null>;
   reportLeaveState: (state: WorkspaceLeaveState) => void;
   requestSwitch: () => Promise<void> | void;
   confirmQuit: () => void;
@@ -154,6 +156,9 @@ export function registerWorkspaceIpc(workspaceWindow: BrowserWindow, profile: Re
   ));
   handle("workspace:shell:cache-work-images", workspaceWindow, profile, options.activeProfileId, (input) => (
     options.cacheWorkImages(activeUserId(), parseWorkMediaInput(input))
+  ));
+  handle("workspace:shell:open-external-url", workspaceWindow, profile, options.activeProfileId, (input) => (
+    options.openExternalUrl(input)
   ));
   handle("workspace:local-ai:catalog", workspaceWindow, profile, options.activeProfileId, () => {
     return options.getLocalAiCatalog(activeUserId());

@@ -1,10 +1,14 @@
-import { BrowserWindow } from "electron";
+import { BrowserWindow, type RenderProcessGoneDetails } from "electron";
 import { join } from "node:path";
 import { DESKTOP_DISPLAY_NAME } from "../shared/branding.js";
 import { LOCAL_AI_CONFIG_ENTRY_URL, SELECTOR_ENTRY_URL } from "../shared/selector-contract.js";
 import { captureRendererConsole } from "./renderer-console-logging.js";
+import { installRendererRecovery } from "./renderer-recovery.js";
 
-export function createSelectorWindow(desktopRoot: string): BrowserWindow {
+export function createSelectorWindow(desktopRoot: string, options: {
+  onExternalUrlRequest: (window: BrowserWindow, target: string) => boolean;
+  onRendererRecoveryFailed?: (window: BrowserWindow, details: RenderProcessGoneDetails) => void;
+}): BrowserWindow {
   const window = new BrowserWindow({
     width: 1_100,
     height: 760,
@@ -26,21 +30,28 @@ export function createSelectorWindow(desktopRoot: string): BrowserWindow {
     }
   });
   captureRendererConsole(window.webContents, "selector");
+  installRendererRecovery(window, "Selector", {
+    onExhausted: (details) => options.onRendererRecoveryFailed?.(window, details)
+  });
   const selectorSession = window.webContents.session;
   selectorSession.setPermissionCheckHandler(() => false);
   selectorSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
-  window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  window.webContents.setWindowOpenHandler((details) => {
+    options.onExternalUrlRequest(window, details.url);
+    return { action: "deny" };
+  });
   window.webContents.on("will-navigate", (event, url) => {
-    if (url !== SELECTOR_ENTRY_URL && url !== LOCAL_AI_CONFIG_ENTRY_URL) event.preventDefault();
+    if (url === SELECTOR_ENTRY_URL || url === LOCAL_AI_CONFIG_ENTRY_URL) return;
+    event.preventDefault();
+    options.onExternalUrlRequest(window, url);
   });
   window.webContents.on("will-redirect", (event, url) => {
-    if (url !== SELECTOR_ENTRY_URL && url !== LOCAL_AI_CONFIG_ENTRY_URL) event.preventDefault();
+    if (url === SELECTOR_ENTRY_URL || url === LOCAL_AI_CONFIG_ENTRY_URL) return;
+    event.preventDefault();
+    options.onExternalUrlRequest(window, url);
   });
   window.webContents.on("did-fail-load", (_event, errorCode, errorDescription) => {
     process.stderr.write(`Selector load failed (${errorCode}): ${errorDescription}\n`);
-  });
-  window.webContents.on("render-process-gone", (_event, details) => {
-    process.stderr.write(`Selector renderer stopped: ${details.reason}\n`);
   });
   window.webContents.on("did-finish-load", () => {
     process.stderr.write("Selector renderer finished loading\n");

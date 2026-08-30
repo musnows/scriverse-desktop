@@ -37,6 +37,8 @@ describe("Desktop 远端工作区窗口", () => {
     expect(windowSource).not.toContain("executeJavaScript");
     expect(windowSource).not.toContain("serviceWorkers.startWorkerForScope");
     expect(windowSource).not.toContain("clearStorageData");
+    expect(windowSource).toContain("onExternalUrlRequest(window, details.url)");
+    expect(windowSource).toContain("onExternalUrlRequest(window, target)");
   });
 
   it("远端认证只注入 Bearer 并剥离双向 Cookie", () => {
@@ -50,5 +52,17 @@ describe("Desktop 远端工作区窗口", () => {
     expect(windowSource).toContain("await window.loadURL(shellUrl)");
     expect(windowSource).toContain("...(options.placement?.bounds ?? {})");
     expect(windowSource.indexOf("window.show();")).toBeLessThan(windowSource.indexOf("options.onReady();"));
+  });
+
+  it("Renderer 异常退出时自动重载并把连续失败交给 Main", () => {
+    expect(windowSource).toContain("installRendererRecovery(window");
+    expect(windowSource).toContain("onRendererRecoveryFailed?.(window, details)");
+    expect(windowSource).not.toContain('window.webContents.on("render-process-gone"');
+  });
+
+  it("只拦截顶层外链导航，不拦截图片等资源请求", () => {
+    expect(windowSource).toContain('setWindowOpenHandler((details) =>');
+    expect(windowSource).not.toContain("webRequest.onBeforeRequest");
+    expect(windowSource).toContain('action: "deny"');
   });
 });

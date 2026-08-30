@@ -151,6 +151,11 @@ input[type="checkbox"]:checked::before { transform: translateY(-1px) rotate(-45d
 
 .toast { max-width: 360px; padding: 11px 15px; border: 1px solid color-mix(in srgb, var(--toast-fg) 12%, transparent); border-radius: 6px; background: var(--toast-bg); color: var(--toast-fg); box-shadow: var(--shadow); font-size: 12px; line-height: 1.55; }
 .toast.error { background: var(--toast-error-bg); color: var(--toast-fg); }
+.toast.external-url-confirmation { display: grid; gap: 8px; width: min(360px, calc(100vw - 32px)); color: var(--toast-fg); white-space: pre-line; }
+.toast.external-url-confirmation strong { font-size: 12px; }
+.toast.external-url-confirmation p { margin: 0; color: color-mix(in srgb, var(--toast-fg) 72%, transparent); font-size: 11px; line-height: 1.55; }
+.toast.external-url-confirmation .toast-confirmation-actions { display: flex; justify-content: flex-end; gap: 7px; }
+.toast.external-url-confirmation .toast-confirmation-actions button { min-height: 30px; padding: 6px 10px; }
 
 @media (max-width: 760px) {
   .module-view { padding: 24px 16px; }

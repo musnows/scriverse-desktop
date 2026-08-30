@@ -19,6 +19,9 @@ describe("Desktop 退出二次确认", () => {
     expect(main).toContain('"workspace:shell:menu-command", "request-quit"');
     expect(main).toContain('"selector:app:request-quit"');
     expect(main).toContain("if (!desktopQuitConfirmed)");
+    expect(main).toContain("contents.isDestroyed() || contents.isCrashed()");
+    expect(main).toContain("requestNativeQuitConfirmation(target)");
+    expect(main).toContain("页面进程已经停止，无法显示页面内退出确认");
   });
 
   it("只允许确认 Toast 通过具名 IPC 执行最终退出", () => {

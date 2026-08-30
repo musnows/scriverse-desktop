@@ -1,3 +1,4 @@
+import { installExternalUrlPrompt } from "../external-url-prompt.js";
 import { renderAiProviderConfigurationCards } from "./ai-provider-config-view.js";
 import { MODEL_PURPOSE_OPTIONS, MODEL_THINKING_EFFORT_OPTIONS, modelFormValues } from "./model-config.js";
 
@@ -72,6 +73,8 @@ function showToast(message, error = false) {
   toast.hidden = false;
   state.toastTimer = window.setTimeout(() => { toast.hidden = true; }, 4_200);
 }
+
+installExternalUrlPrompt({ bridge: window.scriverseDesktop?.external, toast, notify: showToast });
 
 function setBusy(button, busy, busyLabel = "处理中") {
   if (!(button instanceof HTMLButtonElement)) return;

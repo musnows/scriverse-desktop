@@ -68,6 +68,7 @@ const channels = [
   "selector:local-ai:update-model",
   "selector:local-ai:remove-model",
   "selector:local-ai:test-provider",
+  "selector:local-ai:test-model",
   "selector:app:get-version",
   "selector:app:get-platform",
   "selector:app:request-quit",
@@ -169,6 +170,7 @@ export function registerSelectorIpc(selectorWindow: BrowserWindow, profileStore:
   updateLocalAiModel: (input: LocalAiModelUpdateInput) => unknown;
   removeLocalAiModel: (modelId: string) => string;
   testLocalAiProvider: (providerId: string) => Promise<unknown>;
+  testLocalAiModel: (modelId: string) => Promise<unknown>;
   requestQuit: () => void;
   confirmQuit: () => void;
   openExternalUrl: (input: unknown) => Promise<null>;
@@ -275,6 +277,9 @@ export function registerSelectorIpc(selectorWindow: BrowserWindow, profileStore:
   }, LOCAL_AI_CONFIG_ENTRY_URL);
   handle("selector:local-ai:test-provider", selectorWindow, (_event, input) => {
     return options.testLocalAiProvider(parseRemoveLocalAiProviderInput(input).providerId);
+  }, LOCAL_AI_CONFIG_ENTRY_URL);
+  handle("selector:local-ai:test-model", selectorWindow, (_event, input) => {
+    return options.testLocalAiModel(parseRemoveLocalAiModelInput(input).modelId);
   }, LOCAL_AI_CONFIG_ENTRY_URL);
   handle("selector:app:get-version", selectorWindow, () => options.desktopVersion);
   handle("selector:app:get-platform", selectorWindow, () => process.platform);

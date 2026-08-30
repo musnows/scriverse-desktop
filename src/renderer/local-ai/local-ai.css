@@ -10,7 +10,22 @@ body { background: var(--paper); }
 .local-ai-purpose-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; padding: 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface-soft); }
 .local-ai-purpose-options label { display: flex; align-items: center; gap: 7px; color: var(--ink); }
 .local-ai-purpose-options input { flex: 0 0 auto; width: 16px; }
+.model-kind-fields { gap: 9px; padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-soft); }
+.model-kind-fields .model-capability-option { display: grid; grid-template-columns: 16px minmax(0, 1fr); align-items: start; gap: 9px; margin: 0; padding: 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); color: var(--ink); }
+.model-capability-option > input { width: 16px !important; min-width: 16px; margin-top: 2px; }
+.model-capability-option > span { display: grid; gap: 4px; min-width: 0; }
+.model-capability-option strong { color: var(--ink); font-size: 11px; font-weight: 600; }
+.model-capability-option small { color: var(--muted); font-size: 9px; line-height: 1.5; }
+.model-capability-option:has(input:checked) { border-color: color-mix(in srgb, var(--accent) 62%, var(--line)); background: color-mix(in srgb, var(--accent) 7%, var(--surface)); }
+[data-chat-model-fields] { display: grid; gap: 14px; }
+.model-connection-test { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface-soft); }
+.model-connection-test div { display: grid; gap: 4px; }
+.model-connection-test strong { color: var(--ink); font-size: 11px; }
+.model-connection-test p { margin: 0; color: var(--muted); font-size: 9px; line-height: 1.5; }
+.model-connection-test button { flex: 0 0 auto; }
 @media (max-width: 760px) {
   .local-ai-purpose-options { grid-template-columns: minmax(0, 1fr); }
+  .model-connection-test { align-items: stretch; flex-direction: column; }
+  .model-connection-test button { align-self: flex-start; }
   #local-ai-toast { right: 16px; bottom: 16px; left: 16px; max-width: none; }
 }

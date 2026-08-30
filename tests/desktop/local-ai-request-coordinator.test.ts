@@ -42,6 +42,7 @@ function configuredStore(): { store: LocalAiProviderStore; modelId: string } {
     providerId: provider.id,
     displayName: "Desktop Local Model",
     modelId: "desktop-local-model",
+    modelKind: "chat",
     purposes: ["chat"],
     contextNote: "",
     contextWindow: 128_000,

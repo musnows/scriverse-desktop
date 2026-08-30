@@ -91,6 +91,10 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain("desktopProviderCompletedToolCalls(completion?.body, emittedToolCallIds)");
     expect(overlayPatch).toContain('onProviderEvent({ type: "tool-call", toolCall }, Math.max(1, generationRound))');
     expect(overlayPatch).toContain('emit("tool_call", { ...event.toolCall, round })');
+    expect(overlayPatch).toContain('taskType: "chat"');
+    expect(overlayPatch).toContain("messageId: completed.conversationMessage?.id");
+    expect(overlayPatch).toContain('writingSuggestion: ["continue", "polish"].includes(completed.taskType) ? completed : null');
+    expect(overlayPatch).not.toContain('if (taskType !== "chat" || desktopProviderModel)');
     expect(overlayPatch).toContain("async function streamChat(requestHolder, body, idempotencyKey, responseFactory = null)");
     expect(overlayPatch).toContain('eventName === "replace"');
     expect(overlayPatch).toContain("createDesktopProviderPendingMessage(tab)");

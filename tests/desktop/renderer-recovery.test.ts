@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { RendererRecoveryTracker } from "../../src/main/renderer-recovery.js";
 
@@ -24,5 +26,13 @@ describe("Desktop Renderer 恢复策略", () => {
 
     expect(tracker.failure("clean-exit")).toBe("ignore");
     expect(tracker.failure("killed")).toBe("ignore");
+  });
+
+  it("记录最后一次页内路由并在恢复时重新加载", () => {
+    const source = readFileSync(join(process.cwd(), "src/main/renderer-recovery.ts"), "utf8");
+
+    expect(source).toContain('contents.on("did-navigate-in-page", handleNavigation)');
+    expect(source).toContain("void contents.loadURL(lastKnownUrl)");
+    expect(source.indexOf("contents.loadURL(lastKnownUrl)")).toBeLessThan(source.indexOf("contents.reloadIgnoringCache()"));
   });
 });

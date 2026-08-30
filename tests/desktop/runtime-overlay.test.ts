@@ -174,6 +174,10 @@ describe("Desktop Web runtime overlay", () => {
 
     expect(overlayPatch).toContain("feature=admin-account-identity-v2");
     expect(overlayPatch).toContain("feature=presence-multiple-users-v1");
+    expect(overlayPatch).toContain("feature=ai-settings-textarea-font-v1");
+    expect(overlayPatch).toContain("feature=ai-usage-year-v1");
+    expect(overlayPatch).toContain("feature=semantic-search-rag-label-v1");
+    expect(overlayPatch).toContain("feature=ai-skill-slash-menu-v1");
     expect(overlayPatch.match(/feature=task-detail-failure-orange-v1/g)).toHaveLength(4);
     expect(overlayPatch).not.toContain('-          <button id="account-button"');
     expect(overlayPatch).not.toContain("-  const isSystemAdmin = session.user.isSystemAdmin === true;");

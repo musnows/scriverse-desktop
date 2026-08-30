@@ -137,6 +137,18 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain("feature=desktop-route-ready-cover-v1");
   });
 
+  it("releases relationship renderers when leaving the module", () => {
+    const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
+
+    expect(overlayPatch).toContain("function disposeRelationshipRenderers({ invalidateRequest = true } = {})");
+    expect(overlayPatch).toContain("state.relationshipMindMap = null;");
+    expect(overlayPatch).toContain("state.relationshipExpandedMap = null;");
+    expect(overlayPatch).toContain("state.relationshipGraph = null;");
+    expect(overlayPatch).toContain("requestId !== relationshipRenderRequestId");
+    expect(overlayPatch).toContain('state.module !== "relationships"');
+    expect(overlayPatch).toContain("if (state.module !== module) return;");
+  });
+
   it("shows remote offline download progress in the top bar and opens sync details", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 

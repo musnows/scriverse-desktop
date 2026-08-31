@@ -65,4 +65,19 @@ describe("Desktop 工作区最小 bridge", () => {
     expect(ipcSource).toContain('workspace:shell:open-external-url');
     expect(localIpcSource).toContain('local-workspace:shell:open-external-url');
   });
+
+  it("按平台把正文编辑器保存快捷键映射到保存按钮", () => {
+    for (const source of [preloadSource, localPreloadSource]) {
+      expect(source).toContain("function installEditorSaveShortcut(): void");
+      expect(source).toContain('process.platform === "darwin"');
+      expect(source).toContain("event.metaKey && !event.ctrlKey");
+      expect(source).toContain("event.ctrlKey && !event.metaKey");
+      expect(source).toContain('document.querySelector("#editor-view")');
+      expect(source).toContain('document.querySelector("#save-button")');
+      expect(source).toContain('editor.classList.contains("is-read-only")');
+      expect(source).toContain("event.preventDefault()");
+      expect(source).toContain("event.stopImmediatePropagation()");
+      expect(source).toContain("saveButton.click()");
+    }
+  });
 });

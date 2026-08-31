@@ -4,6 +4,29 @@ const aiStreamChannel = "local-workspace:local-ai:stream-event";
 const menuCommands = new Set(["request-quit"]);
 const externalUrlRequestChannel = "local-workspace:shell:external-url-request";
 
+function installEditorSaveShortcut(): void {
+  document.addEventListener("keydown", (event) => {
+    if (String(event.key).toLowerCase() !== "s" || event.altKey || event.shiftKey) return;
+    const primaryModifier = process.platform === "darwin"
+      ? event.metaKey && !event.ctrlKey
+      : event.ctrlKey && !event.metaKey;
+    if (!primaryModifier) return;
+    const editor = document.querySelector("#editor-view");
+    const saveButton = document.querySelector("#save-button");
+    if (!(editor instanceof HTMLElement)
+      || editor.classList.contains("hidden")
+      || editor.classList.contains("is-read-only")
+      || !(saveButton instanceof HTMLButtonElement)
+      || saveButton.disabled) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (event.repeat) return;
+    saveButton.click();
+  }, { capture: true });
+}
+
+installEditorSaveShortcut();
+
 function invokeAiWithStream(channel: string, input: unknown, listener?: (event: unknown) => void): Promise<unknown> {
   const requestId = input && typeof input === "object" && "requestId" in input && typeof input.requestId === "string"
     ? input.requestId

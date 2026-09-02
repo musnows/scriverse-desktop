@@ -15,8 +15,8 @@
   --toast-bg: #25231f;
   --toast-fg: #fffefa;
   --toast-error-bg: #6e2e21;
-  --font-latin: "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono";
-  --font-cjk: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Heiti SC";
+  --font-latin: "JetBrains Mono Variable";
+  --font-cjk: "Noto Sans SC Variable";
   font-family: var(--font-latin), var(--font-cjk), monospace, sans-serif;
   font-size: 14px;
   line-height: 1.5;

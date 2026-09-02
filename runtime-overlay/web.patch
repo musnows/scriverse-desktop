@@ -1,5 +1,5 @@
 diff --git a/public/app.js b/public/app.js
-index cc3a6b8f5d3f5a870a3e070b525b03d0d0d0e609..9a8ae10035db50eb45e486cb0e62072424b43bb0 100644
+index cc3a6b8f5d3f5a870a3e070b525b03d0d0d0e609..e441c794128907b540fe94379b13a33f25de592c 100644
 --- a/public/app.js
 +++ b/public/app.js
 @@ -27,6 +27,7 @@ import {
@@ -472,6 +472,28 @@ index cc3a6b8f5d3f5a870a3e070b525b03d0d0d0e609..9a8ae10035db50eb45e486cb0e620724
  }
  
  function renderAiImageAttachments() {
+@@ -5411,16 +5736,10 @@
+ const typographyStorageKey = "ai-novel-typography-v1";
+-const typographyDefaults = Object.freeze({ cjkFont: "system", latinFont: "system", fontSize: 17, uiFontSize: 14, aiFontSize: 12, density: "balanced" });
++const typographyDefaults = Object.freeze({ cjkFont: "noto-sans", latinFont: "jetbrains-mono", fontSize: 17, uiFontSize: 14, aiFontSize: 12, density: "balanced" });
+ const cjkFontStacks = {
+-  system: '"PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Heiti SC"',
+-  pingfang: '"PingFang SC", "Heiti SC", "Microsoft YaHei", "Noto Sans CJK SC"',
+-  heiti: '"Heiti SC", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC"',
+-  yahei: '"Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Heiti SC"',
+-  "noto-sans": '"Noto Sans CJK SC", "Source Han Sans SC", "PingFang SC", "Microsoft YaHei"'
++  "noto-sans": '"Noto Sans SC Variable"',
++  "noto-serif": '"Noto Serif SC Variable"'
+ };
+ const latinFontStacks = {
+-  system: '"SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono"',
+-  "sf-mono": '"SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono"',
+-  menlo: 'Menlo, Monaco, Consolas, "Liberation Mono", "SFMono-Regular"',
+-  monaco: 'Monaco, Menlo, Consolas, "Liberation Mono", "SFMono-Regular"',
+-  consolas: 'Consolas, "Liberation Mono", Menlo, Monaco, "SFMono-Regular"'
++  "jetbrains-mono": '"JetBrains Mono Variable"',
++  "source-code-pro": '"Source Code Pro Variable"'
+ };
 @@ -5621,6 +5946,17 @@ function attachOptimisticVersion(path, method, body) {
  async function api(path, options = {}) {
    const method = String(options.method ?? "GET").toUpperCase();
@@ -1969,15 +1991,16 @@ index cc3a6b8f5d3f5a870a3e070b525b03d0d0d0e609..9a8ae10035db50eb45e486cb0e620724
    if ($("#reader-view").classList.contains("hidden") || readingPreferences.mode !== "paged") return;
    if (readingResizeFrame !== null) window.cancelAnimationFrame(readingResizeFrame);
 diff --git a/public/index.html b/public/index.html
-index e3fbc0ef1a0d66216612952ac2e90cebb3264bbc..2be00008736cc2fbbd6153923fb125f5788c32ac 100644
+index e3fbc0ef1a0d66216612952ac2e90cebb3264bbc..6742987d8933f97b044955df9394a66d35f7f703 100644
 --- a/public/index.html
 +++ b/public/index.html
-@@ -9,7 +9,7 @@
+@@ -9,7 +9,8 @@
      <script src="/theme-init.js?v=20260827-reader-prefetch-v1"></script>
      <link rel="icon" href="/icon.svg?v=20260712" type="image/svg+xml">
      <link rel="manifest" href="/site.webmanifest">
 -    <link rel="stylesheet" href="/styles.css?v=20260816-task-scope-volume-collapse-v2&feature=ai-tool-call-copy-feedback-v2&feature=ai-send-control-v3&feature=character-gender-v1&feature=character-filter-state-v1&feature=relationship-canvas-scale-v1&feature=relationship-table-scroll-v1&feature=galaxy-compact-controls-v2&feature=galaxy-motion-mode-v2&feature=chapter-search-replace-v3&feature=task-auto-run-ring-center-v3&feature=character-relationship-delete-v1&feature=ai-assistant-workspace-v2&feature=mobile-module-tab-position-v1&feature=volume-detail-icon-v1&feature=editor-actions-flow-v1&feature=reader-controls-subpanel-v1&feature=reader-focus-ring-v1&feature=ai-message-actions-v1&feature=assistant-responsive-navigation-v2&feature=ai-composer-square-controls-v2&feature=annotation-line-counts-v1&feature=chapter-comment-filters-v1&feature=line-number-gutter-fill-v1&feature=ai-relationship-roleplay-v1&feature=ai-model-picker-v1&feature=markdown-word-count-five-digit-v2&feature=ai-stream-character-count-stable-v1&feature=ai-stream-character-count-five-digit-v1&feature=annotation-marker-offset-v1&feature=mobile-ai-entry-hidden-v1&feature=phone-client-entry-v1&feature=ai-stream-idle-timeout-v1&feature=ai-user-message-width-v2&feature=ai-chat-image-attachments-v9&feature=ai-message-image-preview-v1&feature=ai-thinking-scroll-v2&feature=toast-click-dismiss-v3&feature=character-avatar-v6&feature=admin-ai-conversations-v1&feature=ai-usage-pricing-v1&feature=ai-usage-pricing-badge-v2&feature=ai-token-quota-positive-v5&feature=ai-token-usage-details-v1&feature=ai-token-usage-details-centered-v1&feature=ai-stream-connection-seconds-v1&feature=ai-token-usage-estimated-price-v1&feature=record-favorites-v1&feature=entity-detail-favorites-v1&feature=entity-pin-v1&feature=character-persona-summary-v1&feature=ai-roleplay-scene-turn-v1&feature=admin-account-identity-v2&feature=task-detail-failure-orange-v1&feature=character-card-header-alignment-v6&feature=character-card-title-fit-v2&feature=book-import-progress-v1&feature=editor-toolbar-compact-v2&feature=reader-first-frame-v1&feature=auth-compact-v2&feature=editor-preview-toggle-v2&feature=setting-title-chrome-v2&feature=entity-pin-icon-center-v1&feature=chapter-center-bottom-space-v1&feature=work-editor-preferences-v1&feature=work-editor-preference-checkbox-v1&feature=ai-roleplay-memory-v2&feature=ai-roleplay-memory-v3&feature=ai-roleplay-memory-v5&feature=character-editor-header-actions-v1&feature=roleplay-memory-header-actions-v1&feature=roleplay-memory-header-toolbar-v1&feature=roleplay-memory-action-icons-v1&feature=roleplay-memory-action-colors-v1&feature=roleplay-memory-pin-border-v1&feature=ai-write-tools-v2&feature=ai-write-card-actions-compact-v1&feature=ai-write-plan-actions-footer-v1&feature=ai-question-actions-footer-v1&feature=ai-question-selection-highlight-v1&feature=ai-question-submit-guidance-v1&feature=ai-question-answer-limit-v1&feature=semantic-search-v6&feature=chapter-title-renumber-v1&feature=ai-writing-skills-v1&feature=remote-mcp-v1&feature=character-alias-chips-v2&feature=character-title-input-v1&feature=character-detail-value-wrap-v2&feature=ai-settings-textarea-font-v1&feature=ai-usage-stat-display-v1&feature=ai-usage-year-v1&feature=ai-skill-slash-menu-v1">
 +    <link rel="stylesheet" href="/styles.css?v=20260816-task-scope-volume-collapse-v2&feature=ai-tool-call-copy-feedback-v2&feature=ai-send-control-v3&feature=character-gender-v1&feature=character-filter-state-v1&feature=relationship-canvas-scale-v1&feature=relationship-table-scroll-v1&feature=galaxy-compact-controls-v2&feature=galaxy-motion-mode-v2&feature=chapter-search-replace-v3&feature=task-auto-run-ring-center-v3&feature=character-relationship-delete-v1&feature=ai-assistant-workspace-v2&feature=mobile-module-tab-position-v1&feature=volume-detail-icon-v1&feature=editor-actions-flow-v1&feature=reader-controls-subpanel-v1&feature=reader-focus-ring-v1&feature=ai-message-actions-v1&feature=assistant-responsive-navigation-v2&feature=ai-composer-square-controls-v2&feature=annotation-line-counts-v1&feature=chapter-comment-filters-v1&feature=line-number-gutter-fill-v1&feature=ai-relationship-roleplay-v1&feature=ai-model-picker-v1&feature=markdown-word-count-five-digit-v2&feature=ai-stream-character-count-stable-v1&feature=ai-stream-character-count-five-digit-v1&feature=annotation-marker-offset-v1&feature=mobile-ai-entry-hidden-v1&feature=phone-client-entry-v1&feature=ai-stream-idle-timeout-v1&feature=ai-user-message-width-v2&feature=ai-chat-image-attachments-v9&feature=ai-message-image-preview-v1&feature=ai-thinking-scroll-v2&feature=toast-click-dismiss-v3&feature=character-avatar-v6&feature=admin-ai-conversations-v1&feature=ai-usage-pricing-v1&feature=ai-usage-pricing-badge-v2&feature=ai-token-quota-positive-v5&feature=ai-token-usage-details-v1&feature=ai-token-usage-details-centered-v1&feature=ai-stream-connection-seconds-v1&feature=ai-token-usage-estimated-price-v1&feature=record-favorites-v1&feature=entity-detail-favorites-v1&feature=entity-pin-v1&feature=character-persona-summary-v1&feature=ai-roleplay-scene-turn-v1&feature=admin-account-identity-v2&feature=task-detail-failure-orange-v1&feature=character-card-header-alignment-v6&feature=character-card-title-fit-v2&feature=book-import-progress-v1&feature=editor-toolbar-compact-v2&feature=reader-first-frame-v1&feature=auth-compact-v2&feature=editor-preview-toggle-v2&feature=setting-title-chrome-v2&feature=entity-pin-icon-center-v1&feature=chapter-center-bottom-space-v1&feature=work-editor-preferences-v1&feature=work-editor-preference-checkbox-v1&feature=ai-roleplay-memory-v2&feature=ai-roleplay-memory-v3&feature=ai-roleplay-memory-v5&feature=character-editor-header-actions-v1&feature=roleplay-memory-header-actions-v1&feature=roleplay-memory-header-toolbar-v1&feature=roleplay-memory-action-icons-v1&feature=roleplay-memory-action-colors-v1&feature=roleplay-memory-pin-border-v1&feature=ai-write-tools-v2&feature=ai-write-card-actions-compact-v1&feature=ai-write-plan-actions-footer-v1&feature=ai-question-actions-footer-v1&feature=ai-question-selection-highlight-v1&feature=ai-question-submit-guidance-v1&feature=ai-question-answer-limit-v1&feature=semantic-search-v6&feature=chapter-title-renumber-v1&feature=ai-writing-skills-v1&feature=remote-mcp-v1&feature=character-alias-chips-v2&feature=character-title-input-v1&feature=character-detail-value-wrap-v2&feature=ai-settings-textarea-font-v1&feature=ai-usage-stat-display-v1&feature=ai-usage-year-v1&feature=ai-skill-slash-menu-v1&feature=desktop-same-workspace-v1&feature=shelf-compact-scale-v1&feature=shelf-mobile-settings-v1&feature=desktop-local-ai-shared-ui-v1&feature=desktop-local-ai-workspace-v1&feature=desktop-local-ai-offline-v1&feature=desktop-local-model-badge-only-v1&feature=desktop-sync-status-v1&feature=desktop-sync-icon-only-v1&feature=desktop-quit-confirmation-v1">
++    <link rel="stylesheet" href="/desktop-fonts.css?v=20260902-desktop-embedded-fonts-v1">
    </head>
    <body class="auth-pending">
      <section id="auth-view" class="auth-view hidden" aria-labelledby="auth-title">
@@ -2014,6 +2037,29 @@ index e3fbc0ef1a0d66216612952ac2e90cebb3264bbc..2be00008736cc2fbbd6153923fb125f5
              <button id="collaboration-button" class="settings-hub-card" type="button"><span class="settings-card-mark">协</span><strong>作品协作</strong><small>邀请注册用户共同编辑当前作品</small></button>
              <button id="writing-progress-button" class="settings-hub-card" type="button"><span class="settings-card-mark">字</span><strong>写作目标</strong><small>每日目标、总字数目标与近 30 天趋势</small></button>
              <button id="work-audit-button" class="settings-hub-card" type="button"><span class="settings-card-mark">录</span><strong>操作记录</strong><small>查看作品修改、操作者、对象与时间</small></button>
+@@ -831,18 +839,10 @@
+           <label>中文字体
+             <select id="appearance-cjk-font" name="cjkFont">
+-              <option value="system">系统黑体</option>
+-              <option value="pingfang">苹方</option>
+-              <option value="heiti">黑体</option>
+-              <option value="yahei">微软雅黑</option>
+-              <option value="noto-sans">思源黑体</option>
++              <option value="noto-sans">Noto Sans SC（内置）</option>
++              <option value="noto-serif">Noto Serif SC（内置）</option>
+             </select>
+           </label>
+           <label>英文字体（仅等宽）
+             <select id="appearance-latin-font" name="latinFont">
+-              <option value="system">系统等宽</option>
+-              <option value="sf-mono">SF Mono</option>
+-              <option value="menlo">Menlo</option>
+-              <option value="monaco">Monaco</option>
+-              <option value="consolas">Consolas</option>
++              <option value="jetbrains-mono">JetBrains Mono（内置）</option>
++              <option value="source-code-pro">Source Code Pro（内置）</option>
+             </select>
+           </label>
 @@ -1322,6 +1330,22 @@
      </dialog>
  

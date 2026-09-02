@@ -7,6 +7,8 @@ const target = join(root, "dist");
 const overlayRoot = join(root, "runtime-overlay");
 const overlayPublic = join(overlayRoot, "public");
 const overlayPatch = join(overlayRoot, "web.patch");
+const bundledFontRoot = join(root, "assets", "fonts");
+const bundledFontStylesheet = join(root, "assets", "desktop-fonts.css");
 const configuredRuntime = process.env.SCRIVERSE_RUNTIME_DIR?.trim();
 const configuredSource = process.env.SCRIVERSE_SOURCE_DIR?.trim();
 const source = configuredRuntime
@@ -31,6 +33,9 @@ for (const file of requiredFiles) {
 
 if (!existsSync(overlayPatch) || !existsSync(join(overlayPublic, "desktop-workspace.js"))) {
   throw new Error("Scriverse Desktop Web overlay is incomplete");
+}
+if (!existsSync(bundledFontRoot) || !existsSync(bundledFontStylesheet)) {
+  throw new Error("Scriverse Desktop embedded font assets are missing");
 }
 
 if (!existsSync(target) || realpathSync(source) !== realpathSync(target)) {
@@ -57,6 +62,8 @@ if (overlayCheck.status === 0) {
 }
 
 cpSync(overlayPublic, join(target, "public"), { recursive: true, force: true });
+cpSync(bundledFontRoot, join(target, "public", "fonts"), { recursive: true, force: true });
+cpSync(bundledFontStylesheet, join(target, "public", "desktop-fonts.css"), { force: true });
 for (const file of ["desktop-workspace.js", "desktop-sync-client.js", "desktop-local-ai-offline.js", "desktop-local-ai-catalog.js", "desktop-local-ai-stream.js", "latest-async-queue.js"]) {
   if (!existsSync(join(target, "public", file))) throw new Error(`Desktop Web overlay output is missing: ${file}`);
 }

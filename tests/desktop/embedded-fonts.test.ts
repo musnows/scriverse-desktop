@@ -4,10 +4,10 @@ import { describe, expect, it } from "vitest";
 import { resolveSelectorAsset } from "../../src/shared/selector-assets.js";
 
 const fontPackages = [
-  ["noto-sans-sc", "Noto Sans SC Variable"],
-  ["noto-serif-sc", "Noto Serif SC Variable"],
-  ["jetbrains-mono", "JetBrains Mono Variable"],
-  ["source-code-pro", "Source Code Pro Variable"]
+  ["noto-sans-sc", "Noto Sans SC Variable", "NotoSansSC-VF.ttf"],
+  ["noto-serif-sc", "Noto Serif SC Variable", "NotoSerifSC-VF.ttf"],
+  ["jetbrains-mono", "JetBrains Mono Variable", "JetBrainsMono-wght.ttf"],
+  ["source-code-pro", "Source Code Pro Variable", "SourceCodePro-Regular.ttf"]
 ] as const;
 
 describe("Desktop embedded fonts", () => {
@@ -15,13 +15,15 @@ describe("Desktop embedded fonts", () => {
     const root = join(process.cwd(), "assets", "fonts");
     const stylesheet = readFileSync(join(process.cwd(), "assets", "desktop-fonts.css"), "utf8");
 
-    for (const [directory, family] of fontPackages) {
+    for (const [directory, family, truetypeFile] of fontPackages) {
       const fontRoot = join(root, directory);
       const fontStylesheet = readFileSync(join(fontRoot, "wght.css"), "utf8");
       const fontFiles = readdirSync(join(fontRoot, "files")).filter((file) => file.endsWith(".woff2"));
 
       expect(stylesheet).toContain(`./fonts/${directory}/wght.css`);
+      expect(stylesheet).toContain(`./fonts/${directory}/${truetypeFile}`);
       expect(existsSync(join(fontRoot, "LICENSE"))).toBe(true);
+      expect(existsSync(join(fontRoot, truetypeFile))).toBe(true);
       expect(fontStylesheet).toContain(`font-family: '${family}'`);
       expect(fontFiles.length).toBeGreaterThan(0);
     }

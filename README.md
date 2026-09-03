@@ -95,7 +95,7 @@ Copyright (C) 2026 musnows
 
 <p align="center">
   <a href="https://linux.do">
-    <img src="showcase/public/linuxdo.png" alt="LINUX DO" width="420" />
+    <img src="https://raw.githubusercontent.com/musnows/scriverse/main/showcase/public/linuxdo.png" alt="LINUX DO" width="420" />
   </a>
 </p>
 <p align="center"><b>学AI，上L站！祝小破站越来越好～</b></p>

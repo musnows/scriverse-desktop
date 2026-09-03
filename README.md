@@ -88,3 +88,14 @@ Scriverse 的作品管理、正文编辑、设定库、时间线、人物关系�
 Copyright (C) 2026 musnows
 
 本项目采用 [GNU Affero General Public License v3.0 only](./LICENSE)（`AGPL-3.0-only`）授权。
+
+## 🌟 Special Thanks
+
+感谢开源项目 [Vditor](https://github.com/Vanessa219/vditor)，为叙界提供 Markdown 编辑器、即时渲染和分屏预览能力。
+
+<p align="center">
+  <a href="https://linux.do">
+    <img src="showcase/public/linuxdo.png" alt="LINUX DO" width="420" />
+  </a>
+</p>
+<p align="center"><b>学AI，上L站！祝小破站越来越好～</b></p>

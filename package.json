@@ -1,6 +1,6 @@
 {
   "name": "@musnows/scriverse-desktop",
-  "version": "0.1.15",
+  "version": "1.0.1",
   "description": "Scriverse desktop client",
   "license": "AGPL-3.0-only",
   "author": "musnows",
@@ -22,7 +22,7 @@
   "type": "module",
   "private": true,
   "main": "build/main/main.js",
-  "scriverseServerVersion": "0.9.9",
+  "scriverseServerVersion": "1.0.1",
   "engines": {
     "node": ">=22.5.0"
   },

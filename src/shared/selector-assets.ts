@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { extname, join } from "node:path";
 
 export const SELECTOR_CSP = [
   "default-src 'none'",
@@ -18,6 +18,7 @@ const selectorAssets = new Map<string, string>([
   ["/selector/selector.css", "text/css; charset=utf-8"],
   ["/selector/selector.js", "text/javascript; charset=utf-8"],
   ["/selector/icon.svg", "image/svg+xml"],
+  ["/desktop-fonts.css", "text/css; charset=utf-8"],
   ["/external-url-prompt.js", "text/javascript; charset=utf-8"],
   ["/local-ai/index.html", "text/html; charset=utf-8"],
   ["/local-ai/styles.css", "text/css; charset=utf-8"],
@@ -25,6 +26,11 @@ const selectorAssets = new Map<string, string>([
   ["/local-ai/local-ai.js", "text/javascript; charset=utf-8"],
   ["/local-ai/ai-provider-config-view.js", "text/javascript; charset=utf-8"],
   ["/local-ai/model-config.js", "text/javascript; charset=utf-8"]
+]);
+
+const bundledFontContentTypes = new Map<string, string>([
+  [".css", "text/css; charset=utf-8"],
+  [".woff2", "font/woff2"]
 ]);
 
 export type SelectorAsset = {
@@ -55,7 +61,8 @@ export function resolveSelectorAsset(requestUrl: string, rendererRoot: string): 
   } catch {
     return null;
   }
-  const contentType = selectorAssets.get(pathname);
+  const contentType = selectorAssets.get(pathname)
+    ?? (pathname.startsWith("/fonts/") ? bundledFontContentTypes.get(extname(pathname).toLocaleLowerCase("en-US")) : undefined);
   if (!contentType) return null;
   return { path: join(rendererRoot, ...pathname.split("/").filter(Boolean)), contentType };
 }

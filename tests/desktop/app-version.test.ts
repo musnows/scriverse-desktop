@@ -24,12 +24,12 @@ describe("Desktop 应用版本", () => {
     })).toBe("1.2.3");
   });
 
-  it("当前 Desktop 版本为 0.1.15", () => {
+  it("当前 Desktop 版本为 1.0.1", () => {
     expect(resolveDesktopAppVersion({
       packaged: false,
       packagedVersion: "43.4.1",
       applicationRoot: process.cwd()
-    })).toBe("0.1.15");
+    })).toBe("1.0.1");
   });
 
   it("单独读取对应 Server 版本", () => {
@@ -39,7 +39,7 @@ describe("Desktop 应用版本", () => {
     expect(resolveCompatibleServerVersion(root)).toBe("0.8.7");
   });
 
-  it("当前 Desktop 声明对应 Server 0.9.9", () => {
-    expect(resolveCompatibleServerVersion(process.cwd())).toBe("0.9.9");
+  it("当前 Desktop 声明对应 Server 1.0.1", () => {
+    expect(resolveCompatibleServerVersion(process.cwd())).toBe("1.0.1");
   });
 });

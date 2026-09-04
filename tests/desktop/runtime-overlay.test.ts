@@ -260,4 +260,23 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).not.toContain("function renderPresence()");
     expect(overlayPatch).not.toContain("if (!state.work || groups.length <= 1)");
   });
+
+  it("skips IM initialization and hides the IM entry while offline", () => {
+    const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
+
+    expect(overlayPatch).toContain("+  if (state.user && !desktopOfflineMode) void imWorkspace.activate()");
+    expect(overlayPatch).not.toContain("+  if (state.user) void imWorkspace.activate()");
+    expect(overlayPatch).toContain("-  if (state.user) void imWorkspace.activate()");
+    expect(overlayPatch).toContain('document.body.classList.add("desktop-offline-active");');
+    expect(overlayPatch).toContain('$("#im-open-button").classList.add("hidden");');
+  });
+
+  it("enters offline fallback when the shell rejects the auth session with DESKTOP_OFFLINE", () => {
+    const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
+
+    expect(overlayPatch).toContain('payload?.error?.code === "DESKTOP_OFFLINE"');
+    expect(overlayPatch).toContain("+  if (!response.ok && isDesktopWorkspaceRuntime() && await isDesktopOfflineAuthResponse(response)) {");
+    expect(overlayPatch).toContain("+    return await enterDesktopOfflineMode();");
+    expect(overlayPatch).toContain('if (!response.ok) throw new Error("无法读取登录状态");');
+  });
 });

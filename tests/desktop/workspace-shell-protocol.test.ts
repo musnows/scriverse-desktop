@@ -87,7 +87,11 @@ describe("Desktop 远端工作区网页壳协议", () => {
     registerBundledWorkspaceShell(electronSession, profile, publicRoot, "offline");
     const response = await handler!(new Request(`${shellUrl}api/health`));
     expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: { code: "DESKTOP_OFFLINE", message: "当前处于离线状态" } });
     expect(fetchImpl).not.toHaveBeenCalled();
+    const session = await handler!(new Request(`${shellUrl}api/auth/session`));
+    expect(session.status).toBe(503);
+    expect((await session.json()).error?.code).toBe("DESKTOP_OFFLINE");
   });
 
   it("仅在确认后缓存作品图片，封面和当前登录用户头像自动缓存", async () => {

@@ -270,4 +270,13 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain('document.body.classList.add("desktop-offline-active");');
     expect(overlayPatch).toContain('$("#im-open-button").classList.add("hidden");');
   });
+
+  it("enters offline fallback when the shell rejects the auth session with DESKTOP_OFFLINE", () => {
+    const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
+
+    expect(overlayPatch).toContain('payload?.error?.code === "DESKTOP_OFFLINE"');
+    expect(overlayPatch).toContain("+  if (!response.ok && isDesktopWorkspaceRuntime() && await isDesktopOfflineAuthResponse(response)) {");
+    expect(overlayPatch).toContain("+    return await enterDesktopOfflineMode();");
+    expect(overlayPatch).toContain('if (!response.ok) throw new Error("无法读取登录状态");');
+  });
 });

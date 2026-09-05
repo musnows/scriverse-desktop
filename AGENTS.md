@@ -4,7 +4,7 @@
 
 ## 1. 项目边界
 
-Scriverse Desktop 是 Scriverse 的 Electron 桌面客户端，当前版本为 `0.1.11`。仓库只维护桌面壳、本地工作区编排、远端 Server 连接、软件内登录、本地 AI、离线同步和打包安装能力。
+Scriverse Desktop 是 Scriverse 的 Electron 桌面客户端，当前版本为 `1.0.2`。仓库只维护桌面壳、本地工作区编排、远端 Server 连接、软件内登录、本地 AI、离线同步和打包安装能力。
 
 - Scriverse Server 与 Web 源码由 `musnows/Scriverse` 维护，禁止复制前后端、showcase 或 demo 源码到本仓库。
 - Desktop 通过 `scripts/prepare-runtime.mjs` 引入已构建 Server runtime，并通过 `runtime-overlay/` 维护必要的 Desktop Web 差异。
@@ -119,6 +119,11 @@ npm run verify:package
 - `main` 只用于发版。只有准备发布时，才允许创建从 `develop` 指向 `main` 的 PR；禁止功能分支、修复分支或维护分支直接指向 `main`。
 - 指向 `develop` 的 PR 不运行 GitHub CI，也不要求远端状态检查；这不免除本地验证，提交者仍必须完成与改动直接相关的测试、`npm run check` 和必要的真实打包验证。
 - 指向 `main` 的 PR 才运行 `Desktop checks`。禁止为 `push`、指向 `develop` 的 PR 或其他普通分支自动触发该检查。
+
+### Desktop 与 Server 版本号约定
+
+- 从 Desktop `1.0.1` 版本开始，Desktop 与 Scriverse Server 使用相同的版本号；当前 `1.0.2` Desktop 对应 `1.0.2` Server。
+- 版本升级时，`package.json` 的 `version` 与 `scriverseServerVersion` 必须保持一致，并且必须对应 Scriverse Server 的同版本 Git tag 与 GitHub Release；禁止使用不同版本、`develop` 或未发布 commit 作为运行时来源。
 
 ### `main` PR 的 Server Release 能力对齐门禁
 

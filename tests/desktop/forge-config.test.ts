@@ -74,7 +74,7 @@ describe("Desktop Forge configuration", () => {
       perMachine: false,
       allowElevation: true,
       allowToChangeInstallationDirectory: true,
-      artifactName: "scriverse-desktop-win32-arm64-${version}-Setup.${ext}"
+      artifactName: "scriverse-desktop-windows-win32-arm64-${version}-Setup.${ext}"
     });
     expect(nsis.publish).toMatchObject({
       provider: "generic",

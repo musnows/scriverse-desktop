@@ -125,9 +125,18 @@ jobs:
           package_version="$(node --print "require('./package.json').version")"
           dmg_path="$(find out/make -name '*.dmg' -print -quit)"
           test -n "$dmg_path"
-          mv "$dmg_path" "$(dirname "$dmg_path")/scriverse-desktop-darwin-${{ matrix.arch }}-$package_version.dmg"
+          mv "$dmg_path" "$(dirname "$dmg_path")/scriverse-desktop-macos-darwin-${{ matrix.arch }}-$package_version.dmg"
 
-      - name: Name Windows artifacts by architecture
+      - name: Name macOS ZIP by platform and architecture
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          package_version="$(node --print "require('./package.json').version")"
+          zip_path="$(find out/make/zip/darwin -name '*.zip' -print -quit)"
+          test -n "$zip_path"
+          mv "$zip_path" "$(dirname "$zip_path")/scriverse-desktop-macos-darwin-${{ matrix.arch }}-$package_version.zip"
+
+      - name: Name Windows artifacts by platform and architecture
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
@@ -137,9 +146,9 @@ jobs:
           $nupkg = Get-ChildItem -Path $squirrelDirectory -Filter "*-full.nupkg" | Select-Object -First 1
           $releases = Join-Path $squirrelDirectory "RELEASES"
           if (-not $setup -or -not $nupkg -or -not (Test-Path $releases)) { throw "Missing Windows release artifacts" }
-          Move-Item $setup.FullName (Join-Path $squirrelDirectory "scriverse-desktop-win32-${{ matrix.arch }}-$packageVersion-Squirrel-Setup.exe")
-          Move-Item $nupkg.FullName (Join-Path $squirrelDirectory "scriverse-desktop-win32-${{ matrix.arch }}-$packageVersion-full.nupkg")
-          Move-Item $releases (Join-Path $squirrelDirectory "scriverse-desktop-win32-${{ matrix.arch }}-$packageVersion-RELEASES")
+          Move-Item $setup.FullName (Join-Path $squirrelDirectory "scriverse-desktop-windows-win32-${{ matrix.arch }}-$packageVersion-Squirrel-Setup.exe")
+          Move-Item $nupkg.FullName (Join-Path $squirrelDirectory "scriverse-desktop-windows-win32-${{ matrix.arch }}-$packageVersion-full.nupkg")
+          Move-Item $releases (Join-Path $squirrelDirectory "scriverse-desktop-windows-win32-${{ matrix.arch }}-$packageVersion-RELEASES")
 
       - name: Verify packaged runtime
         if: runner.os != 'Linux'

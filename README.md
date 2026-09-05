@@ -29,7 +29,7 @@ Scriverse Desktop 为长篇小说创作工作台 [叙界 Scriverse](https://gith
 
 ## 使用
 
-当前 Desktop 版本为 `1.0.1`，对应 Scriverse Server `1.0.1`。兼容版本同时记录在 [`package.json`](./package.json) 的 `scriverseServerVersion` 字段中。
+从 Desktop `1.0.1` 版本开始，Desktop 与 Scriverse Server 使用相同的版本号。当前 Desktop 与 Server 版本均为 `1.0.2`；该版本同时记录在 [`package.json`](./package.json) 的 `version` 与 `scriverseServerVersion` 字段中，打包时使用对应的 Scriverse Server Release。
 
 启动 Desktop 后，可以直接进入“本地工作区”，或在最外层工作区选择页新增 Scriverse Server。远程 Server 的地址、账号和离线数据彼此独立；“本地 AI 配置”也只保存在当前设备。
 

@@ -48,7 +48,7 @@ export function windowsNsisBuilderConfiguration(options: {
       perMachine: false,
       allowElevation: true,
       allowToChangeInstallationDirectory: true,
-      artifactName: `scriverse-desktop-win32-${options.targetArch}-\${version}-Setup.\${ext}`,
+      artifactName: `scriverse-desktop-windows-win32-${options.targetArch}-\${version}-Setup.\${ext}`,
       installerIcon: join(projectDir, "assets", "icon.ico"),
       uninstallerIcon: join(projectDir, "assets", "icon.ico")
     },

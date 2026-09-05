@@ -71,10 +71,13 @@ describe("Desktop 发布链路", () => {
     expect(forge).not.toContain("release builds require signing");
     expect(release).toContain("New-SelfSignedCertificate");
     expect(release).not.toContain("Import-Certificate");
-    expect(release).toContain("scriverse-desktop-darwin-${{ matrix.arch }}-$package_version.dmg");
-    expect(release).toContain("scriverse-desktop-win32-${{ matrix.arch }}-$packageVersion-Squirrel-Setup.exe");
-    expect(release).toContain("scriverse-desktop-win32-${{ matrix.arch }}-$packageVersion-full.nupkg");
-    expect(release).toContain("scriverse-desktop-win32-${{ matrix.arch }}-$packageVersion-RELEASES");
+    for (const workflow of [developPackage, release]) {
+      expect(workflow).toContain("scriverse-desktop-macos-darwin-${{ matrix.arch }}-$package_version.dmg");
+      expect(workflow).toContain("scriverse-desktop-macos-darwin-${{ matrix.arch }}-$package_version.zip");
+      expect(workflow).toContain("scriverse-desktop-windows-win32-${{ matrix.arch }}-$packageVersion-Squirrel-Setup.exe");
+      expect(workflow).toContain("scriverse-desktop-windows-win32-${{ matrix.arch }}-$packageVersion-full.nupkg");
+      expect(workflow).toContain("scriverse-desktop-windows-win32-${{ matrix.arch }}-$packageVersion-RELEASES");
+    }
     expect(artifactVerifier).toContain('/(?:[\\\\/]|-)RELEASES$/u');
     expect(artifactVerifier).toContain('/nsis\\.windows[\\\\/].*Setup\\.exe$/u');
     expect(artifactVerifier).toContain('/Setup\\.exe\\.blockmap$/u');

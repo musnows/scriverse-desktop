@@ -53,6 +53,15 @@ describe("Desktop Web runtime overlay", () => {
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/latest-async-queue.js"))).toBe(true);
   });
 
+  it("在网页剪贴板不可用时通过受限 Desktop bridge 复制文本", () => {
+    const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
+
+    expect(overlayPatch).toContain("diff --git a/public/ai-message-actions.js b/public/ai-message-actions.js");
+    expect(overlayPatch).toContain("copyWithDesktopClipboard");
+    expect(overlayPatch).toContain("globalThis.scriverseDesktopClipboard");
+    expect(overlayPatch).toContain('"/ai-message-actions.js?v=20260906-desktop-clipboard-v1"');
+  });
+
   it("merges local models into every workspace picker and marks them with a local badge", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 

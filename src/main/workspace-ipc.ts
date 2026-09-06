@@ -17,6 +17,7 @@ import {
   parseWorkspaceLeaveState,
   type WorkspaceLeaveState
 } from "../shared/workspace-contract.js";
+import { parseClipboardText } from "../shared/clipboard-contract.js";
 import { isRemoteWorkspaceShellUrl } from "./workspace-shell-protocol.js";
 
 type IpcSuccess<T> = { ok: true; data: T };
@@ -31,6 +32,7 @@ const workspaceChannels = [
   "workspace:shell:cache-work-cover",
   "workspace:shell:cache-work-images",
   "workspace:shell:open-external-url",
+  "workspace:shell:write-clipboard-text",
   "workspace:local-ai:catalog",
   "workspace:local-ai:complete",
   "workspace:local-ai:cancel",
@@ -122,6 +124,7 @@ export function registerWorkspaceIpc(workspaceWindow: BrowserWindow, profile: Re
   cacheWorkCover: (userId: string, workId: string) => Promise<boolean>;
   cacheWorkImages: (userId: string, workId: string) => Promise<unknown>;
   openExternalUrl: (input: unknown) => Promise<null>;
+  writeClipboardText: (text: string) => void;
   reportLeaveState: (state: WorkspaceLeaveState) => void;
   requestSwitch: () => Promise<void> | void;
   confirmQuit: () => void;
@@ -160,6 +163,10 @@ export function registerWorkspaceIpc(workspaceWindow: BrowserWindow, profile: Re
   handle("workspace:shell:open-external-url", workspaceWindow, profile, options.activeProfileId, (input) => (
     options.openExternalUrl(input)
   ));
+  handle("workspace:shell:write-clipboard-text", workspaceWindow, profile, options.activeProfileId, (input) => {
+    options.writeClipboardText(parseClipboardText(input));
+    return null;
+  });
   handle("workspace:local-ai:catalog", workspaceWindow, profile, options.activeProfileId, () => {
     return options.getLocalAiCatalog(activeUserId());
   });

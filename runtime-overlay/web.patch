@@ -2020,6 +2020,43 @@ index fd025c6..15d64ec 100644
 -  if (state.user) void imWorkspace.activate().catch((error) => toast(`IM 初始化失败：${error.message}`, "error"));
 +  if (state.user && !desktopOfflineMode) void imWorkspace.activate().catch((error) => toast(`IM 初始化失败：${error.message}`, "error"));
  });
+@@ -50,8 +50,8 @@ import {
+   isInteractiveToolPending,
+   aiFormatDateTime
+ } from "/ai-interactive.js?v=20260903-question-batch-v7";
+-import { copyAiRawMarkdown } from "/ai-message-actions.js?v=20260713-copy-raw-markdown";
++import { copyAiRawMarkdown } from "/ai-message-actions.js?v=20260906-desktop-clipboard-v1";
+ import { bindPlainTextPaste } from "/plain-text-paste.js?v=20260815-plain-text-paste-v1";
+ import { clipboardImageFiles } from "/character-markdown.js?v=20260820-ai-chat-image-attachments-v1";
+ import { AI_CHAT_IMAGE_ATTACHMENT_MAX_COUNT, aiChatImageAttachmentIds, isAiChatImageFile, normalizeAiChatImageAttachments } from "/ai-image-attachments.js?v=20260820-ai-chat-image-attachments-v2";
+ import { findTextMatches, replaceTextMatches } from "/chapter-search.js?v=20260818-chapter-search-replace-v1";
+diff --git a/public/ai-message-actions.js b/public/ai-message-actions.js
+--- a/public/ai-message-actions.js
++++ b/public/ai-message-actions.js
+@@ -12,5 +12,15 @@ function copyWithDocument(rawMarkdown, documentRef) {
+ }
+-
++
++async function copyWithDesktopClipboard(rawMarkdown, desktopClipboard = globalThis.scriverseDesktopClipboard) {
++  if (typeof desktopClipboard?.writeText !== "function") return false;
++  try {
++    await desktopClipboard.writeText(rawMarkdown);
++    return true;
++  } catch {
++    return false;
++  }
++}
++
+ export async function copyAiRawMarkdown(markdown, clipboard = globalThis.navigator?.clipboard, documentRef = globalThis.document) {
+   const rawMarkdown = String(markdown ?? "");
+   if (clipboard?.writeText) {
+@@ -22,6 +33,7 @@ export async function copyAiRawMarkdown(markdown, clipboard = globalThis.navigat
+   } else if (copyWithDocument(rawMarkdown, documentRef)) {
+     return rawMarkdown;
+   }
++  if (await copyWithDesktopClipboard(rawMarkdown)) return rawMarkdown;
+   throw new Error("当前浏览器不支持剪贴板写入");
+ }
 diff --git a/public/index.html b/public/index.html
 index ddc9018..b16e6b3 100644
 --- a/public/index.html

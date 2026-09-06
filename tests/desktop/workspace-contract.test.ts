@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { MAX_CLIPBOARD_TEXT_LENGTH, parseClipboardText } from "../../src/shared/clipboard-contract.js";
 import { parseWorkspaceLeaveState } from "../../src/shared/workspace-contract.js";
 
 const root = process.cwd();
@@ -21,6 +22,12 @@ describe("Desktop 工作区最小 bridge", () => {
     expect(() => parseWorkspaceLeaveState({ dirty: false, activeAiRequests: -1, pendingMutations: 0, conflicts: 0, rejected: 0 })).toThrow();
   });
 
+  it("只接受受限长度的纯文本剪贴板写入", () => {
+    expect(parseClipboardText("保留\n换行")).toBe("保留\n换行");
+    expect(() => parseClipboardText({ text: "内容" })).toThrow("剪贴板内容无效");
+    expect(() => parseClipboardText("x".repeat(MAX_CLIPBOARD_TEXT_LENGTH + 1))).toThrow("剪贴板内容无效");
+  });
+
   it("只暴露有限 shell 方法并在 Main 复核 sender origin 与 session", () => {
     expect(preloadSource).toContain("getCapabilities");
     expect(preloadSource).not.toContain("getOfflineKey");
@@ -28,6 +35,8 @@ describe("Desktop 工作区最小 bridge", () => {
     expect(preloadSource).toContain("requestSwitch");
     expect(preloadSource).toContain("onMenuCommand");
     expect(preloadSource).toContain("onExternalUrlRequest");
+    expect(preloadSource).toContain('exposeInMainWorld("scriverseDesktopClipboard"');
+    expect(preloadSource).toContain('writeClipboardText("workspace:shell:write-clipboard-text"');
     expect(preloadSource).toContain('ipcRenderer.invoke("workspace:shell:open-external-url"');
     expect(preloadSource).toContain("localAi: Object.freeze");
     expect(preloadSource).toContain('ipcRenderer.invoke("workspace:local-ai:catalog"');
@@ -54,6 +63,8 @@ describe("Desktop 工作区最小 bridge", () => {
     expect(ipcSource).toContain("parseCancelLocalAiAgentRoundInput");
     expect(localPreloadSource).toContain('exposeInMainWorld("scriverseDesktopLocalAi"');
     expect(localPreloadSource).toContain("onExternalUrlRequest");
+    expect(localPreloadSource).toContain('exposeInMainWorld("scriverseDesktopClipboard"');
+    expect(localPreloadSource).toContain('writeClipboardText("local-workspace:shell:write-clipboard-text"');
     expect(localPreloadSource).toContain('ipcRenderer.invoke("local-workspace:shell:open-external-url"');
     expect(localPreloadSource).not.toContain("getOfflineKey");
     expect(localPreloadSource).toContain('invokeAiWithStream("local-workspace:local-ai:agent-round"');
@@ -63,7 +74,11 @@ describe("Desktop 工作区最小 bridge", () => {
     expect(localIpcSource).toContain("event.sender.session !== workspaceWindow.webContents.session");
     expect(localIpcSource).toContain("senderOrigin !== origin");
     expect(ipcSource).toContain('workspace:shell:open-external-url');
+    expect(ipcSource).toContain('workspace:shell:write-clipboard-text');
+    expect(ipcSource).toContain("parseClipboardText");
     expect(localIpcSource).toContain('local-workspace:shell:open-external-url');
+    expect(localIpcSource).toContain('local-workspace:shell:write-clipboard-text');
+    expect(localIpcSource).toContain("parseClipboardText");
   });
 
   it("按平台把正文编辑器保存快捷键映射到保存按钮", () => {

@@ -4,6 +4,20 @@ const menuCommands = new Set(["open-sync-center", "request-quit"]);
 const aiStreamChannel = "workspace:local-ai:stream-event";
 const externalUrlRequestChannel = "workspace:shell:external-url-request";
 
+function clipboardWriteFailureMessage(result: unknown): string {
+  if (!result || typeof result !== "object" || Array.isArray(result)) return "Desktop 剪贴板写入失败";
+  const error = "error" in result ? result.error : null;
+  if (!error || typeof error !== "object" || Array.isArray(error)) return "Desktop 剪贴板写入失败";
+  return "message" in error && typeof error.message === "string" ? error.message : "Desktop 剪贴板写入失败";
+}
+
+function writeClipboardText(channel: string, input: unknown): Promise<void> {
+  return ipcRenderer.invoke(channel, input).then((result: unknown) => {
+    if (result && typeof result === "object" && !Array.isArray(result) && "ok" in result && result.ok === true) return;
+    throw new Error(clipboardWriteFailureMessage(result));
+  });
+}
+
 function installEditorSaveShortcut(): void {
   document.addEventListener("keydown", (event) => {
     if (String(event.key).toLowerCase() !== "s" || event.altKey || event.shiftKey) return;
@@ -79,4 +93,8 @@ contextBridge.exposeInMainWorld("scriverseDesktopWorkspace", Object.freeze({
     completeAgentRound: (input: unknown, listener?: (event: unknown) => void) => invokeAiWithStream("workspace:local-ai:agent-round", input, listener),
     cancelAgentRound: (input: unknown) => ipcRenderer.invoke("workspace:local-ai:agent-round-cancel", input)
   })
+}));
+
+contextBridge.exposeInMainWorld("scriverseDesktopClipboard", Object.freeze({
+  writeText: (input: unknown) => writeClipboardText("workspace:shell:write-clipboard-text", input)
 }));

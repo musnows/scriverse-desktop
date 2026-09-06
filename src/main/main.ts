@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, shell, utilityProcess, type RenderProcessGoneDetails, type Session, type UtilityProcess } from "electron";
+import { app, BrowserWindow, clipboard, dialog, shell, utilityProcess, type RenderProcessGoneDetails, type Session, type UtilityProcess } from "electron";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -580,7 +580,8 @@ function openLocalWorkspace(origin: string): Promise<void> {
         cancelLocalAi: (requestId) => localAiRequestCoordinator!.cancel(requestId),
         completeLocalAiAgentRound: (input, onEvent) => localAiRequestCoordinator!.completeAgentRound(input, onEvent),
         cancelLocalAiAgentRound: (requestId) => localAiRequestCoordinator!.cancelAgentRound(requestId),
-        openExternalUrl: (input) => externalUrlNavigation.respond(window, input)
+        openExternalUrl: (input) => externalUrlNavigation.respond(window, input),
+        writeClipboardText: (text) => clipboard.writeText(text)
       });
     },
     onReady: () => mainWindow?.hide(),
@@ -676,7 +677,8 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
         },
         requestSwitch: requestWorkspaceSwitch,
         confirmQuit: confirmDesktopQuit,
-        openExternalUrl: (input) => externalUrlNavigation.respond(window, input)
+        openExternalUrl: (input) => externalUrlNavigation.respond(window, input),
+        writeClipboardText: (text) => clipboard.writeText(text)
       });
     },
     onReady: () => mainWindow?.hide(),

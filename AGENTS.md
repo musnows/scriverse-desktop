@@ -4,7 +4,7 @@
 
 ## 1. 项目边界
 
-Scriverse Desktop 是 Scriverse 的 Electron 桌面客户端，当前版本为 `1.0.3`。仓库只维护桌面壳、本地工作区编排、远端 Server 连接、软件内登录、本地 AI、离线同步和打包安装能力。
+Scriverse Desktop 是 Scriverse 的 Electron 桌面客户端，当前版本为 `1.0.5`。仓库只维护桌面壳、本地工作区编排、远端 Server 连接、软件内登录、本地 AI、离线同步和打包安装能力。
 
 - Scriverse Server 与 Web 源码由 `musnows/Scriverse` 维护，禁止复制前后端、showcase 或 demo 源码到本仓库。
 - Desktop 通过 `scripts/prepare-runtime.mjs` 引入已构建 Server runtime，并通过 `runtime-overlay/` 维护必要的 Desktop Web 差异。
@@ -122,7 +122,7 @@ npm run verify:package
 
 ### Desktop 与 Server 版本号约定
 
-- 从 Desktop `1.0.1` 版本开始，Desktop 与 Scriverse Server 使用相同的版本号；当前 `1.0.3` Desktop 对应 `1.0.3` Server。
+- 从 Desktop `1.0.1` 版本开始，Desktop 与 Scriverse Server 使用相同的版本号；当前 `1.0.5` Desktop 对应 `1.0.5` Server。
 - 版本升级时，`package.json` 的 `version` 与 `scriverseServerVersion` 必须保持一致，并且必须对应 Scriverse Server 的同版本 Git tag 与 GitHub Release；禁止使用不同版本、`develop` 或未发布 commit 作为运行时来源。
 
 ### `main` PR 的 Server Release 能力对齐门禁

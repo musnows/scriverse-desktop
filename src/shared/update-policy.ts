@@ -8,10 +8,13 @@ export function windowsNsisUpdateChannel(arch: string): string {
   return `latest-${arch}`;
 }
 
-export function desktopUpdateFeedUrl(platform: NodeJS.Platform, version: string): string | null {
+export function desktopUpdateFeedUrl(platform: NodeJS.Platform, version: string, arch: string): string | null {
   if (platform !== "darwin" && platform !== "win32") return null;
   if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(version)) throw new Error("Desktop update version is invalid");
-  return `${UPDATE_SERVICE_ROOT}/${platform}/v${version}`;
+  if (arch !== "x64" && arch !== "arm64" && !(platform === "win32" && arch === "ia32")) {
+    throw new Error("Desktop update architecture is invalid");
+  }
+  return `${UPDATE_SERVICE_ROOT}/${platform}-${arch}/v${version}`;
 }
 
 export function updateInstallDetail(state: WorkspaceLeaveState): string {

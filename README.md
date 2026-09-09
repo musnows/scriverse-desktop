@@ -29,7 +29,7 @@ Scriverse Desktop 为长篇小说创作工作台 [叙界 Scriverse](https://gith
 
 ## 使用
 
-从 Desktop `1.0.1` 版本开始，Desktop 与 Scriverse Server 使用相同的版本号。当前 Desktop 与 Server 版本均为 `1.0.3`；该版本同时记录在 [`package.json`](./package.json) 的 `version` 与 `scriverseServerVersion` 字段中，打包时使用对应的 Scriverse Server Release。
+从 Desktop `1.0.1` 版本开始，Desktop 与 Scriverse Server 使用相同的版本号。当前 Desktop 与 Server 版本均为 `1.0.5`；该版本同时记录在 [`package.json`](./package.json) 的 `version` 与 `scriverseServerVersion` 字段中，打包时使用对应的 Scriverse Server Release。
 
 启动 Desktop 后，可以直接进入“本地工作区”，或在最外层工作区选择页新增 Scriverse Server。远程 Server 的地址、账号和离线数据彼此独立；“本地 AI 配置”也只保存在当前设备。
 
@@ -88,3 +88,14 @@ Scriverse 的作品管理、正文编辑、设定库、时间线、人物关系�
 Copyright (C) 2026 musnows
 
 本项目采用 [GNU Affero General Public License v3.0 only](./LICENSE)（`AGPL-3.0-only`）授权。
+
+## 🌟 Special Thanks
+
+感谢开源项目 [Vditor](https://github.com/Vanessa219/vditor)，为叙界提供 Markdown 编辑器、即时渲染和分屏预览能力。
+
+<p align="center">
+  <a href="https://linux.do">
+    <img src="https://raw.githubusercontent.com/musnows/scriverse/main/showcase/public/linuxdo.png" alt="LINUX DO" width="420" />
+  </a>
+</p>
+<p align="center"><b>学AI，上L站！祝小破站越来越好～</b></p>

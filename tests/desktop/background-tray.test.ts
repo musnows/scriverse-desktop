@@ -36,6 +36,7 @@ describe("Desktop 菜单栏与系统托盘后台生命周期", () => {
 
   it("把叙界图标复制到打包后的托盘资源目录", () => {
     expect(buildSource).toContain('new URL("../build/assets/"');
-    expect(buildSource).toContain('new URL("../assets/icon-32.png"');
+    expect(buildSource).toContain('desktopBuildIconName()');
+    expect(buildSource).toContain('new URL("icon-32.png", assetTarget)');
   });
 });

@@ -121,7 +121,7 @@ describe("Desktop 发布链路", () => {
   });
 
   it("提交三平台原生图标", () => {
-    for (const filename of ["icon.icns", "icon.ico", "icon-512.png"]) {
+    for (const filename of ["icon.icns", "icon.ico", "icon-512.png", "icon-dev.icns", "icon-dev.ico", "icon-dev-512.png"]) {
       const path = join(root, "assets", filename);
       expect(existsSync(path)).toBe(true);
       expect(statSync(path).size).toBeGreaterThan(1_000);

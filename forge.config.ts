@@ -6,10 +6,11 @@ import type { ForgeConfig } from "@electron-forge/shared-types";
 import { existsSync, renameSync } from "node:fs";
 import { join } from "node:path";
 import { WindowsNsisMaker } from "./scripts/windows-nsis-maker.js";
-import { DESKTOP_DISPLAY_NAME } from "./src/shared/branding.js";
+import { DESKTOP_DISPLAY_NAME, desktopBuildIconName } from "./src/shared/branding.js";
 
 const desktopMainEntry = "build/main/main.js";
 const desktopAssets = "assets";
+const iconName = desktopBuildIconName();
 const internalApplicationName = "Scriverse Desktop";
 const packagedApplicationName = process.platform === "win32" ? internalApplicationName : "scriverse-desktop";
 const packagedExecutableName = process.platform === "linux" ? "scriverse-desktop" : internalApplicationName;
@@ -42,10 +43,10 @@ class LocalizedMacZipMaker extends MakerZIP {
 }
 
 const packageIcon = process.platform === "darwin"
-  ? `${desktopAssets}/icon.icns`
+  ? `${desktopAssets}/${iconName}.icns`
   : process.platform === "win32"
-    ? `${desktopAssets}/icon.ico`
-    : `${desktopAssets}/icon-512.png`;
+    ? `${desktopAssets}/${iconName}.ico`
+    : `${desktopAssets}/${iconName}-512.png`;
 const linuxMakerOptions = {
   name: "scriverse-desktop",
   productName: DESKTOP_DISPLAY_NAME,
@@ -53,7 +54,7 @@ const linuxMakerOptions = {
   description: "Local AI workspace for long-form fiction",
   productDescription: "叙界 manages long-form fiction, settings, timelines, relationships and isolated AI-assisted writing workspaces.",
   bin: packagedExecutableName,
-  icon: join(process.cwd(), desktopAssets, "icon-512.png"),
+  icon: join(process.cwd(), desktopAssets, `${iconName}-512.png`),
   categories: ["Office" as const],
   homepage: "https://scriverse.top/"
 };
@@ -153,6 +154,7 @@ const config: ForgeConfig = {
       platforms: ["win32"],
       config: {
         name: "ScriverseDesktop",
+        ...(iconName === "icon-dev" ? { setupIcon: join(process.cwd(), desktopAssets, `${iconName}.ico`) } : {}),
         ...(windowsCertificateFile && windowsCertificatePassword ? {
           certificateFile: windowsCertificateFile,
           certificatePassword: windowsCertificatePassword

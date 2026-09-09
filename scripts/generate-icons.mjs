@@ -4,9 +4,12 @@ import { join, resolve } from "node:path";
 import sharp from "sharp";
 
 const root = resolve(import.meta.dirname, "..");
-const source = await readFile(join(root, "src", "renderer", "selector", "icon.svg"));
+const development = process.argv.includes("--development");
+const iconName = development ? "icon-dev" : "icon";
+const sourcePath = development ? join(root, "assets", "icon-dev.svg") : join(root, "src", "renderer", "selector", "icon.svg");
+const source = await readFile(sourcePath);
 const assets = join(root, "assets");
-const iconset = join(assets, "icon.iconset");
+const iconset = join(assets, `${iconName}.iconset`);
 await mkdir(assets, { recursive: true });
 await mkdir(iconset, { recursive: true });
 
@@ -15,7 +18,7 @@ const pngs = new Map();
 for (const size of sizes) {
   const png = await sharp(source).resize(size, size).png({ compressionLevel: 9 }).toBuffer();
   pngs.set(size, png);
-  await writeFile(join(assets, `icon-${size}.png`), png);
+  await writeFile(join(assets, `${iconName}-${size}.png`), png);
 }
 
 const iconsetFiles = new Map([
@@ -53,11 +56,11 @@ icoSizes.forEach((size, index) => {
   icoImages.push(image);
   offset += image.length;
 });
-await writeFile(join(assets, "icon.ico"), Buffer.concat([icoHeader, ...icoImages]));
+await writeFile(join(assets, `${iconName}.ico`), Buffer.concat([icoHeader, ...icoImages]));
 
 if (process.platform === "darwin") {
-  const result = spawnSync("/usr/bin/iconutil", ["--convert", "icns", "--output", join(assets, "icon.icns"), iconset], { stdio: "inherit" });
+  const result = spawnSync("/usr/bin/iconutil", ["--convert", "icns", "--output", join(assets, `${iconName}.icns`), iconset], { stdio: "inherit" });
   if (result.status !== 0) throw new Error("iconutil failed");
 }
 
-process.stdout.write("Desktop icons generated\n");
+process.stdout.write(development ? "Development desktop icons generated\n" : "Desktop icons generated\n");

@@ -29,7 +29,7 @@ export class DesktopUpdater {
   initialize(): void {
     if (this.initialized) return;
     this.initialized = true;
-    const feedUrl = desktopUpdateFeedUrl(process.platform, this.options.version);
+    const feedUrl = desktopUpdateFeedUrl(process.platform, this.options.version, process.arch);
     if (!app.isPackaged || !feedUrl) return;
     this.useNsisUpdater = process.platform === "win32" && !isSquirrelWindowsInstallation();
     if (this.useNsisUpdater) {

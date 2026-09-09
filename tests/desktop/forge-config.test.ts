@@ -1,8 +1,38 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { join } from "node:path";
 import config from "../../forge.config.js";
 import { windowsNsisBuilderConfiguration } from "../../scripts/windows-nsis-maker.js";
 
 describe("Desktop Forge configuration", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it.each([
+    [undefined, "icon-dev"],
+    ["false", "icon-dev"],
+    ["true", "icon"]
+  ] as const)("selects matching native and installer icons for GITHUB_ACTIONS=%s", async (githubActions, iconName) => {
+    vi.stubEnv("GITHUB_ACTIONS", githubActions);
+    vi.resetModules();
+    const { default: configured } = await import("../../forge.config.js");
+    const extension = process.platform === "darwin" ? ".icns" : process.platform === "win32" ? ".ico" : "-512.png";
+    expect(configured.packagerConfig?.icon).toBe(`assets/${iconName}${extension}`);
+    const squirrel = configured.makers?.find((maker) => "name" in maker && maker.name === "@electron-forge/maker-squirrel");
+    if (iconName === "icon-dev") {
+      expect(squirrel).toMatchObject({ config: { setupIcon: expect.stringContaining("icon-dev.ico") } });
+    } else {
+      expect(squirrel && "config" in squirrel ? squirrel.config : null).not.toHaveProperty("setupIcon");
+    }
+    const linuxMaker = configured.makers?.find((maker) => "name" in maker && maker.name === "@electron-forge/maker-deb");
+    expect(linuxMaker).toMatchObject({ config: { options: { icon: expect.stringContaining(`${iconName}-512.png`) } } });
+    const nsis = windowsNsisBuilderConfiguration({ targetArch: "arm64", makeDir: "/workspace/out/make", projectDir: "/workspace" });
+    expect(nsis.win?.icon).toBe(join("/workspace", "assets", `${iconName}.ico`));
+    expect(nsis.nsis?.installerIcon).toBe(nsis.win?.icon);
+    expect(nsis.nsis?.uninstallerIcon).toBe(nsis.win?.icon);
+  });
+
   it("packages an ASAR app with supported platform makers and hardened fuses", () => {
     expect(config.packagerConfig?.asar).toMatchObject({ unpackDir: "node_modules/@img" });
     expect(config.packagerConfig).toMatchObject({

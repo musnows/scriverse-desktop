@@ -6,10 +6,28 @@ import { parseSquirrelCommand } from "../../src/shared/squirrel-command.js";
 
 describe("Desktop 更新策略", () => {
   it("只为 macOS 和 Windows 构造公开 GitHub Release 更新源", () => {
-    expect(desktopUpdateFeedUrl("darwin", "0.8.7")).toBe("https://update.electronjs.org/musnows/scriverse-desktop/darwin/v0.8.7");
-    expect(desktopUpdateFeedUrl("win32", "0.8.7")).toBe("https://update.electronjs.org/musnows/scriverse-desktop/win32/v0.8.7");
-    expect(desktopUpdateFeedUrl("linux", "0.8.7")).toBeNull();
-    expect(() => desktopUpdateFeedUrl("darwin", "../release")).toThrow();
+    expect(desktopUpdateFeedUrl("linux", "0.8.7", "x64")).toBeNull();
+    expect(() => desktopUpdateFeedUrl("darwin", "../release", "arm64")).toThrow();
+  });
+
+  it.each([
+    ["darwin", "arm64"],
+    ["darwin", "x64"],
+    ["win32", "arm64"],
+    ["win32", "x64"],
+    ["win32", "ia32"]
+  ] as const)("为 %s/%s 选择对应架构的更新包", (platform, arch) => {
+    expect(desktopUpdateFeedUrl(platform, "1.0.5", arch))
+      .toBe(`https://update.electronjs.org/musnows/scriverse-desktop/${platform}-${arch}/v1.0.5`);
+  });
+
+  it.each(["", "armv7l", "../x64", "x64?arch=arm64"])("拒绝无效更新架构 %s", (arch) => {
+    expect(() => desktopUpdateFeedUrl("darwin", "1.0.5", arch)).toThrow(/architecture/u);
+    expect(() => desktopUpdateFeedUrl("win32", "1.0.5", arch)).toThrow(/architecture/u);
+  });
+
+  it("拒绝 macOS 不支持的 32 位架构", () => {
+    expect(() => desktopUpdateFeedUrl("darwin", "1.0.5", "ia32")).toThrow(/architecture/u);
   });
 
   it("所有公开更新入口都指向 Desktop 仓库而不是 Server 仓库", () => {

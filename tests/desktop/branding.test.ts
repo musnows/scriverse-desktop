@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { DESKTOP_DISPLAY_NAME } from "../../src/shared/branding.js";
+import { DESKTOP_DISPLAY_NAME, desktopBuildIconName } from "../../src/shared/branding.js";
 
 const root = process.cwd();
 const userFacingSources = [
@@ -16,6 +16,27 @@ const userFacingSources = [
 ].map((path) => readFileSync(join(root, path), "utf8")).join("\n");
 
 describe("叙界桌面端品牌显示", () => {
+  it("仅在 GitHub Actions 中使用正式图标", () => {
+    expect(desktopBuildIconName({})).toBe("icon-dev");
+    expect(desktopBuildIconName({ CI: "true" })).toBe("icon-dev");
+    expect(desktopBuildIconName({ GITHUB_ACTIONS: "false" })).toBe("icon-dev");
+    expect(desktopBuildIconName({ GITHUB_ACTIONS: "true" })).toBe("icon");
+  });
+
+  it("开发图标只改变配色并提供独立的原生资源", () => {
+    const original = readFileSync(join(root, "src/renderer/selector/icon.svg"), "utf8");
+    const development = readFileSync(join(root, "assets/icon-dev.svg"), "utf8");
+    const withoutColors = (svg: string) => svg.replace(/#[0-9a-f]{6}/giu, "#color");
+    expect(withoutColors(development)).toBe(withoutColors(original));
+    expect(development).not.toBe(original);
+    for (const suffix of [".icns", ".ico", "-512.png", "-32.png"]) {
+      const originalAsset = readFileSync(join(root, `assets/icon${suffix}`));
+      const developmentAsset = readFileSync(join(root, `assets/icon-dev${suffix}`));
+      expect(developmentAsset.length).toBeGreaterThan(100);
+      expect(developmentAsset.equals(originalAsset)).toBe(false);
+    }
+  });
+
   it("在窗口、菜单、托盘和前端只显示叙界名称", () => {
     expect(DESKTOP_DISPLAY_NAME).toBe("叙界");
     expect(userFacingSources).toContain("DESKTOP_DISPLAY_NAME");

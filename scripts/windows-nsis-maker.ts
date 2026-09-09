@@ -3,7 +3,7 @@ import type { ForgePlatform } from "@electron-forge/shared-types";
 import { buildForge, type Configuration } from "app-builder-lib";
 import { join } from "node:path";
 
-import { DESKTOP_DISPLAY_NAME } from "../src/shared/branding.js";
+import { DESKTOP_DISPLAY_NAME, desktopBuildIconName } from "../src/shared/branding.js";
 import { windowsNsisUpdateChannel } from "../src/shared/update-policy.js";
 
 const WINDOWS_EXECUTABLE_NAME = "Scriverse Desktop";
@@ -22,6 +22,7 @@ export function windowsNsisBuilderConfiguration(options: {
   certificatePassword?: string | null;
 }): Configuration {
   const projectDir = options.projectDir ?? process.cwd();
+  const iconPath = join(projectDir, "assets", `${desktopBuildIconName()}.ico`);
   const certificateFile = options.certificateFile?.trim() || null;
   const certificatePassword = options.certificatePassword ?? null;
   return {
@@ -33,7 +34,7 @@ export function windowsNsisBuilderConfiguration(options: {
       buildResources: join(projectDir, "assets")
     },
     win: {
-      icon: join(projectDir, "assets", "icon.ico"),
+      icon: iconPath,
       executableName: WINDOWS_EXECUTABLE_NAME,
       ...(certificateFile && certificatePassword !== null ? {
         signtoolOptions: {
@@ -49,8 +50,8 @@ export function windowsNsisBuilderConfiguration(options: {
       allowElevation: true,
       allowToChangeInstallationDirectory: true,
       artifactName: `scriverse-desktop-windows-win32-${options.targetArch}-\${version}-Setup.\${ext}`,
-      installerIcon: join(projectDir, "assets", "icon.ico"),
-      uninstallerIcon: join(projectDir, "assets", "icon.ico")
+      installerIcon: iconPath,
+      uninstallerIcon: iconPath
     },
     publish: {
       provider: "generic",

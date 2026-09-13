@@ -18,6 +18,12 @@ describe("Desktop runtime gate isolation", () => {
     expect(source).not.toContain("port: 0");
   });
 
+  it("keeps development runtime-gate data under the worktree", () => {
+    const source = readFileSync(join(process.cwd(), "src/main/main.ts"), "utf8");
+
+    expect(source).toContain('join(applicationRoot, ".ai-docs", `runtime-gate-${process.platform}-${process.arch}`)');
+  });
+
   it("allows Windows CI to skip only the local bind check", () => {
     const mainSource = readFileSync(join(process.cwd(), "src/main/main.ts"), "utf8");
     const utilitySource = readFileSync(join(process.cwd(), "src/utility/runtime-gate.mts"), "utf8");

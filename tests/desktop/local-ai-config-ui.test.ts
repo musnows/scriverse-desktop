@@ -75,7 +75,8 @@ describe("Desktop 本地 AI 配置界面", () => {
     expect(css).toContain("#local-ai-form-dialog { overflow: hidden;");
     expect(css).toContain("grid-template-columns: minmax(0, 1fr)");
     expect(css).toContain("grid-template-rows: auto minmax(0, 1fr) auto auto");
-    expect(script).toContain('window.matchMedia("(prefers-color-scheme: dark)")');
+    expect(script).toContain("desktopSettings?.get()");
+    expect(script).toContain("function applyDesktopTheme(theme)");
     expect(sharedView).toContain('provider.scope === "local" ? "本地" : "平台级"');
   });
 });

@@ -1,13 +1,16 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import {
   DEFAULT_DESKTOP_LOG_STORAGE_LIMIT_MIB,
+  DEFAULT_DESKTOP_COLOR_THEME,
   DEFAULT_LOCAL_SERVER_PORT,
   DESKTOP_SETTINGS_VERSION,
   MIN_LOCAL_SERVER_PORT,
   DesktopSettingsContractError,
+  parseDesktopColorTheme,
   parseDesktopSettingsUpdate,
   parseDesktopLogStorageLimitMiB,
   parseLocalServerPort,
+  type DesktopColorTheme,
   type DesktopLogStorageLimitMiB,
   type DesktopSettingsSummary
 } from "../shared/desktop-settings-contract.js";
@@ -19,6 +22,7 @@ type DesktopSettingsDocument = {
   version: typeof DESKTOP_SETTINGS_VERSION;
   localServerPort: number;
   logStorageLimitMiB: DesktopLogStorageLimitMiB;
+  colorTheme: DesktopColorTheme;
   updatedAt: string;
 };
 
@@ -38,7 +42,11 @@ function parseDocument(value: unknown): DesktopSettingsDocument {
     throw new DesktopSettingsContractError("DESKTOP_SETTINGS_INVALID", "Desktop 系统设置格式无效");
   }
   const keys = Object.keys(value).toSorted().join(",");
-  if (keys !== "localServerPort,logStorageLimitMiB,updatedAt,version" && keys !== "localServerPort,updatedAt,version") {
+  if (
+    keys !== "colorTheme,localServerPort,logStorageLimitMiB,updatedAt,version"
+    && keys !== "localServerPort,logStorageLimitMiB,updatedAt,version"
+    && keys !== "localServerPort,updatedAt,version"
+  ) {
     throw new DesktopSettingsContractError("DESKTOP_SETTINGS_INVALID", "Desktop 系统设置格式无效");
   }
   if (value.version !== DESKTOP_SETTINGS_VERSION || typeof value.updatedAt !== "string" || !Number.isFinite(Date.parse(value.updatedAt))) {
@@ -50,6 +58,9 @@ function parseDocument(value: unknown): DesktopSettingsDocument {
     logStorageLimitMiB: value.logStorageLimitMiB === undefined
       ? DEFAULT_DESKTOP_LOG_STORAGE_LIMIT_MIB
       : parseDesktopLogStorageLimitMiB(value.logStorageLimitMiB),
+    colorTheme: value.colorTheme === undefined
+      ? DEFAULT_DESKTOP_COLOR_THEME
+      : parseDesktopColorTheme(value.colorTheme),
     updatedAt: value.updatedAt
   };
 }
@@ -74,6 +85,7 @@ export class DesktopSettingsStore {
     return {
       localServerPort: this.document?.localServerPort ?? DEFAULT_LOCAL_SERVER_PORT,
       logStorageLimitMiB: this.document?.logStorageLimitMiB ?? DEFAULT_DESKTOP_LOG_STORAGE_LIMIT_MIB,
+      colorTheme: this.document?.colorTheme ?? DEFAULT_DESKTOP_COLOR_THEME,
       updatedAt: this.document?.updatedAt ?? null
     };
   }
@@ -84,6 +96,7 @@ export class DesktopSettingsStore {
       version: DESKTOP_SETTINGS_VERSION,
       localServerPort: input.localServerPort,
       logStorageLimitMiB: input.logStorageLimitMiB,
+      colorTheme: input.colorTheme,
       updatedAt: new Date().toISOString()
     };
     writeDesktopJsonAtomically(this.path, this.document);

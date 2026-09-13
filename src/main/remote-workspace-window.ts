@@ -2,6 +2,7 @@ import { BrowserWindow, type RenderProcessGoneDetails } from "electron";
 import { join } from "node:path";
 import { DESKTOP_DISPLAY_NAME } from "../shared/branding.js";
 import type { RemoteWorkspaceProfile } from "../shared/contracts.js";
+import type { DesktopColorTheme } from "../shared/desktop-settings-contract.js";
 import { isAllowedRemoteWorkspaceNavigation } from "../shared/remote-workspace-url.js";
 import { registerBundledWorkspaceShell, remoteWorkspaceShellUrl } from "./workspace-shell-protocol.js";
 import { createWorkspaceLoadingCover } from "./workspace-loading-cover.js";
@@ -19,6 +20,7 @@ export async function createRemoteWorkspaceWindow(options: {
   offlineShellRoot: string;
   remoteMediaCache?: RemoteMediaCache;
   remoteUserId?: string;
+  colorTheme: DesktopColorTheme;
   placement?: DesktopWindowPlacement;
   onCreated?: (window: BrowserWindow) => void;
   show?: boolean;
@@ -34,10 +36,11 @@ export async function createRemoteWorkspaceWindow(options: {
     ...(options.placement?.bounds ?? {}),
     show: false,
     title: `${options.profile.name} - ${DESKTOP_DISPLAY_NAME}`,
-    backgroundColor: "#f3efe7",
+    backgroundColor: options.colorTheme === "dark" ? "#201d1a" : "#f3efe7",
     autoHideMenuBar: true,
     webPreferences: {
       preload: join(options.desktopRoot, "preload", "workspace-preload.cjs"),
+      additionalArguments: [`--scriverse-desktop-color-theme=${options.colorTheme}`],
       partition: options.profile.partition,
       nodeIntegration: false,
       contextIsolation: true,

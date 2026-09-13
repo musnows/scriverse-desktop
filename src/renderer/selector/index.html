@@ -186,6 +186,14 @@
         </div>
         <div class="dialog-fields">
           <label>
+            <span>界面主题</span>
+            <select id="desktop-color-theme" name="colorTheme" required>
+              <option value="light">白天模式</option>
+              <option value="dark">黑夜模式</option>
+            </select>
+          </label>
+          <p class="field-note">应用到叙界首页、本地 AI 配置以及所有本地和远端工作区。</p>
+          <label>
             <span>本地服务首选端口</span>
             <input id="local-server-port" class="mono" name="localServerPort" type="number" min="20001" max="60000" step="1" inputmode="numeric" required>
           </label>

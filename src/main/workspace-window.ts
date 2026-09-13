@@ -2,6 +2,7 @@ import { BrowserWindow, type RenderProcessGoneDetails } from "electron";
 import { join } from "node:path";
 import { DESKTOP_DISPLAY_NAME } from "../shared/branding.js";
 import { LOCAL_PROFILE_PARTITION } from "../shared/contracts.js";
+import type { DesktopColorTheme } from "../shared/desktop-settings-contract.js";
 import { isAllowedWorkspaceNavigation, normalizeLocalWorkspaceOrigin } from "../shared/workspace-url.js";
 import { createWorkspaceLoadingCover } from "./workspace-loading-cover.js";
 import { applyWindowPlacement, type DesktopWindowPlacement } from "./window-placement.js";
@@ -15,6 +16,7 @@ export async function createLocalWorkspaceWindow(options: {
   onClosed: () => void;
   onCreated?: (window: BrowserWindow) => void;
   enableLocalAiBridge?: boolean;
+  colorTheme?: DesktopColorTheme;
   placement?: DesktopWindowPlacement;
   show?: boolean;
   onExternalUrlRequest: (window: BrowserWindow, target: string) => boolean;
@@ -29,10 +31,11 @@ export async function createLocalWorkspaceWindow(options: {
     ...(options.placement?.bounds ?? {}),
     show: false,
     title: `本地工作区 - ${DESKTOP_DISPLAY_NAME}`,
-    backgroundColor: "#f3efe7",
+    backgroundColor: options.colorTheme === "dark" ? "#201d1a" : "#f3efe7",
     autoHideMenuBar: true,
     webPreferences: {
       ...(options.enableLocalAiBridge === false ? {} : { preload: join(options.desktopRoot, "preload", "local-workspace-preload.cjs") }),
+      ...(options.colorTheme ? { additionalArguments: [`--scriverse-desktop-color-theme=${options.colorTheme}`] } : {}),
       partition: LOCAL_PROFILE_PARTITION,
       nodeIntegration: false,
       contextIsolation: true,

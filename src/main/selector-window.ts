@@ -1,11 +1,13 @@
 import { BrowserWindow, type RenderProcessGoneDetails } from "electron";
 import { join } from "node:path";
 import { DESKTOP_DISPLAY_NAME } from "../shared/branding.js";
+import type { DesktopColorTheme } from "../shared/desktop-settings-contract.js";
 import { LOCAL_AI_CONFIG_ENTRY_URL, SELECTOR_ENTRY_URL } from "../shared/selector-contract.js";
 import { captureRendererConsole } from "./renderer-console-logging.js";
 import { installRendererRecovery } from "./renderer-recovery.js";
 
 export function createSelectorWindow(desktopRoot: string, options: {
+  colorTheme: DesktopColorTheme;
   onExternalUrlRequest: (window: BrowserWindow, target: string) => boolean;
   onRendererRecoveryFailed?: (window: BrowserWindow, details: RenderProcessGoneDetails) => void;
 }): BrowserWindow {
@@ -16,10 +18,11 @@ export function createSelectorWindow(desktopRoot: string, options: {
     minHeight: 600,
     show: false,
     title: DESKTOP_DISPLAY_NAME,
-    backgroundColor: "#f3efe7",
+    backgroundColor: options.colorTheme === "dark" ? "#201d1a" : "#f3efe7",
     autoHideMenuBar: true,
     webPreferences: {
       preload: join(desktopRoot, "preload", "selector-preload.cjs"),
+      additionalArguments: [`--scriverse-desktop-color-theme=${options.colorTheme}`],
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,

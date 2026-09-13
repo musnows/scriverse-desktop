@@ -41,6 +41,7 @@ const logStorageLimit = document.querySelector("#log-storage-limit");
 const openLogDirectory = document.querySelector("#open-log-directory");
 const systemSettingsError = document.querySelector("#system-settings-error");
 const systemSettingsSubmit = document.querySelector("#system-settings-submit");
+const desktopColorTheme = document.querySelector("#desktop-color-theme");
 const deleteDialog = document.querySelector("#delete-dialog");
 const deleteForm = document.querySelector("#delete-form");
 const deleteMessage = document.querySelector("#delete-message");
@@ -109,6 +110,7 @@ function requireElement(element, label) {
   [openLogDirectory, "open-log-directory"],
   [systemSettingsError, "system-settings-error"],
   [systemSettingsSubmit, "system-settings-submit"],
+  [desktopColorTheme, "desktop-color-theme"],
   [deleteDialog, "delete-dialog"],
   [deleteForm, "delete-form"],
   [deleteMessage, "delete-message"],
@@ -138,6 +140,12 @@ function showToast(message, isError = false) {
   state.toastTimer = window.setTimeout(() => {
     toast.hidden = true;
   }, 4_200);
+}
+
+function applyDesktopTheme(theme) {
+  const colorTheme = theme === "dark" ? "dark" : "light";
+  document.documentElement.dataset.theme = colorTheme;
+  document.documentElement.style.colorScheme = colorTheme;
 }
 
 installExternalUrlPrompt({ bridge: bridge?.external, toast, notify: showToast });
@@ -315,6 +323,7 @@ async function loadProfiles() {
     state.profiles = unwrap(profilesResult);
     state.localStatus = unwrap(localStatusResult);
     state.desktopSettings = unwrap(settingsResult);
+    applyDesktopTheme(state.desktopSettings.colorTheme);
     state.profileStatuses = new Map(await Promise.all(state.profiles
       .filter((profile) => profile.kind === "remote")
       .map(async (profile) => {
@@ -447,6 +456,8 @@ async function openSystemSettingsDialog() {
   systemSettingsError.hidden = true;
   try {
     state.desktopSettings = unwrap(await bridge.settings.get());
+    applyDesktopTheme(state.desktopSettings.colorTheme);
+    desktopColorTheme.value = state.desktopSettings.colorTheme;
     localServerPort.value = String(state.desktopSettings.localServerPort);
     logStorageLimit.value = String(state.desktopSettings.logStorageLimitMiB);
     systemSettingsDialog.showModal();
@@ -607,9 +618,11 @@ systemSettingsForm.addEventListener("submit", async (event) => {
   setBusy(systemSettingsSubmit, true);
   try {
     state.desktopSettings = unwrap(await bridge.settings.update({
+      colorTheme: desktopColorTheme.value,
       localServerPort: Number(localServerPort.value),
       logStorageLimitMiB: Number(logStorageLimit.value)
     }));
+    applyDesktopTheme(state.desktopSettings.colorTheme);
     closeSystemSettingsDialog();
     await loadProfiles();
     showToast(state.localStatus.phase === "running" ? "设置已保存；日志上限已生效，端口将在下次启动本地工作区时生效" : "系统设置已保存");

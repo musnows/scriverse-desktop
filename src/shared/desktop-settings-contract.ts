@@ -5,12 +5,16 @@ export const LOCAL_SERVER_PORT_SCAN_COUNT = 20;
 export const MAX_LOCAL_SERVER_PORT = 60_000;
 export const DESKTOP_LOG_STORAGE_LIMIT_MIB_OPTIONS = [500, 1_024, 2_048, 5_120, 10_240] as const;
 export const DEFAULT_DESKTOP_LOG_STORAGE_LIMIT_MIB = DESKTOP_LOG_STORAGE_LIMIT_MIB_OPTIONS[0];
+export const DESKTOP_COLOR_THEMES = ["light", "dark"] as const;
+export const DEFAULT_DESKTOP_COLOR_THEME = "light";
 
 export type DesktopLogStorageLimitMiB = typeof DESKTOP_LOG_STORAGE_LIMIT_MIB_OPTIONS[number];
+export type DesktopColorTheme = typeof DESKTOP_COLOR_THEMES[number];
 
 export type DesktopSettingsSummary = {
   localServerPort: number;
   logStorageLimitMiB: DesktopLogStorageLimitMiB;
+  colorTheme: DesktopColorTheme;
   updatedAt: string | null;
 };
 
@@ -59,6 +63,13 @@ export function parseDesktopLogStorageLimitMiB(value: unknown): DesktopLogStorag
   return value as DesktopLogStorageLimitMiB;
 }
 
+export function parseDesktopColorTheme(value: unknown): DesktopColorTheme {
+  if (typeof value !== "string" || !DESKTOP_COLOR_THEMES.includes(value as DesktopColorTheme)) {
+    throw new DesktopSettingsContractError("DESKTOP_COLOR_THEME_INVALID", "桌面主题只能选择白天或黑夜模式");
+  }
+  return value as DesktopColorTheme;
+}
+
 export function desktopLogStorageLimitBytes(value: unknown): number {
   return parseDesktopLogStorageLimitMiB(value) * 1024 * 1024;
 }
@@ -66,13 +77,15 @@ export function desktopLogStorageLimitBytes(value: unknown): number {
 export function parseDesktopSettingsUpdate(value: unknown): {
   localServerPort: number;
   logStorageLimitMiB: DesktopLogStorageLimitMiB;
+  colorTheme: DesktopColorTheme;
 } {
-  if (!isRecord(value) || Object.keys(value).toSorted().join(",") !== "localServerPort,logStorageLimitMiB") {
+  if (!isRecord(value) || Object.keys(value).toSorted().join(",") !== "colorTheme,localServerPort,logStorageLimitMiB") {
     throw new DesktopSettingsContractError("DESKTOP_SETTINGS_INVALID", "Desktop 系统设置请求无效");
   }
   return {
     localServerPort: parseLocalServerPort(value.localServerPort),
-    logStorageLimitMiB: parseDesktopLogStorageLimitMiB(value.logStorageLimitMiB)
+    logStorageLimitMiB: parseDesktopLogStorageLimitMiB(value.logStorageLimitMiB),
+    colorTheme: parseDesktopColorTheme(value.colorTheme)
   };
 }
 

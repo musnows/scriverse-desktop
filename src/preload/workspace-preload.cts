@@ -4,6 +4,34 @@ const menuCommands = new Set(["open-sync-center", "request-quit"]);
 const aiStreamChannel = "workspace:local-ai:stream-event";
 const externalUrlRequestChannel = "workspace:shell:external-url-request";
 
+function applyDesktopColorTheme(): void {
+  const argument = process.argv.find((value) => value.startsWith("--scriverse-desktop-color-theme="));
+  const theme = argument?.slice("--scriverse-desktop-color-theme=".length);
+  if (theme !== "light" && theme !== "dark") return;
+  const apply = () => {
+    try {
+      localStorage.setItem("scriverse-color-theme-v1", theme);
+    } catch {
+      // 主题仍会应用到当前工作区。
+    }
+    const root = document.documentElement;
+    if (!root) return;
+    root.dataset.theme = theme;
+    root.style.colorScheme = theme;
+  };
+  const hideWorkspaceThemeToggle = () => window.setTimeout(() => document.querySelector("#theme-toggle")?.remove(), 0);
+  document.addEventListener("click", (event) => {
+    if ((event.target as Element | null)?.closest("#theme-toggle")) event.stopImmediatePropagation();
+  }, { capture: true });
+  apply();
+  document.addEventListener("DOMContentLoaded", () => {
+    apply();
+    hideWorkspaceThemeToggle();
+  }, { once: true });
+}
+
+applyDesktopColorTheme();
+
 function clipboardWriteFailureMessage(result: unknown): string {
   if (!result || typeof result !== "object" || Array.isArray(result)) return "Desktop 剪贴板写入失败";
   const error = "error" in result ? result.error : null;

@@ -18,6 +18,15 @@ describe("Desktop Selector UI", () => {
     expect(html).toContain("新增 Server");
     expect(html).toContain('id="local-ai-config-button"');
     expect(html).toContain('id="system-settings-button"');
+    expect(html).toContain('id="desktop-color-theme"');
+    expect(html).toContain("界面主题");
+    expect(html).toContain("应用到叙界首页、本地 AI 配置以及所有本地和远端工作区。");
+    const systemSettingsStart = html.indexOf('id="system-settings-dialog"');
+    const systemSettingsEnd = html.indexOf('id="delete-dialog"');
+    const systemSettings = html.slice(systemSettingsStart, systemSettingsEnd);
+    const profileSettings = html.slice(html.indexOf('id="profile-dialog"'), html.indexOf('id="remote-login-dialog"'));
+    expect(systemSettings).toContain('id="desktop-color-theme"');
+    expect(profileSettings).not.toContain('id="desktop-color-theme"');
     expect(html).toContain('id="local-server-port"');
     expect(html).toContain("本地服务首选端口");
     expect(html).toContain('min="20001" max="60000"');
@@ -50,11 +59,15 @@ describe("Desktop Selector UI", () => {
     expect(script).toContain("localServerPort: Number(localServerPort.value)");
     expect(script).toContain("logStorageLimitMiB: Number(logStorageLimit.value)");
     expect(script).toContain("bridge.settings.openLogs()");
+    expect(script).toContain("colorTheme: desktopColorTheme.value");
+    expect(script).toContain("function applyDesktopTheme(theme)");
     expect(script).toContain('return { label: "本地", className: "idle" };');
     expect(css).toContain(".status-badge.idle {");
     expect(css).toContain(".dialog-fields input, .dialog-fields select {");
     expect(css).toContain("grid-template-columns: repeat(2, minmax(0, 1fr))");
     expect(css).toContain(".log-storage-setting-row .ghost-button { width: 100%; min-height: 45px;");
+    expect(css).toContain(':root[data-theme="dark"]');
+    expect(css).not.toContain("@media (prefers-color-scheme: dark)");
     expect(css).not.toContain(".status-badge.local {");
   });
 
@@ -81,6 +94,7 @@ describe("Desktop Selector UI", () => {
     expect(preload).toContain("selector:local:login");
     expect(preload).toContain("selector:settings:get");
     expect(preload).toContain("selector:settings:update");
+    expect(preload).not.toContain("selector:settings:set-theme");
     expect(preload).toContain("selector:settings:open-logs");
     expect(preload).toContain("selector:remote:refresh-captcha");
     expect(preload).toContain("selector:remote:login");

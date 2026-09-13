@@ -2,6 +2,22 @@ const { contextBridge, ipcRenderer } = require("electron") as typeof import("ele
 
 const externalUrlRequestChannel = "selector:shell:external-url-request";
 
+function applyDesktopColorTheme(): void {
+  const argument = process.argv.find((value) => value.startsWith("--scriverse-desktop-color-theme="));
+  const theme = argument?.slice("--scriverse-desktop-color-theme=".length);
+  if (theme !== "light" && theme !== "dark") return;
+  const apply = () => {
+    const root = document.documentElement;
+    if (!root) return;
+    root.dataset.theme = theme;
+    root.style.colorScheme = theme;
+  };
+  apply();
+  document.addEventListener("DOMContentLoaded", apply, { once: true });
+}
+
+applyDesktopColorTheme();
+
 contextBridge.exposeInMainWorld("scriverseDesktop", Object.freeze({
   shellProtocol: 1,
   profiles: Object.freeze({

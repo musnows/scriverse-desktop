@@ -13,6 +13,8 @@ describe("Desktop 本地工作区窗口", () => {
     expect(workspaceSource).toContain("contextIsolation: true");
     expect(workspaceSource).toContain("sandbox: true");
     expect(workspaceSource).toContain("webSecurity: true");
+    expect(workspaceSource).toContain("additionalArguments");
+    expect(workspaceSource).toContain("--scriverse-desktop-color-theme=");
     expect(workspaceSource).toContain('preload: join(options.desktopRoot, "preload", "local-workspace-preload.cjs")');
     expect(workspaceSource).toContain('title: `本地工作区 - ${DESKTOP_DISPLAY_NAME}`');
     expect(workspaceSource).toContain("setPermissionRequestHandler");

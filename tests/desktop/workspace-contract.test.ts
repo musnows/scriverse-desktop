@@ -30,6 +30,9 @@ describe("Desktop 工作区最小 bridge", () => {
 
   it("只暴露有限 shell 方法并在 Main 复核 sender origin 与 session", () => {
     expect(preloadSource).toContain("getCapabilities");
+    expect(preloadSource).toContain("function applyDesktopColorTheme(): void");
+    expect(preloadSource).toContain('localStorage.setItem("scriverse-color-theme-v1", theme)');
+    expect(preloadSource).toContain('document.querySelector("#theme-toggle")?.remove()');
     expect(preloadSource).not.toContain("getOfflineKey");
     expect(preloadSource).toContain("reportLeaveState");
     expect(preloadSource).toContain("requestSwitch");
@@ -62,6 +65,9 @@ describe("Desktop 工作区最小 bridge", () => {
     expect(ipcSource).toContain("parseLocalAiAgentRoundInput");
     expect(ipcSource).toContain("parseCancelLocalAiAgentRoundInput");
     expect(localPreloadSource).toContain('exposeInMainWorld("scriverseDesktopLocalAi"');
+    expect(localPreloadSource).toContain("function applyDesktopColorTheme(): void");
+    expect(localPreloadSource).toContain('localStorage.setItem("scriverse-color-theme-v1", theme)');
+    expect(localPreloadSource).toContain('document.querySelector("#theme-toggle")?.remove()');
     expect(localPreloadSource).toContain("onExternalUrlRequest");
     expect(localPreloadSource).toContain('exposeInMainWorld("scriverseDesktopClipboard"');
     expect(localPreloadSource).toContain('writeClipboardText("local-workspace:shell:write-clipboard-text"');

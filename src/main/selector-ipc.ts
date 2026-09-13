@@ -237,7 +237,7 @@ export function registerSelectorIpc(selectorWindow: BrowserWindow, profileStore:
   handle("selector:local:get-status", selectorWindow, () => options.getLocalStatus());
   handle("selector:local:setup", selectorWindow, (_event, input) => options.setupLocal(parseLocalSetupInput(input)));
   handle("selector:local:login", selectorWindow, (_event, input) => options.loginLocal(parseLocalLoginInput(input)));
-  handle("selector:settings:get", selectorWindow, () => options.getDesktopSettings());
+  handle("selector:settings:get", selectorWindow, () => options.getDesktopSettings(), [SELECTOR_ENTRY_URL, LOCAL_AI_CONFIG_ENTRY_URL]);
   handle("selector:settings:update", selectorWindow, (_event, input) => options.updateDesktopSettings(input));
   handle("selector:settings:open-logs", selectorWindow, () => options.openLogs());
   handle("selector:remote:refresh-captcha", selectorWindow, (_event, input) => {

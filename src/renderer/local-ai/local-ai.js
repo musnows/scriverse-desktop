@@ -18,9 +18,8 @@ const LOCAL_AI_PROTOCOL_OPTIONS = Object.freeze([
   { value: "google-vertex", label: "Google Vertex", defaultBaseUrl: "https://aiplatform.googleapis.com/v1/projects/PROJECT_ID/locations/global/endpoints/openapi", credentialKind: "service-account-json", supportsMultimodal: true, supportsMaxCompletionTokens: true }
 ]);
 
-document.documentElement.dataset.theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-
 const bridge = window.scriverseDesktop?.localAi;
+const desktopSettings = window.scriverseDesktop?.settings;
 const providerList = document.querySelector("#local-ai-provider-list");
 const systemPrompt = document.querySelector("#local-ai-system-prompt");
 const formDialog = document.querySelector("#local-ai-form-dialog");
@@ -67,6 +66,16 @@ function unwrap(result) {
   error.code = result?.error?.code ?? "DESKTOP_BRIDGE_FAILED";
   throw error;
 }
+
+function applyDesktopTheme(theme) {
+  const colorTheme = theme === "dark" ? "dark" : "light";
+  document.documentElement.dataset.theme = colorTheme;
+  document.documentElement.style.colorScheme = colorTheme;
+}
+
+void desktopSettings?.get()
+  .then((result) => applyDesktopTheme(unwrap(result).colorTheme))
+  .catch(() => undefined);
 
 function esc(value) {
   return String(value ?? "").replace(/[&<>"']/gu, (character) => ({

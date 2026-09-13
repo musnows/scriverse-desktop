@@ -14,6 +14,8 @@ describe("Desktop 远端工作区窗口", () => {
     expect(windowSource).toContain("nodeIntegration: false");
     expect(windowSource).toContain("contextIsolation: true");
     expect(windowSource).toContain("sandbox: true");
+    expect(windowSource).toContain("additionalArguments");
+    expect(windowSource).toContain("--scriverse-desktop-color-theme=");
     expect(windowSource).toContain("webviewTag: false");
     expect(windowSource).toContain("will-attach-webview");
     expect(sessionSource).toContain("setPermissionCheckHandler");

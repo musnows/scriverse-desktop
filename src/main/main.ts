@@ -111,11 +111,14 @@ function writeRuntimeGateResult(result: RuntimeGateResult): void {
 }
 
 function runtimeGateEnvironment(): NodeJS.ProcessEnv {
+  const defaultGateDataDirectory = app.isPackaged
+    ? join(app.getPath("userData"), "runtime-gate")
+    : join(applicationRoot, ".ai-docs", `runtime-gate-${process.platform}-${process.arch}`);
   return {
     NODE_ENV: "production",
     SCRIVERSE_DESKTOP_APP_ROOT: applicationRoot,
     SCRIVERSE_DESKTOP_GATE_DATA_DIR: process.env.SCRIVERSE_DESKTOP_GATE_DATA_DIR
-      ?? join(app.getPath("userData"), "runtime-gate"),
+      ?? defaultGateDataDirectory,
     SCRIVERSE_DESKTOP_GATE_SKIP_LOCAL_SERVER: process.env.SCRIVERSE_DESKTOP_GATE_SKIP_LOCAL_SERVER === "true" ? "true" : "false"
   };
 }
@@ -558,6 +561,7 @@ function openLocalWorkspace(origin: string): Promise<void> {
   localWorkspaceOpenPromise = createLocalWorkspaceWindow({
     origin,
     desktopRoot,
+    colorTheme: desktopSettingsStore!.get().colorTheme,
     ...(mainWindow && !mainWindow.isDestroyed() ? { placement: captureWindowPlacement(mainWindow) } : {}),
     onCreated: (window) => {
       workspaceWindow = window;
@@ -641,6 +645,7 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
     profile,
     connectionMode,
     desktopRoot,
+    colorTheme: desktopSettingsStore!.get().colorTheme,
     offlineShellRoot: join(applicationRoot, "dist", "public"),
     remoteMediaCache: remoteMediaCache ?? undefined,
     remoteUserId: cachedUser.userId,
@@ -864,6 +869,7 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
     return true;
   };
   mainWindow = createSelectorWindow(desktopRoot, {
+    colorTheme: desktopSettingsStore!.get().colorTheme,
     onExternalUrlRequest: (requestWindow, target) => externalUrlNavigation.request(requestWindow, target, SELECTOR_EXTERNAL_URL_REQUEST_CHANNEL),
     onRendererRecoveryFailed: handleRendererRecoveryFailed
   });

@@ -111,11 +111,14 @@ function writeRuntimeGateResult(result: RuntimeGateResult): void {
 }
 
 function runtimeGateEnvironment(): NodeJS.ProcessEnv {
+  const defaultGateDataDirectory = app.isPackaged
+    ? join(app.getPath("userData"), "runtime-gate")
+    : join(applicationRoot, ".ai-docs", `runtime-gate-${process.platform}-${process.arch}`);
   return {
     NODE_ENV: "production",
     SCRIVERSE_DESKTOP_APP_ROOT: applicationRoot,
     SCRIVERSE_DESKTOP_GATE_DATA_DIR: process.env.SCRIVERSE_DESKTOP_GATE_DATA_DIR
-      ?? join(app.getPath("userData"), "runtime-gate"),
+      ?? defaultGateDataDirectory,
     SCRIVERSE_DESKTOP_GATE_SKIP_LOCAL_SERVER: process.env.SCRIVERSE_DESKTOP_GATE_SKIP_LOCAL_SERVER === "true" ? "true" : "false"
   };
 }

@@ -46,6 +46,7 @@ describe("Desktop embedded fonts", () => {
       contentType: "text/css; charset=utf-8"
     });
     expect(resolveSelectorAsset("app://desktop/fonts/noto-sans-sc/wght.css", "/trusted/renderer")?.contentType).toBe("text/css; charset=utf-8");
+    expect(resolveSelectorAsset("app://desktop/fonts/noto-sans-sc/NotoSansSC-VF.ttf", "/trusted/renderer")?.contentType).toBe("font/ttf");
     expect(resolveSelectorAsset("app://desktop/fonts/noto-sans-sc/files/noto-sans-sc-4-wght-normal.woff2", "/trusted/renderer")?.contentType).toBe("font/woff2");
     expect(resolveSelectorAsset("app://desktop/fonts/noto-sans-sc/files/font.js", "/trusted/renderer")).toBeNull();
     expect(resolveSelectorAsset("app://desktop/fonts/../package.json", "/trusted/renderer")).toBeNull();

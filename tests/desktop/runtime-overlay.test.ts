@@ -62,6 +62,12 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain('"/ai-message-actions.js?v=20260906-desktop-clipboard-v1"');
   });
 
+  it("基于 Server 1.0.10 的上下文计量器样式缓存版本生成 overlay", () => {
+    const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
+
+    expect(overlayPatch).toContain("feature=ai-context-meter-ring-only-v2");
+  });
+
   it("merges local models into every workspace picker and marks them with a local badge", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 

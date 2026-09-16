@@ -62,10 +62,14 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain('"/ai-message-actions.js?v=20260906-desktop-clipboard-v1"');
   });
 
-  it("基于 Server 1.0.10 的上下文计量器样式缓存版本生成 overlay", () => {
+  it("基于 Server 1.0.11 保留双方静态资源缓存标记", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 
     expect(overlayPatch).toContain("feature=ai-context-meter-ring-only-v2");
+    const applicationEntry = overlayPatch.split("\n").find((line) => line.startsWith('+    <script type="module" src="/app.js'));
+    expect(applicationEntry).toContain("feature=ai-write-plan-status-sync-v1");
+    expect(applicationEntry).toContain("feature=writing-goal-module-navigation-v1");
+    expect(applicationEntry).toContain("feature=desktop-quit-confirmation-v1");
   });
 
   it("merges local models into every workspace picker and marks them with a local badge", () => {
@@ -196,7 +200,7 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain("feature=ai-skill-slash-menu-v1");
     expect(overlayPatch).toContain("feature=ai-all-message-references-v2");
     expect(overlayPatch).toContain("feature=ai-question-render-recovery-v3");
-    expect(overlayPatch).toContain('ai-interactive.js?v=20260906-question-recovery-v1');
+    expect(overlayPatch).toContain('ai-interactive.js?v=20260915-plan-status-sync-v1');
     expect(overlayPatch.match(/feature=compact-sidebar-directory-v5/g)?.length ?? 0).toBeGreaterThan(0);
     expect(overlayPatch.match(/feature=ai-model-config-dialog-v1/g)?.length ?? 0).toBeGreaterThan(0);
     expect(overlayPatch.match(/feature=system-prompt-override-v3/g)?.length ?? 0).toBeGreaterThan(0);

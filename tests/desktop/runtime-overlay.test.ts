@@ -62,13 +62,15 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain('"/ai-message-actions.js?v=20260906-desktop-clipboard-v1"');
   });
 
-  it("基于 Server 1.0.11 保留双方静态资源缓存标记", () => {
+  it("基于 Server 1.0.12 保留双方静态资源缓存标记", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 
     expect(overlayPatch).toContain("feature=ai-context-meter-ring-only-v2");
     const applicationEntry = overlayPatch.split("\n").find((line) => line.startsWith('+    <script type="module" src="/app.js'));
     expect(applicationEntry).toContain("feature=ai-write-plan-status-sync-v1");
-    expect(applicationEntry).toContain("feature=writing-goal-module-navigation-v1");
+    expect(applicationEntry).toContain("feature=writing-goal-module-navigation-v2");
+    expect(applicationEntry).toContain("feature=chapter-line-scroll-bind-v1");
+    expect(applicationEntry).toContain("feature=invite-registration-v1");
     expect(applicationEntry).toContain("feature=desktop-quit-confirmation-v1");
   });
 

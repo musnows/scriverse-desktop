@@ -226,6 +226,7 @@ button:disabled { cursor: wait; opacity: .56; transform: none !important; }
 .dialog-close:hover { border-color: var(--line); background: var(--paper-deep); color: var(--accent-dark); }
 .dialog-fields { display: grid; gap: 15px; padding: 22px 24px; }
 .dialog-fields label { display: grid; gap: 7px; color: var(--muted); font-size: 11px; font-weight: 620; }
+.dialog-fields label[hidden] { display: none !important; }
 .dialog-fields input, .dialog-fields select { width: 100%; min-height: 45px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-soft); color: var(--ink); font-size: 13px; }
 .dialog-fields input:focus, .dialog-fields select:focus { border-color: color-mix(in srgb, var(--accent) 58%, var(--line)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); outline: none; }
 .log-storage-setting-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 10px; min-width: 0; }
@@ -235,6 +236,36 @@ button:disabled { cursor: wait; opacity: .56; transform: none !important; }
 .captcha-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .captcha-image { width: min(184px, 100%); height: 60px; object-fit: contain; border: 1px solid var(--line); border-radius: 6px; background: #f3f7fb; }
 .captcha-row .ghost-button { min-height: 34px; flex: 0 0 auto; padding: 6px 9px; font-size: 10px; }
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  padding: 2px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--line));
+  border-radius: 7px;
+  background: var(--paper-deep);
+}
+.auth-tabs button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+.auth-tabs button:not([aria-selected="true"]):not(:disabled):hover { background: color-mix(in srgb, var(--surface) 62%, transparent); color: var(--ink); }
+.auth-tabs button:disabled { cursor: not-allowed; color: color-mix(in srgb, var(--muted) 72%, transparent); opacity: .78; }
+.auth-tabs button[aria-selected="true"] {
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  color: var(--accent-dark);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 58%, transparent);
+  font-weight: 750;
+}
+.dialog-fields .field-note { font-weight: 500; }
+#remote-invite-code { letter-spacing: .06em; text-transform: uppercase; }
 .mono { font-family: var(--font-mono); }
 .field-note, .confirm-copy { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.65; overflow-wrap: anywhere; }
 .field-note.valid { color: var(--green); }

@@ -21,6 +21,15 @@ const remoteCaptchaAnswer = document.querySelector("#remote-captcha-answer");
 const remoteCaptchaRefresh = document.querySelector("#remote-captcha-refresh");
 const remoteLoginError = document.querySelector("#remote-login-error");
 const remoteLoginSubmit = document.querySelector("#remote-login-submit");
+const remoteAuthDescription = document.querySelector("#remote-auth-description");
+const remoteLoginTab = document.querySelector("#remote-login-tab");
+const remoteRegisterTab = document.querySelector("#remote-register-tab");
+const remoteSetupTokenField = document.querySelector("#remote-setup-token-field");
+const remoteSetupToken = document.querySelector("#remote-setup-token");
+const remoteInviteCodeField = document.querySelector("#remote-invite-code-field");
+const remoteInviteCode = document.querySelector("#remote-invite-code");
+const remotePasswordConfirmationField = document.querySelector("#remote-password-confirmation-field");
+const remotePasswordConfirmation = document.querySelector("#remote-password-confirmation");
 const localSetupDialog = document.querySelector("#local-setup-dialog");
 const localSetupForm = document.querySelector("#local-setup-form");
 const localUsername = document.querySelector("#local-username");
@@ -60,6 +69,14 @@ const state = {
   deletingDiscardUnsynced: false,
   remoteLoginProfileId: null,
   remoteCaptchaId: null,
+  remoteAuthMode: "login",
+  remotePolicy: {
+    registrationMode: "disabled",
+    registrationOpen: false,
+    inviteRequired: false,
+    setupRequired: false,
+    setupTokenRequired: false
+  },
   toastTimer: null,
   quitConfirmationOpen: false
 };
@@ -90,6 +107,15 @@ function requireElement(element, label) {
   [remoteCaptchaRefresh, "remote-captcha-refresh"],
   [remoteLoginError, "remote-login-error"],
   [remoteLoginSubmit, "remote-login-submit"],
+  [remoteAuthDescription, "remote-auth-description"],
+  [remoteLoginTab, "remote-login-tab"],
+  [remoteRegisterTab, "remote-register-tab"],
+  [remoteSetupTokenField, "remote-setup-token-field"],
+  [remoteSetupToken, "remote-setup-token"],
+  [remoteInviteCodeField, "remote-invite-code-field"],
+  [remoteInviteCode, "remote-invite-code"],
+  [remotePasswordConfirmationField, "remote-password-confirmation-field"],
+  [remotePasswordConfirmation, "remote-password-confirmation"],
   [localSetupDialog, "local-setup-dialog"],
   [localSetupForm, "local-setup-form"],
   [localUsername, "local-username"],
@@ -392,23 +418,82 @@ function applyRemoteChallenge(challenge) {
   remoteCaptchaAnswer.value = "";
 }
 
-function openRemoteLoginDialog(profile, challenge) {
+function remotePolicyLabel(policy) {
+  if (policy.setupRequired) {
+    return policy.registrationOpen
+      ? "这是首次启动。首个注册用户会成为系统管理员。"
+      : "当前 Server 已关闭注册，无法创建首位管理员。";
+  }
+  if (policy.inviteRequired) return "当前部署需要邀请码才能注册。请向系统管理员获取一次性邀请码。";
+  if (policy.registrationOpen) return "登录已有账户，或注册后进入该 Server。";
+  return "当前部署已关闭新用户注册，请使用已有账户登录。";
+}
+
+function selectRemoteAuthMode(mode) {
+  const canRegister = state.remotePolicy.registrationOpen === true;
+  const nextMode = mode === "register" && canRegister ? "register" : "login";
+  state.remoteAuthMode = nextMode;
+  const registering = nextMode === "register";
+  const inviteRequired = registering && state.remotePolicy.inviteRequired === true;
+  const setupTokenRequired = registering && state.remotePolicy.setupTokenRequired === true;
+  remoteLoginTab.setAttribute("aria-selected", String(!registering));
+  remoteRegisterTab.setAttribute("aria-selected", String(registering));
+  remoteSetupTokenField.hidden = !setupTokenRequired;
+  remoteSetupToken.required = setupTokenRequired;
+  remoteInviteCodeField.hidden = !inviteRequired;
+  remoteInviteCode.required = inviteRequired;
+  remotePasswordConfirmationField.hidden = !registering;
+  remotePasswordConfirmation.required = registering;
+  remotePassword.autocomplete = registering ? "new-password" : "current-password";
+  if (registering) {
+    remotePassword.minLength = 10;
+    remoteUsername.minLength = 3;
+    remoteUsername.maxLength = 40;
+  } else {
+    remotePassword.removeAttribute("minlength");
+    remoteUsername.removeAttribute("minlength");
+    remoteUsername.maxLength = 100;
+  }
+  remoteLoginSubmit.textContent = registering ? "注册并进入" : "登录并进入";
+}
+
+function openRemoteLoginDialog(profile, challenge, policy) {
   state.remoteLoginProfileId = profile.id;
+  state.remotePolicy = {
+    registrationMode: policy?.registrationMode === "invite" || policy?.registrationMode === "open"
+      ? policy.registrationMode
+      : policy?.registrationOpen === true ? "open" : "disabled",
+    registrationOpen: policy?.registrationOpen === true,
+    inviteRequired: policy?.inviteRequired === true,
+    setupRequired: policy?.setupRequired === true,
+    setupTokenRequired: policy?.setupTokenRequired === true
+  };
   remoteLoginForm.reset();
-  remoteLoginTitle.textContent = `登录“${profile.name}”`;
+  remoteLoginTitle.textContent = state.remotePolicy.registrationOpen
+    ? (state.remotePolicy.setupRequired ? `初始化“${profile.name}”` : `登录或注册“${profile.name}”`)
+    : `登录“${profile.name}”`;
   remoteLoginOrigin.textContent = profile.origin;
+  remoteAuthDescription.textContent = remotePolicyLabel(state.remotePolicy);
+  remoteRegisterTab.disabled = !state.remotePolicy.registrationOpen;
+  remoteRegisterTab.setAttribute("aria-disabled", String(!state.remotePolicy.registrationOpen));
+  remoteRegisterTab.textContent = state.remotePolicy.registrationOpen ? "注册" : "注册已禁用";
   remoteLoginError.hidden = true;
   applyRemoteChallenge(challenge);
+  selectRemoteAuthMode(state.remotePolicy.setupRequired && state.remotePolicy.registrationOpen ? "register" : "login");
   remoteLoginDialog.showModal();
   window.setTimeout(() => remoteUsername.focus(), 0);
 }
 
 function closeRemoteLoginDialog() {
   remotePassword.value = "";
+  remotePasswordConfirmation.value = "";
+  remoteSetupToken.value = "";
+  remoteInviteCode.value = "";
   remoteCaptchaAnswer.value = "";
   remoteCaptchaImage.removeAttribute("src");
   state.remoteLoginProfileId = null;
   state.remoteCaptchaId = null;
+  state.remoteAuthMode = "login";
   if (remoteLoginDialog.open) remoteLoginDialog.close();
 }
 
@@ -546,17 +631,36 @@ remoteLoginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!state.remoteLoginProfileId || !state.remoteCaptchaId) return;
   remoteLoginError.hidden = true;
+  const registering = state.remoteAuthMode === "register";
+  if (registering && remotePassword.value !== remotePasswordConfirmation.value) {
+    remoteLoginError.textContent = "两次输入的密码不一致";
+    remoteLoginError.hidden = false;
+    remotePasswordConfirmation.focus();
+    return;
+  }
   setBusy(remoteLoginSubmit, true);
   try {
-    unwrap(await bridge.remote.login({
+    const input = {
       profileId: state.remoteLoginProfileId,
       username: remoteUsername.value,
       password: remotePassword.value,
       captchaId: state.remoteCaptchaId,
       captchaAnswer: remoteCaptchaAnswer.value
-    }));
-    closeRemoteLoginDialog();
-    showToast("Server 登录成功，正在进入工作区");
+    };
+    if (registering) {
+      unwrap(await bridge.remote.register({
+        ...input,
+        passwordConfirmation: remotePasswordConfirmation.value,
+        ...(remoteSetupToken.required ? { setupToken: remoteSetupToken.value } : {}),
+        ...(remoteInviteCode.required ? { inviteCode: remoteInviteCode.value } : {})
+      }));
+      closeRemoteLoginDialog();
+      showToast("Server 注册成功，正在进入工作区");
+    } else {
+      unwrap(await bridge.remote.login(input));
+      closeRemoteLoginDialog();
+      showToast("Server 登录成功，正在进入工作区");
+    }
     await loadProfiles();
   } catch (error) {
     remoteLoginError.textContent = error.message;
@@ -564,10 +668,16 @@ remoteLoginForm.addEventListener("submit", async (event) => {
     if (error.code === "CAPTCHA_INVALID") await refreshRemoteCaptcha();
   } finally {
     remotePassword.value = "";
+    remotePasswordConfirmation.value = "";
     setBusy(remoteLoginSubmit, false);
   }
 });
 remoteCaptchaRefresh.addEventListener("click", refreshRemoteCaptcha);
+remoteLoginTab.addEventListener("click", () => selectRemoteAuthMode("login"));
+remoteRegisterTab.addEventListener("click", () => {
+  if (remoteRegisterTab.disabled) return;
+  selectRemoteAuthMode("register");
+});
 
 localSetupForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -686,7 +796,7 @@ workspaceList.addEventListener("click", async (event) => {
         openLocalLoginDialog();
       } else if (profile.kind === "remote" && openResult.status === "login-required") {
         showToast("请直接登录该 Server");
-        openRemoteLoginDialog(profile, openResult.challenge);
+        openRemoteLoginDialog(profile, openResult.challenge, openResult.policy);
       } else {
         showToast(openResult.mode === "offline" ? `已离线打开“${profile.name}”` : `已选择“${profile.name}”`);
       }

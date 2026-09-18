@@ -69,6 +69,31 @@ describe("Desktop 直连 Server 登录客户端", () => {
     expect(fetchImpl.mock.calls[1]?.[1]?.headers).toMatchObject({ Authorization: `Bearer ${token}` });
   });
 
+  it("用 Desktop 注册端点创建账户且不携带 Cookie", async () => {
+    const token = `scrvd_${"b".repeat(43)}`;
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
+      data: { token, expiresAt: "2026-09-23T00:00:00.000Z", user }
+    }), { status: 201 }));
+    await new RemoteAuthClient(fetchImpl).register(profile(), {
+      profileId: "11111111-1111-4111-8111-111111111111",
+      username: "author",
+      password: "secret-password",
+      passwordConfirmation: "secret-password",
+      captchaId: "captcha",
+      captchaAnswer: "A1B2",
+      inviteCode: "AB2D-EFGH-JK3M-NP4Q"
+    }, "22222222-2222-4222-8222-222222222222", "0.8.7");
+    expect(fetchImpl).toHaveBeenCalledWith("https://server.example/api/desktop/auth/register", expect.objectContaining({
+      credentials: "omit",
+      redirect: "error"
+    }));
+    expect(JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body))).toMatchObject({
+      inviteCode: "AB2D-EFGH-JK3M-NP4Q",
+      passwordConfirmation: "secret-password",
+      desktopId: "22222222-2222-4222-8222-222222222222"
+    });
+  });
+
   it("拒绝公网 HTTP 和超大响应", async () => {
     const fetchImpl = vi.fn<typeof fetch>();
     await expect(new RemoteAuthClient(fetchImpl).captcha(profile("http://server.example"))).rejects.toMatchObject({

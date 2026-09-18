@@ -38,6 +38,13 @@ describe("Desktop Selector UI", () => {
     expect(html).toContain("id=\"local-setup-dialog\"");
     expect(html).toContain("id=\"local-login-dialog\"");
     expect(html).toContain("id=\"remote-login-dialog\"");
+    expect(html).toContain("id=\"remote-register-tab\"");
+    expect(html).toContain("id=\"remote-invite-code-field\"");
+    expect(html).toContain("id=\"remote-setup-token-field\"");
+    expect(script).toContain("bridge.remote.register");
+    expect(script).toContain("inviteRequired");
+    expect(css).toContain(".auth-tabs button:disabled");
+    expect(css).toContain(".dialog-fields label[hidden] { display: none !important; }");
     expect(html).toContain("autocomplete=\"current-password\"");
     expect(html).not.toContain("Bearer");
     expect(html).not.toContain("浏览器 Cookie");
@@ -98,6 +105,7 @@ describe("Desktop Selector UI", () => {
     expect(preload).toContain("selector:settings:open-logs");
     expect(preload).toContain("selector:remote:refresh-captcha");
     expect(preload).toContain("selector:remote:login");
+    expect(preload).toContain("selector:remote:register");
     expect(preload).toContain("localAi: Object.freeze");
     expect(preload).toContain("selector:local-ai:configuration");
     expect(preload).toContain("selector:local-ai:update-system-prompt");

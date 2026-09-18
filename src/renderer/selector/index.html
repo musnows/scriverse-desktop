@@ -92,13 +92,32 @@
         </div>
         <div class="dialog-fields">
           <p id="remote-login-origin" class="field-note mono"></p>
+          <p id="remote-auth-description" class="field-note">登录后进入该 Server 工作区。</p>
+          <div id="remote-auth-tabs" class="auth-tabs" role="tablist" aria-label="登录或注册">
+            <button id="remote-login-tab" type="button" role="tab" aria-selected="true">登录</button>
+            <button id="remote-register-tab" type="button" role="tab" aria-selected="false" aria-disabled="true" disabled>注册已禁用</button>
+          </div>
           <label>
             <span>用户名</span>
             <input id="remote-username" name="username" type="text" maxlength="100" autocomplete="username" required>
           </label>
+          <label id="remote-setup-token-field" hidden>
+            <span>初始化令牌</span>
+            <input id="remote-setup-token" name="setupToken" type="password" autocomplete="off" maxlength="500" aria-describedby="remote-setup-token-hint">
+            <small id="remote-setup-token-hint" class="field-note">请输入服务端 APP_SETUP_TOKEN 的值。</small>
+          </label>
+          <label id="remote-invite-code-field" hidden>
+            <span>邀请码</span>
+            <input id="remote-invite-code" name="inviteCode" type="text" maxlength="32" autocomplete="off" spellcheck="false" autocapitalize="characters" class="mono" aria-describedby="remote-invite-code-hint">
+            <small id="remote-invite-code-hint" class="field-note">请输入系统管理员提供的一次性邀请码。</small>
+          </label>
           <label>
             <span>密码</span>
             <input id="remote-password" name="password" type="password" maxlength="200" autocomplete="current-password" required>
+          </label>
+          <label id="remote-password-confirmation-field" hidden>
+            <span>确认密码</span>
+            <input id="remote-password-confirmation" name="passwordConfirmation" type="password" minlength="10" maxlength="200" autocomplete="new-password">
           </label>
           <div class="captcha-field">
             <span>验证码</span>

@@ -27,6 +27,17 @@ export type RemoteLoginInput = {
   captchaAnswer: string;
 };
 
+export type RemoteRegisterInput = {
+  profileId: string;
+  username: string;
+  password: string;
+  passwordConfirmation: string;
+  captchaId: string;
+  captchaAnswer: string;
+  setupToken?: string;
+  inviteCode?: string;
+};
+
 export type RemoteLoginResult = {
   token: string;
   expiresAt: string;
@@ -38,9 +49,17 @@ export type RemoteSessionState = {
   user: RemoteAuthUser | null;
 };
 
+export type RemoteRegistrationPolicy = {
+  registrationMode: "disabled" | "invite" | "open";
+  registrationOpen: boolean;
+  inviteRequired: boolean;
+  setupRequired: boolean;
+  setupTokenRequired: boolean;
+};
+
 export type RemoteProfileOpenResult =
   | { status: "opened"; mode: "online" | "offline" }
-  | { status: "login-required"; challenge: RemoteLoginChallenge };
+  | { status: "login-required"; challenge: RemoteLoginChallenge; policy: RemoteRegistrationPolicy };
 
 export class RemoteAuthContractError extends Error {
   constructor(readonly code: string, message: string) {
@@ -108,6 +127,60 @@ export function parseRemoteLoginInput(value: unknown): RemoteLoginInput {
   return { profileId, username, password: value.password, captchaId, captchaAnswer };
 }
 
+export function parseRemoteRegisterInput(value: unknown): RemoteRegisterInput {
+  if (!isRecord(value)) throw new RemoteAuthContractError("REMOTE_AUTH_INPUT_INVALID", "远端注册请求无效");
+  const allowed = new Set([
+    "profileId",
+    "username",
+    "password",
+    "passwordConfirmation",
+    "captchaId",
+    "captchaAnswer",
+    "setupToken",
+    "inviteCode"
+  ]);
+  if (Object.keys(value).some((key) => !allowed.has(key))) {
+    throw new RemoteAuthContractError("REMOTE_AUTH_INPUT_INVALID", "远端注册请求包含未知字段");
+  }
+  const profileId = assertUuid(value.profileId, "profile id");
+  if (typeof value.username !== "string") {
+    throw new RemoteAuthContractError("REMOTE_USERNAME_INVALID", "用户名无效");
+  }
+  const username = value.username.trim();
+  if (username.length < 3 || username.length > 40 || !/^[\p{L}\p{N}_.-]+$/u.test(username)) {
+    throw new RemoteAuthContractError("REMOTE_USERNAME_INVALID", "用户名需为 3 到 40 个文字、数字、点、下划线或短横线");
+  }
+  if (typeof value.password !== "string" || value.password.length < 10 || value.password.length > 200) {
+    throw new RemoteAuthContractError("REMOTE_PASSWORD_INVALID", "密码长度必须在 10 到 200 个字符之间");
+  }
+  if (typeof value.passwordConfirmation !== "string" || value.passwordConfirmation !== value.password) {
+    throw new RemoteAuthContractError("REMOTE_PASSWORD_CONFIRMATION_INVALID", "两次输入的密码不一致");
+  }
+  const captchaId = typeof value.captchaId === "string" ? value.captchaId.trim() : "";
+  const captchaAnswer = typeof value.captchaAnswer === "string" ? value.captchaAnswer.trim() : "";
+  if (captchaId.length === 0 || captchaId.length > 200 || captchaAnswer.length === 0 || captchaAnswer.length > 16) {
+    throw new RemoteAuthContractError("REMOTE_CAPTCHA_INVALID", "验证码无效，请刷新后重试");
+  }
+  const setupToken = typeof value.setupToken === "string" ? value.setupToken : undefined;
+  if (setupToken !== undefined && setupToken.length > 500) {
+    throw new RemoteAuthContractError("REMOTE_SETUP_TOKEN_INVALID", "初始化令牌无效");
+  }
+  const inviteCode = typeof value.inviteCode === "string" ? value.inviteCode.trim() : undefined;
+  if (inviteCode !== undefined && inviteCode.length > 32) {
+    throw new RemoteAuthContractError("REMOTE_INVITE_CODE_INVALID", "邀请码无效");
+  }
+  return {
+    profileId,
+    username,
+    password: value.password,
+    passwordConfirmation: value.passwordConfirmation,
+    captchaId,
+    captchaAnswer,
+    ...(setupToken ? { setupToken } : {}),
+    ...(inviteCode ? { inviteCode } : {})
+  };
+}
+
 export function parseRemoteCaptchaResponse(value: unknown): RemoteLoginChallenge {
   if (!isRecord(value)) throw new RemoteAuthContractError("REMOTE_AUTH_RESPONSE_INVALID", "Server 验证码响应无效");
   assertExactKeys(value, ["data"], "Server 验证码响应");
@@ -143,6 +216,24 @@ export function parseRemoteSessionResponse(value: unknown): RemoteSessionState {
   }
   if (!value.data.authenticated) return { authenticated: false, user: null };
   return { authenticated: true, user: parseRemoteAuthUser(value.data.user) };
+}
+
+export function parseRemoteRegistrationPolicy(value: unknown): RemoteRegistrationPolicy {
+  if (!isRecord(value) || !isRecord(value.data) || typeof value.data.authenticated !== "boolean") {
+    throw new RemoteAuthContractError("REMOTE_AUTH_RESPONSE_INVALID", "Server 注册策略响应无效");
+  }
+  const registrationOpen = value.data.registrationOpen === true;
+  const registrationMode = value.data.registrationMode === "invite" || value.data.registrationMode === "open"
+    ? value.data.registrationMode
+    : registrationOpen ? "open" : "disabled";
+  const setupRequired = value.data.setupRequired === true;
+  return {
+    registrationMode,
+    registrationOpen,
+    inviteRequired: value.data.inviteRequired === true || (registrationMode === "invite" && !setupRequired),
+    setupRequired,
+    setupTokenRequired: value.data.setupTokenRequired === true
+  };
 }
 
 export function parseRemoteApiError(value: unknown, fallbackStatus: number): RemoteAuthContractError {

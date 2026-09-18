@@ -3,6 +3,8 @@ import {
   parseRemoteCaptchaResponse,
   parseRemoteLoginInput,
   parseRemoteLoginResponse,
+  parseRemoteRegisterInput,
+  parseRemoteRegistrationPolicy,
   parseRemoteSessionResponse
 } from "../../src/shared/remote-auth-contract.js";
 
@@ -37,6 +39,29 @@ describe("Desktop 远端登录契约", () => {
     })).toThrowError(/未知字段/u);
   });
 
+  it("校验远端注册输入并读取邀请码", () => {
+    expect(parseRemoteRegisterInput({
+      profileId: "11111111-1111-4111-8111-111111111111",
+      username: " author ",
+      password: "secret-password",
+      passwordConfirmation: "secret-password",
+      captchaId: "captcha-id",
+      captchaAnswer: "A1B2",
+      inviteCode: " ab2d-efgh-jk3m-np4q "
+    })).toMatchObject({
+      username: "author",
+      inviteCode: "ab2d-efgh-jk3m-np4q"
+    });
+    expect(() => parseRemoteRegisterInput({
+      profileId: "11111111-1111-4111-8111-111111111111",
+      username: "author",
+      password: "secret-password",
+      passwordConfirmation: "other-password",
+      captchaId: "captcha-id",
+      captchaAnswer: "A1B2"
+    })).toThrowError(/两次输入的密码不一致/u);
+  });
+
   it("只接受受限 SVG data URL 验证码", () => {
     const imageDataUrl = `data:image/svg+xml;base64,${Buffer.from("<svg></svg>").toString("base64")}`;
     expect(parseRemoteCaptchaResponse({ data: { captchaId: "captcha", imageDataUrl } })).toEqual({ captchaId: "captcha", imageDataUrl });
@@ -54,6 +79,25 @@ describe("Desktop 远端登录契约", () => {
       user
     });
     expect(parseRemoteSessionResponse({ data: { authenticated: false, user: null } })).toEqual({ authenticated: false, user: null });
+    expect(parseRemoteRegistrationPolicy({
+      data: {
+        authenticated: false,
+        user: null,
+        csrfToken: null,
+        bootId: "boot",
+        setupRequired: false,
+        setupTokenRequired: false,
+        registrationMode: "invite",
+        registrationOpen: true,
+        inviteRequired: true
+      }
+    })).toEqual({
+      registrationMode: "invite",
+      registrationOpen: true,
+      inviteRequired: true,
+      setupRequired: false,
+      setupTokenRequired: false
+    });
     expect(() => parseRemoteSessionResponse({
       data: { authenticated: true, user: { ...user, isSystemAdmin: false } }
     })).toThrowError(/用户字段/u);

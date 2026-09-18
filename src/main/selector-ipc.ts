@@ -29,10 +29,12 @@ import type { LocalServerPublicStatus } from "../shared/local-server-contract.js
 import { parseLocalLoginInput, parseLocalSetupInput } from "../shared/local-server-contract.js";
 import {
   parseRemoteLoginInput,
+  parseRemoteRegisterInput,
   type RemoteAuthUser,
   type RemoteLoginChallenge,
   type RemoteLoginInput,
-  type RemoteProfileOpenResult
+  type RemoteProfileOpenResult,
+  type RemoteRegisterInput
 } from "../shared/remote-auth-contract.js";
 import type { RemoteCapabilitySnapshot, RemoteWorkspaceProfile } from "../shared/contracts.js";
 import { normalizeProfileOrigin } from "../shared/profile-url.js";
@@ -59,6 +61,7 @@ const channels = [
   "selector:settings:open-logs",
   "selector:remote:refresh-captcha",
   "selector:remote:login",
+  "selector:remote:register",
   "selector:local-ai:configuration",
   "selector:local-ai:update-system-prompt",
   "selector:local-ai:create-provider",
@@ -158,6 +161,7 @@ export function registerSelectorIpc(selectorWindow: BrowserWindow, profileStore:
   openRemote: (profile: RemoteWorkspaceProfile) => Promise<RemoteProfileOpenResult>;
   refreshRemoteChallenge: (profile: RemoteWorkspaceProfile) => Promise<RemoteLoginChallenge>;
   loginRemote: (profile: RemoteWorkspaceProfile, input: RemoteLoginInput) => Promise<RemoteAuthUser>;
+  registerRemote: (profile: RemoteWorkspaceProfile, input: RemoteRegisterInput) => Promise<RemoteAuthUser>;
   forgetRemote: (profile: RemoteWorkspaceProfile) => Promise<void>;
   getRemoteSyncStatus: (profile: RemoteWorkspaceProfile) => RemoteSyncStatusSummary;
   probeRemote: (origin: string) => Promise<RemoteCapabilitySnapshot>;
@@ -250,6 +254,14 @@ export function registerSelectorIpc(selectorWindow: BrowserWindow, profileStore:
     const profile = profileStore.get(parsed.profileId);
     if (profile.kind !== "remote") throw new Error("远端工作区 profile 不存在");
     const user = await options.loginRemote(profile, parsed);
+    profileStore.markUsed(profile.id);
+    return user;
+  });
+  handle("selector:remote:register", selectorWindow, async (_event, input) => {
+    const parsed = parseRemoteRegisterInput(input);
+    const profile = profileStore.get(parsed.profileId);
+    if (profile.kind !== "remote") throw new Error("远端工作区 profile 不存在");
+    const user = await options.registerRemote(profile, parsed);
     profileStore.markUsed(profile.id);
     return user;
   });

@@ -971,6 +971,7 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
     openRemote: (profile) => remoteAuth.open(profile),
     refreshRemoteChallenge: (profile) => remoteAuth.refreshChallenge(profile),
     loginRemote: (profile, input) => remoteAuth.login(profile, input),
+    registerRemote: (profile, input) => remoteAuth.register(profile, input),
     forgetRemote: async (profile) => {
       await remoteAuth.forget(profile);
       remoteSyncStatusStore!.clear(profile);

@@ -87,6 +87,13 @@ describe("Desktop 远端登录编排", () => {
     };
     const client = {
       captcha: vi.fn().mockResolvedValue(challenge),
+      registrationPolicy: vi.fn().mockResolvedValue({
+        registrationMode: "invite",
+        registrationOpen: true,
+        inviteRequired: true,
+        setupRequired: false,
+        setupTokenRequired: false
+      }),
       login: vi.fn().mockResolvedValue({ token, expiresAt: "2099-09-23T00:00:00.000Z", user }),
       revoke: vi.fn()
     };
@@ -99,7 +106,17 @@ describe("Desktop 远端登录编排", () => {
       sessions as unknown as RemoteSessionRegistry,
       vi.fn().mockResolvedValue(undefined)
     );
-    await expect(coordinator.open(profile)).resolves.toEqual({ status: "login-required", challenge });
+    await expect(coordinator.open(profile)).resolves.toEqual({
+      status: "login-required",
+      challenge,
+      policy: {
+        registrationMode: "invite",
+        registrationOpen: true,
+        inviteRequired: true,
+        setupRequired: false,
+        setupTokenRequired: false
+      }
+    });
     const result = await coordinator.login(profile, {
       profileId: profile.id,
       username: "author",
@@ -111,6 +128,39 @@ describe("Desktop 远端登录编排", () => {
     expect(result).not.toHaveProperty("token");
     expect(store.save).toHaveBeenCalledWith(profile, expect.objectContaining({ token }));
     expect(sessions.authorize).toHaveBeenCalledWith(profile, token);
+  });
+
+  it("注册成功后保存 Bearer 会话并打开工作区", async () => {
+    const token = `scrvd_${"e".repeat(43)}`;
+    const store = { load: vi.fn().mockReturnValue(null), clear: vi.fn(), save: vi.fn() };
+    const client = {
+      register: vi.fn().mockResolvedValue({ token, expiresAt: "2099-09-23T00:00:00.000Z", user }),
+      revoke: vi.fn()
+    };
+    const sessions = { authorize: vi.fn(), clear: vi.fn() };
+    const openWorkspace = vi.fn().mockResolvedValue(undefined);
+    const coordinator = new RemoteAuthCoordinator(
+      "22222222-2222-4222-8222-222222222222",
+      "0.8.7",
+      store as unknown as RemoteAuthStore,
+      client as unknown as RemoteAuthClient,
+      sessions as unknown as RemoteSessionRegistry,
+      openWorkspace
+    );
+    await expect(coordinator.register(profile, {
+      profileId: profile.id,
+      username: "author",
+      password: "secret-password",
+      passwordConfirmation: "secret-password",
+      captchaId: "captcha",
+      captchaAnswer: "A1B2",
+      inviteCode: "AB2D-EFGH-JK3M-NP4Q"
+    })).resolves.toEqual(user);
+    expect(client.register).toHaveBeenCalledWith(profile, expect.objectContaining({
+      inviteCode: "AB2D-EFGH-JK3M-NP4Q"
+    }), "22222222-2222-4222-8222-222222222222", "0.8.7");
+    expect(store.save).toHaveBeenCalledWith(profile, expect.objectContaining({ token }));
+    expect(openWorkspace).toHaveBeenCalledWith(profile, "online");
   });
 
   it("删除 profile 时撤销软件令牌并清空整个独立浏览器分区", async () => {

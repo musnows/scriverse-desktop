@@ -3,7 +3,9 @@ import type {
   RemoteAuthUser,
   RemoteLoginChallenge,
   RemoteLoginInput,
-  RemoteProfileOpenResult
+  RemoteProfileOpenResult,
+  RemoteRegisterInput,
+  RemoteRegistrationPolicy
 } from "../shared/remote-auth-contract.js";
 import { RemoteAuthClient, RemoteAuthClientError } from "./remote-auth-client.js";
 import { RemoteAuthStore, RemoteAuthStoreError, type StoredRemoteCredential } from "./remote-auth-store.js";
@@ -43,8 +45,15 @@ export class RemoteAuthCoordinator {
     }
   }
 
-  private async challenge(profile: RemoteWorkspaceProfile): Promise<RemoteLoginChallenge> {
-    return this.client.captcha(profile);
+  private async loginChallenge(profile: RemoteWorkspaceProfile): Promise<{
+    challenge: RemoteLoginChallenge;
+    policy: RemoteRegistrationPolicy;
+  }> {
+    const [challenge, policy] = await Promise.all([
+      this.client.captcha(profile),
+      this.client.registrationPolicy(profile)
+    ]);
+    return { challenge, policy };
   }
 
   async open(profile: RemoteWorkspaceProfile): Promise<RemoteProfileOpenResult> {
@@ -77,15 +86,31 @@ export class RemoteAuthCoordinator {
       this.activeModes.delete(profile.id);
       this.store.clear(profile);
     }
-    return { status: "login-required", challenge: await this.challenge(profile) };
+    const { challenge, policy } = await this.loginChallenge(profile);
+    return { status: "login-required", challenge, policy };
   }
 
   refreshChallenge(profile: RemoteWorkspaceProfile): Promise<RemoteLoginChallenge> {
-    return this.challenge(profile);
+    return this.client.captcha(profile);
   }
 
   async login(profile: RemoteWorkspaceProfile, input: RemoteLoginInput): Promise<RemoteAuthUser> {
     const result = await this.client.login(profile, input, this.desktopId, this.desktopVersion);
+    try {
+      this.store.save(profile, result);
+    } catch (error) {
+      await this.client.revoke(profile, result.token).catch(() => undefined);
+      throw error;
+    }
+    this.sessions.authorize(profile, result.token);
+    this.activeUsers.set(profile.id, result.user);
+    this.activeModes.set(profile.id, "online");
+    await this.openWorkspace(profile, "online");
+    return result.user;
+  }
+
+  async register(profile: RemoteWorkspaceProfile, input: RemoteRegisterInput): Promise<RemoteAuthUser> {
+    const result = await this.client.register(profile, input, this.desktopId, this.desktopVersion);
     try {
       this.store.save(profile, result);
     } catch (error) {

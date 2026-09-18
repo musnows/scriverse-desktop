@@ -6,10 +6,13 @@ import {
   parseRemoteApiError,
   parseRemoteCaptchaResponse,
   parseRemoteLoginResponse,
+  parseRemoteRegistrationPolicy,
   parseRemoteSessionResponse,
   type RemoteLoginChallenge,
   type RemoteLoginInput,
   type RemoteLoginResult,
+  type RemoteRegisterInput,
+  type RemoteRegistrationPolicy,
   type RemoteSessionState
 } from "../shared/remote-auth-contract.js";
 
@@ -136,6 +139,39 @@ export class RemoteAuthClient {
       })
     }, 200);
     return parseRemoteLoginResponse(value);
+  }
+
+  async register(
+    profile: RemoteWorkspaceProfile,
+    input: RemoteRegisterInput,
+    desktopId: string,
+    clientVersion: string
+  ): Promise<RemoteLoginResult> {
+    const value = await this.request(profile, "/api/desktop/auth/register", {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: input.username,
+        password: input.password,
+        passwordConfirmation: input.passwordConfirmation,
+        captchaId: input.captchaId,
+        captchaAnswer: input.captchaAnswer,
+        desktopId,
+        profileId: profile.id,
+        clientVersion,
+        ...(input.setupToken ? { setupToken: input.setupToken } : {}),
+        ...(input.inviteCode ? { inviteCode: input.inviteCode } : {})
+      })
+    }, 201);
+    return parseRemoteLoginResponse(value);
+  }
+
+  async registrationPolicy(profile: RemoteWorkspaceProfile): Promise<RemoteRegistrationPolicy> {
+    const value = await this.request(profile, "/api/auth/session", {
+      method: "GET",
+      headers: { Accept: "application/json" }
+    }, 200);
+    return parseRemoteRegistrationPolicy(value);
   }
 
   async session(profile: RemoteWorkspaceProfile, token: string): Promise<RemoteSessionState> {

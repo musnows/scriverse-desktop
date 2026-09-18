@@ -41,7 +41,8 @@ contextBridge.exposeInMainWorld("scriverseDesktop", Object.freeze({
   }),
   remote: Object.freeze({
     refreshCaptcha: (profileId: unknown) => ipcRenderer.invoke("selector:remote:refresh-captcha", profileId),
-    login: (input: unknown) => ipcRenderer.invoke("selector:remote:login", input)
+    login: (input: unknown) => ipcRenderer.invoke("selector:remote:login", input),
+    register: (input: unknown) => ipcRenderer.invoke("selector:remote:register", input)
   }),
   localAi: Object.freeze({
     configuration: () => ipcRenderer.invoke("selector:local-ai:configuration"),

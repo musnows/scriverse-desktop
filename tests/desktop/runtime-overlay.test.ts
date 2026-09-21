@@ -62,7 +62,7 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain('"/ai-message-actions.js?v=20260906-desktop-clipboard-v1"');
   });
 
-  it("基于 Server 1.1.0 保留双方静态资源缓存标记", () => {
+  it("基于 Server 1.1.1 保留双方静态资源缓存标记", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 
     expect(overlayPatch).toContain("feature=ai-context-meter-ring-only-v2");
@@ -71,7 +71,11 @@ describe("Desktop Web runtime overlay", () => {
     expect(applicationEntry).toContain("feature=writing-goal-module-navigation-v2");
     expect(applicationEntry).toContain("feature=chapter-line-scroll-bind-v1");
     expect(applicationEntry).toContain("feature=invite-registration-v1");
+    expect(applicationEntry).toContain("feature=chapter-directory-performance-v2");
+    expect(applicationEntry).toContain("feature=chapter-directory-click-priority-v1");
+    expect(applicationEntry).toContain("feature=ai-optimistic-send-v1");
     expect(applicationEntry).toContain("feature=desktop-quit-confirmation-v1");
+    expect(overlayPatch).toContain("feature=annotation-bubble-visibility-v1");
   });
 
   it("merges local models into every workspace picker and marks them with a local badge", () => {
@@ -119,20 +123,17 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain("async function streamChat(requestHolder, body, idempotencyKey, { endpoint = null, responseFactory = null } = {})");
     expect(overlayPatch).toContain('new Set(["continuation", "delta", "replace", "process_step"');
     expect(overlayPatch).toContain('eventName === "replace"');
-    expect(overlayPatch).toContain("createDesktopProviderPendingMessage(tab)");
     expect(overlayPatch).toContain('emit("process_step", { id: "provider-thinking-1", type: "thinking", round: 1, content: "", append: false })');
-    expect(overlayPatch).toContain('message.className = "assistant-message is-streaming"');
-    expect(overlayPatch).toContain('data-testid="ai-stream-connection-seconds">0</span> 秒');
-    const optimisticUserIndex = overlayPatch.indexOf('appendMessage("user", instruction, citations, null, desktopProviderUserMetadata, null, { tab })');
-    const immediateShellIndex = overlayPatch.indexOf("createDesktopProviderPendingMessage(tab)", optimisticUserIndex);
-    const persistenceIndex = overlayPatch.indexOf("{ modelId, ...desktopProviderUserMetadata }", optimisticUserIndex);
-    const streamCallIndex = overlayPatch.indexOf("const streamed = await streamChat", immediateShellIndex);
-    const placeholderReleaseIndex = overlayPatch.lastIndexOf("desktopProviderStreamMessage?.remove();", streamCallIndex);
-    expect(optimisticUserIndex).toBeGreaterThan(-1);
-    expect(immediateShellIndex).toBeGreaterThan(optimisticUserIndex);
-    expect(persistenceIndex).toBeGreaterThan(immediateShellIndex);
-    expect(placeholderReleaseIndex).toBeGreaterThan(persistenceIndex);
-    expect(streamCallIndex).toBeGreaterThan(placeholderReleaseIndex);
+    expect(overlayPatch).not.toContain("createDesktopProviderPendingMessage");
+    expect(overlayPatch).not.toContain('appendMessage("user", instruction, citations, null, desktopProviderUserMetadata, null, { tab })');
+    const persistenceIndex = overlayPatch.indexOf("const persistedUserMessage = await persistAiConversationMessage");
+    const optimisticIdentityIndex = overlayPatch.indexOf("attachMessageIdentity(requestHolder.optimisticUserMessage", persistenceIndex);
+    const pendingCleanupIndex = overlayPatch.indexOf("requestHolder.pendingAssistantMessage?.remove()", optimisticIdentityIndex);
+    const responseFactoryIndex = overlayPatch.indexOf("responseFactory: desktopProviderModel", pendingCleanupIndex);
+    expect(persistenceIndex).toBeGreaterThan(-1);
+    expect(optimisticIdentityIndex).toBeGreaterThan(persistenceIndex);
+    expect(pendingCleanupIndex).toBeGreaterThan(optimisticIdentityIndex);
+    expect(responseFactoryIndex).toBeGreaterThan(pendingCleanupIndex);
     expect(overlayPatch).toContain("feature=desktop-provider-stream-v1");
     expect(overlayPatch).not.toContain("createDesktopLocalAiPendingMessage");
     expect(addedLines).not.toContain("本地模型");

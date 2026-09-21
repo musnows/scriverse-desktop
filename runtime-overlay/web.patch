@@ -47,7 +47,7 @@ index 924fb0b..0a406be 100644
  import { bindPlainTextPaste } from "/plain-text-paste.js?v=20260815-plain-text-paste-v1";
  import { clipboardImageFiles } from "/character-markdown.js?v=20260820-ai-chat-image-attachments-v1";
  import { AI_CHAT_IMAGE_ATTACHMENT_MAX_COUNT, aiChatImageAttachmentIds, isAiChatImageFile, normalizeAiChatImageAttachments } from "/ai-image-attachments.js?v=20260820-ai-chat-image-attachments-v2";
-@@ -145,12 +146,18 @@ import {
+@@ -145,12 +146,19 @@ import {
  } from "/outline-board.js?v=20260813-outline-board-page-v1";
  import { backgroundTaskActivityCount, backgroundTaskPollDelay, collectBackgroundTaskTransitions, filterBackgroundTaskTransitionsForAnnouncement } from "/background-task-center.js?v=20260817-analysis-task-expired-toast-v1";
  import { createModuleRequestCache } from "/module-request-cache.js?v=20260730-module-request-cache-v1";
@@ -59,6 +59,7 @@ index 924fb0b..0a406be 100644
  import { resolveToastRegionHost } from "/toast-layer.js?v=20260822-toast-modal-host-v1";
  import { createToastStack } from "/toast-stack.js?v=20260909-toast-stack-v2";
 +import { createDesktopWorkspaceController, installDesktopExternalUrlPrompt } from "/desktop-workspace.js?v=20260913-desktop-global-theme-v1";
++import { installDesktopNetworkGuidance } from "/desktop-network-guidance.js?v=20260922-network-offline-guidance-v1";
 +import { createDesktopOfflineApi } from "/desktop-offline-api.js?v=20260825-desktop-media-cache-v1";
 +import { desktopOfflineLocalAiMessages, desktopOfflineLocalAiSystemPrompt } from "/desktop-local-ai-offline.js?v=20260823-desktop-local-ai-offline-v1";
 +import { mergeDesktopLocalAiModels } from "/desktop-local-ai-catalog.js?v=20260824-desktop-local-provider-prefix-v1";
@@ -66,7 +67,7 @@ index 924fb0b..0a406be 100644
  import { buildGlobalReplaceRefreshPlan, resolveGlobalReplaceChapterCount } from "/global-replace-refresh.js?v=20260812-global-replace-tree-v2";
  import {
    clampCropRect,
-@@ -261,6 +268,298 @@ const state = {
+@@ -261,6 +268,299 @@ const state = {
    contextChapterId: null
  };
  
@@ -81,6 +82,7 @@ index 924fb0b..0a406be 100644
 +let desktopInitialOfflineDownloadProgress = null;
 +let desktopWorkspaceIdentity = null;
 +let desktopWorkspaceIdentityPromise = null;
++let disposeDesktopNetworkGuidance = null;
 +const desktopOfflineLocalAiMessagesByEntity = new Map();
 +
 +function desktopShellBridge() {
@@ -616,13 +618,19 @@ index 924fb0b..0a406be 100644
    if (!response.ok) throw new Error("无法读取登录状态");
    const session = (await response.json()).data;
    if (!session.authenticated) {
-@@ -7138,6 +7502,11 @@ async function initializeAuthentication() {
+@@ -7138,6 +7502,17 @@ async function initializeAuthentication() {
    if (route.view === "login") window.history.replaceState(null, "", serializePageRoute({ view: "shelf" }));
    observeSystemBootId(session.bootId);
    applyAuthenticatedUser(session);
 +  if (isDesktopWorkspaceRuntime()) {
 +    $("#desktop-switch-button").classList.remove("hidden");
 +    void applyDesktopWorkspaceIdentity();
++    if (isDesktopRemoteWorkspaceRuntime()) {
++      disposeDesktopNetworkGuidance ??= installDesktopNetworkGuidance({
++        bridge: globalThis.scriverseDesktopWorkspace?.shell ?? null,
++        requestSwitch: switchDesktopWorkspace
++      });
++    }
 +    void ensureDesktopWorkspace(session.user).catch(() => undefined);
 +  }
    scheduleSystemBootCheck();
@@ -2117,7 +2125,7 @@ index 97033a5..6c39339 100644
              </select>
            </label>
            <label>界面字号
-@@ -1447,8 +1450,24 @@
+@@ -1447,8 +1450,32 @@
        </form>
      </dialog>
  
@@ -2137,6 +2145,14 @@ index 97033a5..6c39339 100644
 +      <section class="desktop-conflict-final"><header><div><h3>最终内容</h3><p>最终内容可编辑；确认后会基于最新 Server 版本生成新的待同步变更。</p></div><div><button id="desktop-conflict-use-local" class="ghost-button" type="button">使用本机</button><button id="desktop-conflict-use-server" class="ghost-button" type="button">使用线上</button><button id="desktop-conflict-use-merged" class="ghost-button" type="button">使用自动合并</button></div></header><textarea id="desktop-conflict-final" aria-label="冲突合并后的最终内容" spellcheck="false"></textarea></section>
 +      <div class="dialog-actions"><button id="desktop-conflict-cancel" class="ghost-button" type="button">稍后处理</button><button id="desktop-conflict-resolve" class="primary-button" type="button">保存最终内容</button></div>
 +    </dialog>
++    <section id="desktop-network-guidance-toast" class="desktop-network-guidance-toast" role="alertdialog" aria-modal="true" aria-labelledby="desktop-network-guidance-title" aria-describedby="desktop-network-guidance-description" hidden>
++      <div class="desktop-network-guidance-card">
++        <span class="eyebrow">网络状态</span>
++        <h2 id="desktop-network-guidance-title">网络连接已断开</h2>
++        <p id="desktop-network-guidance-description">请返回工作区列表，然后重新进入当前工作区。</p>
++        <div class="desktop-network-guidance-actions"><button id="desktop-network-guidance-switch" class="primary-button" type="button">返回工作区列表</button></div>
++      </div>
++    </section>
      <div id="auth-loading" class="auth-loading" role="status" aria-label="正在载入工作台"></div>
 -    <script type="module" src="/app.js?v=20260816-extended-thinking-effort-v1&feature=ai-history-rename-v1&feature=ai-tool-call-copy-feedback-v2&feature=ai-send-control-v2&feature=analysis-task-queue-refresh-v1&feature=character-gender-v1&feature=character-filter-state-v1&feature=relationship-canvas-scale-v1&feature=relationship-table-scroll-v1&feature=ai-session-id-copy-v2&feature=galaxy-motion-mode-v3&feature=galaxy-edge-label-threshold-v1&feature=calculate-time-tool-v2&feature=analysis-task-expired-toast-v1&feature=global-replace-volume-v1&feature=chapter-search-replace-v1&feature=chapter-save-toast-v1&feature=character-relationship-delete-v1&feature=character-relationship-group-v1&feature=analysis-task-stability-delay-v1&feature=ai-assistant-workspace-v2&feature=volume-detail-icon-v1&feature=volume-story-order-v1&feature=reader-manual-chapter-navigation-v1&feature=ai-message-reference-badges-v1&feature=ai-roleplay-message-reference-v1&feature=ai-message-actions-v1&feature=assistant-responsive-navigation-v3&feature=annotation-permissions-v1&feature=annotation-line-counts-v1&feature=ai-relationship-roleplay-v1&feature=ai-roleplay-user-character-visibility-v1&feature=ai-roleplay-story-recall-v1&feature=ai-model-picker-v1&feature=ai-fork-model-unlock-v1&feature=context-percent-format-v1&feature=annotation-precise-locate-v1&feature=markdown-word-count-stable-v1&feature=ai-stream-character-count-stable-v2&feature=ai-process-empty-intermediate-v1&feature=ai-feed-scroll-follow-v2&feature=ai-message-retry-v1&feature=ai-stream-idle-timeout-v2&feature=ai-config-delete-v1&feature=ai-provider-protocol-options-v1&feature=ai-provider-thinking-type-v1&feature=ai-chat-image-attachments-v8&feature=ai-message-image-preview-v1&feature=ai-thinking-scroll-v2&feature=ai-image-conversation-model-lock-v1&feature=toast-click-dismiss-v2&feature=system-restart-dialog-delay-v1&feature=character-avatar-v6&feature=character-death-position-v1&feature=admin-ai-conversations-v1&feature=ai-usage-pricing-v1&feature=ai-usage-pricing-badge-v2&feature=ai-usage-pricing-label-v1&feature=ai-usage-token-breakdown-v1&feature=ai-usage-pricing-cache-v2&feature=ai-usage-pricing-manual-refresh-v1&feature=ai-monthly-token-quota-v1&feature=ai-provider-token-quota-v1&feature=ai-token-quota-positive-v6&feature=ai-model-thinking-label-v1&feature=ai-model-picker-focus-v1&feature=ai-provider-model-import-v1&feature=ai-assistant-brain-icon-v1&feature=ai-token-usage-details-v1&feature=ai-token-usage-details-centered-v1&feature=ai-token-usage-raw-input-v1&feature=ai-stream-connection-seconds-v1&feature=phone-client-entry-v1&feature=ai-usage-pricing-cache-v1&feature=ai-model-thinking-label-v3&feature=ai-roleplay-speaker-label-v1&feature=toast-modal-host-v1&feature=api-key-copy-existing-v1&feature=character-favorite-v1&feature=record-favorites-v1&feature=ai-token-usage-estimated-price-v1&feature=entity-detail-favorites-v1&feature=entity-pin-v1&feature=entity-pin-icon-v1&feature=roleplay-favorite-label-v1&feature=ai-roleplay-knowledge-tools-v1&feature=character-persona-summary-v1&feature=ai-roleplay-scene-turn-v2&feature=admin-account-identity-v2&feature=ai-provider-analysis-timeout-v1&feature=task-detail-failure-orange-v1&feature=book-import-progress-v1&feature=presence-multiple-users-v1&feature=ai-context-input-output-v1&feature=editor-blank-lines-preserved-v1&feature=reader-first-frame-v1&feature=vditor-lazy-load-v1&feature=ui-module-preload-v1&feature=reader-initial-prefetch-v1&feature=editor-preview-toggle-v2&feature=vditor-fullscreen-disabled-v1&feature=chapter-auto-indent-v1&feature=chapter-centered-scroll-v1&feature=work-editor-preferences-v1&feature=ai-context-output-usage-v1&feature=ai-context-meter-ring-only-v1&feature=ai-context-cache-hit-v1&feature=ai-roleplay-memory-v4&feature=ai-roleplay-memory-v5&feature=roleplay-memory-header-actions-v1&feature=roleplay-memory-header-toolbar-v1&feature=roleplay-memory-action-icons-v1&feature=roleplay-memory-action-colors-v1&feature=annotation-line-anchor-v1&feature=stable-line-ids-v1&feature=live-annotation-anchors-v1&feature=chapter-comment-filters-v1&feature=ai-write-tools-v3&feature=ai-question-option-supplement-v1&feature=ai-question-selection-highlight-v1&feature=ai-question-continuation-ui-v3&feature=ai-background-stream-v1&feature=ai-question-tool-result-v1&feature=ai-question-tool-summary-v1&feature=ai-question-submit-guidance-v1&feature=ai-question-batch-v1&feature=ai-question-answer-limit-v1&feature=semantic-search-v6&feature=chapter-title-renumber-v1&feature=ai-writing-skills-v3&feature=ai-cancel-preserve-process-v2&feature=remote-mcp-v1&feature=character-alias-chips-v2&feature=character-title-input-v1&feature=character-detail-value-wrap-v2&feature=chapter-batch-editor-refresh-v1&feature=ai-usage-stat-display-v1&feature=ai-usage-year-v1&feature=semantic-search-rag-label-v1&feature=ai-skill-slash-menu-v1&feature=ai-roleplay-scene-bubble-v1&feature=ai-roleplay-scene-collapse-v1&feature=markdown-adjacent-blockquotes-v1&feature=chapter-save-shortcut-v2&feature=ai-message-citation-popover-v1&feature=line-citation-menu-separator-v1&feature=global-im-v106&feature=im-sidebar-compact-v1&feature=ai-fork-progress-toast-v1&feature=im-settings-gear-v1&feature=compact-sidebar-directory-v2&feature=chapter-word-count-consistency-v1&feature=ai-all-message-references-v2&feature=ai-question-render-recovery-v3&feature=setting-category-preservation-v1&feature=toast-stack-v1&feature=toast-stack-label-v2&feature=agent-tool-limits-300-v1&feature=server-dev-logo-v1&feature=chapter-directory-ai-reference-v3&feature=ai-error-origin-v1&feature=ai-stream-render-performance-v2&feature=ai-attachment-disabled-v1&feature=ai-prose-acceptance-removed-v1&feature=ai-inline-message-references-v1&feature=ai-write-plan-status-sync-v1&feature=writing-goal-module-navigation-v2&feature=chapter-line-scroll-bind-v1&feature=invite-registration-v1&feature=ai-send-mode-v2&feature=character-attributes-prune-v1&feature=annotation-note-limit-v1&feature=chapter-directory-performance-v2&feature=chapter-directory-click-priority-v1&feature=ai-optimistic-send-v1"></script>
 +    <script type="module" src="/app.js?v=20260816-extended-thinking-effort-v1&feature=ai-history-rename-v1&feature=ai-tool-call-copy-feedback-v2&feature=ai-send-control-v2&feature=analysis-task-queue-refresh-v1&feature=character-gender-v1&feature=character-filter-state-v1&feature=relationship-canvas-scale-v1&feature=relationship-table-scroll-v1&feature=ai-session-id-copy-v2&feature=galaxy-motion-mode-v3&feature=galaxy-edge-label-threshold-v1&feature=calculate-time-tool-v2&feature=analysis-task-expired-toast-v1&feature=global-replace-volume-v1&feature=chapter-search-replace-v1&feature=chapter-save-toast-v1&feature=character-relationship-delete-v1&feature=character-relationship-group-v1&feature=analysis-task-stability-delay-v1&feature=ai-assistant-workspace-v2&feature=volume-detail-icon-v1&feature=volume-story-order-v1&feature=reader-manual-chapter-navigation-v1&feature=ai-message-reference-badges-v1&feature=ai-roleplay-message-reference-v1&feature=ai-message-actions-v1&feature=assistant-responsive-navigation-v3&feature=annotation-permissions-v1&feature=annotation-line-counts-v1&feature=ai-relationship-roleplay-v1&feature=ai-roleplay-user-character-visibility-v1&feature=ai-roleplay-story-recall-v1&feature=ai-model-picker-v1&feature=ai-fork-model-unlock-v1&feature=context-percent-format-v1&feature=annotation-precise-locate-v1&feature=markdown-word-count-stable-v1&feature=ai-stream-character-count-stable-v2&feature=ai-process-empty-intermediate-v1&feature=ai-feed-scroll-follow-v2&feature=ai-message-retry-v1&feature=ai-stream-idle-timeout-v2&feature=ai-config-delete-v1&feature=ai-provider-protocol-options-v1&feature=ai-provider-thinking-type-v1&feature=ai-chat-image-attachments-v8&feature=ai-message-image-preview-v1&feature=ai-thinking-scroll-v2&feature=ai-image-conversation-model-lock-v1&feature=toast-click-dismiss-v2&feature=system-restart-dialog-delay-v1&feature=character-avatar-v6&feature=character-death-position-v1&feature=admin-ai-conversations-v1&feature=ai-usage-pricing-v1&feature=ai-usage-pricing-badge-v2&feature=ai-usage-pricing-label-v1&feature=ai-usage-token-breakdown-v1&feature=ai-usage-pricing-cache-v2&feature=ai-usage-pricing-manual-refresh-v1&feature=ai-monthly-token-quota-v1&feature=ai-provider-token-quota-v1&feature=ai-token-quota-positive-v6&feature=ai-model-thinking-label-v1&feature=ai-model-picker-focus-v1&feature=ai-provider-model-import-v1&feature=ai-assistant-brain-icon-v1&feature=ai-token-usage-details-v1&feature=ai-token-usage-details-centered-v1&feature=ai-token-usage-raw-input-v1&feature=ai-stream-connection-seconds-v1&feature=phone-client-entry-v1&feature=ai-usage-pricing-cache-v1&feature=ai-model-thinking-label-v3&feature=ai-roleplay-speaker-label-v1&feature=toast-modal-host-v1&feature=api-key-copy-existing-v1&feature=character-favorite-v1&feature=record-favorites-v1&feature=ai-token-usage-estimated-price-v1&feature=entity-detail-favorites-v1&feature=entity-pin-v1&feature=entity-pin-icon-v1&feature=roleplay-favorite-label-v1&feature=ai-roleplay-knowledge-tools-v1&feature=character-persona-summary-v1&feature=ai-roleplay-scene-turn-v2&feature=admin-account-identity-v2&feature=ai-provider-analysis-timeout-v1&feature=task-detail-failure-orange-v1&feature=book-import-progress-v1&feature=presence-multiple-users-v1&feature=ai-context-input-output-v1&feature=editor-blank-lines-preserved-v1&feature=reader-first-frame-v1&feature=vditor-lazy-load-v1&feature=ui-module-preload-v1&feature=reader-initial-prefetch-v1&feature=editor-preview-toggle-v2&feature=vditor-fullscreen-disabled-v1&feature=chapter-auto-indent-v1&feature=chapter-centered-scroll-v1&feature=work-editor-preferences-v1&feature=ai-context-output-usage-v1&feature=ai-context-meter-ring-only-v1&feature=ai-context-cache-hit-v1&feature=ai-roleplay-memory-v4&feature=ai-roleplay-memory-v5&feature=roleplay-memory-header-actions-v1&feature=roleplay-memory-header-toolbar-v1&feature=roleplay-memory-action-icons-v1&feature=roleplay-memory-action-colors-v1&feature=annotation-line-anchor-v1&feature=stable-line-ids-v1&feature=live-annotation-anchors-v1&feature=chapter-comment-filters-v1&feature=ai-write-tools-v3&feature=ai-question-option-supplement-v1&feature=ai-question-selection-highlight-v1&feature=ai-question-continuation-ui-v3&feature=ai-background-stream-v1&feature=ai-question-tool-result-v1&feature=ai-question-tool-summary-v1&feature=ai-question-submit-guidance-v1&feature=ai-question-batch-v1&feature=ai-question-answer-limit-v1&feature=semantic-search-v6&feature=chapter-title-renumber-v1&feature=ai-writing-skills-v3&feature=ai-cancel-preserve-process-v2&feature=remote-mcp-v1&feature=character-alias-chips-v2&feature=character-title-input-v1&feature=character-detail-value-wrap-v2&feature=chapter-batch-editor-refresh-v1&feature=ai-usage-stat-display-v1&feature=ai-usage-year-v1&feature=semantic-search-rag-label-v1&feature=ai-skill-slash-menu-v1&feature=ai-roleplay-scene-bubble-v1&feature=ai-roleplay-scene-collapse-v1&feature=markdown-adjacent-blockquotes-v1&feature=chapter-save-shortcut-v2&feature=ai-message-citation-popover-v1&feature=line-citation-menu-separator-v1&feature=global-im-v106&feature=im-sidebar-compact-v1&feature=ai-fork-progress-toast-v1&feature=im-settings-gear-v1&feature=compact-sidebar-directory-v2&feature=chapter-word-count-consistency-v1&feature=ai-all-message-references-v2&feature=ai-question-render-recovery-v3&feature=setting-category-preservation-v1&feature=toast-stack-v1&feature=toast-stack-label-v2&feature=agent-tool-limits-300-v1&feature=server-dev-logo-v1&feature=chapter-directory-ai-reference-v3&feature=ai-error-origin-v1&feature=ai-stream-render-performance-v2&feature=ai-attachment-disabled-v1&feature=ai-prose-acceptance-removed-v1&feature=ai-inline-message-references-v1&feature=ai-write-plan-status-sync-v1&feature=writing-goal-module-navigation-v2&feature=chapter-line-scroll-bind-v1&feature=invite-registration-v1&feature=ai-send-mode-v2&feature=character-attributes-prune-v1&feature=annotation-note-limit-v1&feature=chapter-directory-performance-v2&feature=chapter-directory-click-priority-v1&feature=ai-optimistic-send-v1&feature=desktop-same-workspace-v1&feature=desktop-sync-fetch-brand-v1&feature=desktop-offline-worker-ready-v1&feature=desktop-local-ai-shared-ui-v1&feature=desktop-local-ai-workspace-v1&feature=desktop-local-ai-offline-v1&feature=desktop-rescue-export-v1&feature=desktop-profile-removal-guard-v1&feature=desktop-initial-offline-download-v2&feature=desktop-local-model-badge-only-v1&feature=desktop-sync-status-v1&feature=desktop-provider-stream-v1&feature=desktop-sync-icon-only-v1&feature=desktop-route-ready-cover-v1&feature=desktop-quit-confirmation-v1"></script>
@@ -2174,7 +2190,7 @@ index b58dfe2..6fddb72 100644
  .shelf-header p { margin: 0; color: var(--muted); }
  .shelf-header-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 10px; }
  .settings-detail-actions, .settings-dialog-header-actions { display: flex; align-items: center; gap: 10px; }
-@@ -620,6 +620,45 @@ body.is-panel-resizing { cursor: col-resize; user-select: none; }
+@@ -620,6 +620,57 @@ body.is-panel-resizing { cursor: col-resize; user-select: none; }
  .settings-card-mark { display: grid; grid-row: 1 / 3; place-items: center; width: 48px; height: 48px; border: 1px solid var(--line); border-radius: 50%; color: var(--accent-dark); background: var(--surface); font-size: 14px; font-weight: 700; }
  .settings-hub-card strong { align-self: end; font-size: 16px; }
  .settings-hub-card small { align-self: start; color: var(--muted); font-size: 10px; line-height: 1.5; }
@@ -2193,6 +2209,18 @@ index b58dfe2..6fddb72 100644
 +.desktop-sync-warning { margin: 0 24px 16px; padding: 12px 14px; border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--line)); border-radius: 6px; background: color-mix(in srgb, var(--accent) 5%, var(--surface)); }
 +.desktop-sync-warning strong { font-size: 11px; }
 +.desktop-sync-warning p { margin: 5px 0 0; color: var(--muted); font-size: 9px; line-height: 1.55; }
++.desktop-network-guidance-toast { position: fixed; inset: 0; z-index: 2147483646; display: grid; place-items: center; padding: 24px; background: color-mix(in srgb, var(--ink) 22%, transparent); }
++.desktop-network-guidance-toast[hidden] { display: none; }
++.desktop-network-guidance-card { display: grid; width: min(460px, 100%); gap: 10px; padding: 22px; border: 1px solid color-mix(in srgb, var(--accent) 48%, var(--line)); border-radius: 8px; background: var(--panel); color: var(--ink); box-shadow: var(--shadow); }
++.desktop-network-guidance-card h2 { margin: 0; font-size: 20px; letter-spacing: -.02em; }
++.desktop-network-guidance-card p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.7; }
++.desktop-network-guidance-actions { display: flex; justify-content: flex-end; margin-top: 4px; }
++@media (max-width: 760px) {
++  .desktop-network-guidance-toast { padding: 16px; }
++  .desktop-network-guidance-card { padding: 18px; }
++  .desktop-network-guidance-actions { justify-content: stretch; }
++  .desktop-network-guidance-actions button { width: 100%; }
++}
 +.desktop-conflict-dialog { width: min(1280px, 96vw); }
 +.desktop-conflict-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 16px 20px 10px; }
 +.desktop-conflict-columns section { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-soft); }

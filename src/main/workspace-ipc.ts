@@ -26,6 +26,7 @@ type IpcResult<T> = IpcSuccess<T> | IpcFailure;
 
 const workspaceChannels = [
   "workspace:shell:get-capabilities",
+  "workspace:shell:get-network-status",
   "workspace:shell:report-leave-state",
   "workspace:shell:request-switch",
   "workspace:shell:confirm-quit",
@@ -116,6 +117,7 @@ export function registerWorkspaceIpc(workspaceWindow: BrowserWindow, profile: Re
   activeProfileId: () => string | null;
   getCachedUser: () => RemoteAuthUser | null;
   getConnectionMode: () => "online" | "offline" | null;
+  getNetworkStatus: () => { online: boolean; monitoring: boolean };
   getLocalAiCatalog: (userId: string) => LocalAiWorkspaceCatalog;
   completeLocalAi: (userId: string, input: LocalAiCompletionRequestInput, onEvent: (event: LocalAiStreamEvent) => void) => Promise<LocalAiCompletionResult>;
   cancelLocalAi: (userId: string, requestId: string) => boolean;
@@ -147,6 +149,7 @@ export function registerWorkspaceIpc(workspaceWindow: BrowserWindow, profile: Re
     user: options.getCachedUser(),
     connectionMode: options.getConnectionMode()
   }));
+  handle("workspace:shell:get-network-status", workspaceWindow, profile, options.activeProfileId, () => options.getNetworkStatus());
   handle("workspace:shell:report-leave-state", workspaceWindow, profile, options.activeProfileId, (input) => {
     const state = parseWorkspaceLeaveState(input);
     options.reportLeaveState(state);

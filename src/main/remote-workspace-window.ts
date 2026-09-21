@@ -20,6 +20,7 @@ export async function createRemoteWorkspaceWindow(options: {
   offlineShellRoot: string;
   remoteMediaCache?: RemoteMediaCache;
   remoteUserId?: string;
+  remoteServerUnreachableFailureThreshold: number;
   colorTheme: DesktopColorTheme;
   placement?: DesktopWindowPlacement;
   onCreated?: (window: BrowserWindow) => void;
@@ -99,7 +100,8 @@ export async function createRemoteWorkspaceWindow(options: {
       options.connectionMode,
       options.remoteMediaCache ?? null,
       options.remoteUserId ?? null,
-      options.onRemoteServerNetworkStatus ?? null
+      options.onRemoteServerNetworkStatus ?? null,
+      options.remoteServerUnreachableFailureThreshold
     );
     await window.loadURL(shellUrl);
   } catch (error) {

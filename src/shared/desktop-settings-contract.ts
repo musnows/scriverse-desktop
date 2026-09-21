@@ -7,6 +7,9 @@ export const DESKTOP_LOG_STORAGE_LIMIT_MIB_OPTIONS = [500, 1_024, 2_048, 5_120, 
 export const DEFAULT_DESKTOP_LOG_STORAGE_LIMIT_MIB = DESKTOP_LOG_STORAGE_LIMIT_MIB_OPTIONS[0];
 export const DESKTOP_COLOR_THEMES = ["light", "dark"] as const;
 export const DEFAULT_DESKTOP_COLOR_THEME = "light";
+export const DEFAULT_REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD = 3;
+export const MIN_REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD = 1;
+export const MAX_REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD = 10;
 
 export type DesktopLogStorageLimitMiB = typeof DESKTOP_LOG_STORAGE_LIMIT_MIB_OPTIONS[number];
 export type DesktopColorTheme = typeof DESKTOP_COLOR_THEMES[number];
@@ -15,6 +18,7 @@ export type DesktopSettingsSummary = {
   localServerPort: number;
   logStorageLimitMiB: DesktopLogStorageLimitMiB;
   colorTheme: DesktopColorTheme;
+  remoteServerUnreachableFailureThreshold: number;
   updatedAt: string | null;
 };
 
@@ -70,6 +74,21 @@ export function parseDesktopColorTheme(value: unknown): DesktopColorTheme {
   return value as DesktopColorTheme;
 }
 
+export function parseRemoteServerUnreachableFailureThreshold(value: unknown): number {
+  if (
+    typeof value !== "number"
+    || !Number.isInteger(value)
+    || value < MIN_REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD
+    || value > MAX_REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD
+  ) {
+    throw new DesktopSettingsContractError(
+      "REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD_INVALID",
+      `Server 不可达连续失败次数必须是 ${MIN_REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD} 到 ${MAX_REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD} 之间的整数`
+    );
+  }
+  return value;
+}
+
 export function desktopLogStorageLimitBytes(value: unknown): number {
   return parseDesktopLogStorageLimitMiB(value) * 1024 * 1024;
 }
@@ -78,14 +97,16 @@ export function parseDesktopSettingsUpdate(value: unknown): {
   localServerPort: number;
   logStorageLimitMiB: DesktopLogStorageLimitMiB;
   colorTheme: DesktopColorTheme;
+  remoteServerUnreachableFailureThreshold: number;
 } {
-  if (!isRecord(value) || Object.keys(value).toSorted().join(",") !== "colorTheme,localServerPort,logStorageLimitMiB") {
+  if (!isRecord(value) || Object.keys(value).toSorted().join(",") !== "colorTheme,localServerPort,logStorageLimitMiB,remoteServerUnreachableFailureThreshold") {
     throw new DesktopSettingsContractError("DESKTOP_SETTINGS_INVALID", "Desktop 系统设置请求无效");
   }
   return {
     localServerPort: parseLocalServerPort(value.localServerPort),
     logStorageLimitMiB: parseDesktopLogStorageLimitMiB(value.logStorageLimitMiB),
-    colorTheme: parseDesktopColorTheme(value.colorTheme)
+    colorTheme: parseDesktopColorTheme(value.colorTheme),
+    remoteServerUnreachableFailureThreshold: parseRemoteServerUnreachableFailureThreshold(value.remoteServerUnreachableFailureThreshold)
   };
 }
 

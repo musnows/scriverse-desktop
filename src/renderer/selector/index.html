@@ -217,6 +217,11 @@
             <input id="local-server-port" class="mono" name="localServerPort" type="number" min="20001" max="60000" step="1" inputmode="numeric" required>
           </label>
           <p class="field-note">若本地服务首选端口被占用，叙界会自动选择可用端口。</p>
+          <label>
+            <span>Server 不可达连续失败次数</span>
+            <input id="remote-server-unreachable-failure-threshold" class="mono" name="remoteServerUnreachableFailureThreshold" type="number" min="1" max="10" step="1" inputmode="numeric" required>
+          </label>
+          <p class="field-note">连续出现超时或网络传输失败达到此次数后，会提示网络不可用；重新进入远端工作区后生效。</p>
           <div class="log-storage-setting-row">
             <label>
               <span>日志空间上限</span>

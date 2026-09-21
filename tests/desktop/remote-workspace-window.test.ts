@@ -70,6 +70,8 @@ describe("Desktop 远端工作区窗口", () => {
     expect(mainSource).toContain('connectionMode === "online"');
     expect(mainSource).toContain('window.webContents.send("workspace:shell:network-status", { online, monitoring: true })');
     expect(mainSource).toContain("onRemoteServerNetworkStatus");
+    expect(mainSource).toContain("remoteServerUnreachableFailureThreshold: desktopSettings.remoteServerUnreachableFailureThreshold");
+    expect(windowSource).toContain("options.remoteServerUnreachableFailureThreshold");
     expect(windowSource).toContain("onRemoteServerNetworkStatus ?? null");
     expect(mainSource).toContain("disposeNetworkConnectivityMonitor");
   });

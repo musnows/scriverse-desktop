@@ -648,11 +648,13 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
     conflicts: persistedState?.conflicts ?? 0,
     rejected: persistedState?.rejected ?? 0
   };
+  const desktopSettings = desktopSettingsStore!.get();
   remoteWorkspaceOpenPromise = createRemoteWorkspaceWindow({
     profile,
     connectionMode,
     desktopRoot,
-    colorTheme: desktopSettingsStore!.get().colorTheme,
+    colorTheme: desktopSettings.colorTheme,
+    remoteServerUnreachableFailureThreshold: desktopSettings.remoteServerUnreachableFailureThreshold,
     offlineShellRoot: join(applicationRoot, "dist", "public"),
     remoteMediaCache: remoteMediaCache ?? undefined,
     remoteUserId: cachedUser.userId,

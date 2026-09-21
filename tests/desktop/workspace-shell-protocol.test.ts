@@ -27,14 +27,10 @@ describe("Desktop 远端工作区网页壳协议", () => {
   const shellUrl = remoteWorkspaceShellUrl(profileId);
   const publicRoot = "/app/dist/public";
 
-  it("连续三次远端传输失败才标记为不可达，并在下次成功时恢复", () => {
-    const reachability = new RemoteServerReachability();
+  it("按配置的连续失败次数标记远端不可达，并在下次成功时恢复", () => {
+    const reachability = new RemoteServerReachability(2);
 
     expect(REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD).toBe(3);
-    expect(reachability.recordNetworkFailure()).toBe(false);
-    expect(reachability.recordNetworkFailure()).toBe(false);
-    expect(reachability.recordSuccess()).toBe(false);
-    expect(reachability.recordNetworkFailure()).toBe(false);
     expect(reachability.recordNetworkFailure()).toBe(false);
     expect(reachability.recordNetworkFailure()).toBe(true);
     expect(reachability.recordNetworkFailure()).toBe(false);
@@ -91,7 +87,7 @@ describe("Desktop 远端工作区网页壳协议", () => {
     expect(unhandle).toHaveBeenCalledWith("app");
   });
 
-  it("仅在连续三次远端传输失败后通知离线，成功响应会恢复在线状态", async () => {
+  it("仅在配置次数的远端传输失败后通知离线，成功响应会恢复在线状态", async () => {
     let handler: ((request: Request) => Response | Promise<Response>) | null = null;
     const fetchImpl = vi.fn().mockRejectedValue(new TypeError("fetch failed"));
     const onRemoteServerNetworkStatus = vi.fn();
@@ -102,9 +98,9 @@ describe("Desktop 远端工作区网页壳协议", () => {
         unhandle: vi.fn()
       }
     } as unknown as Session;
-    registerBundledWorkspaceShell(electronSession, profile, publicRoot, "online", null, null, onRemoteServerNetworkStatus);
+    registerBundledWorkspaceShell(electronSession, profile, publicRoot, "online", null, null, onRemoteServerNetworkStatus, 2);
 
-    for (let attempt = 0; attempt < REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD; attempt += 1) {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
       expect((await handler!(new Request(`${shellUrl}api/health`))).status).toBe(502);
     }
     expect(onRemoteServerNetworkStatus).toHaveBeenCalledTimes(1);

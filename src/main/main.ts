@@ -658,6 +658,11 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
     remoteUserId: cachedUser.userId,
     ...(mainWindow && !mainWindow.isDestroyed() ? { placement: captureWindowPlacement(mainWindow) } : {}),
     onExternalUrlRequest: (requestWindow, target) => externalUrlNavigation.request(requestWindow, target),
+    onRemoteServerNetworkStatus: (online) => {
+      const activeWindow = workspaceWindow;
+      if (connectionMode !== "online" || !activeWindow || activeWindow.isDestroyed() || activeWorkspaceKind !== "remote") return;
+      activeWindow.webContents.send("workspace:shell:network-status", { online, monitoring: true });
+    },
     onRendererRecoveryFailed: handleRendererRecoveryFailed,
     onCreated: (window) => {
       workspaceWindow = window;

@@ -69,6 +69,8 @@ describe("Desktop 远端工作区窗口", () => {
     expect(mainSource).toContain("NetworkConnectivityMonitor");
     expect(mainSource).toContain('connectionMode === "online"');
     expect(mainSource).toContain('window.webContents.send("workspace:shell:network-status", { online, monitoring: true })');
+    expect(mainSource).toContain("onRemoteServerNetworkStatus");
+    expect(windowSource).toContain("onRemoteServerNetworkStatus ?? null");
     expect(mainSource).toContain("disposeNetworkConnectivityMonitor");
   });
 

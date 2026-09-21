@@ -1,5 +1,5 @@
 diff --git a/public/ai-message-actions.js b/public/ai-message-actions.js
-index 85a0c555..4b3fc953 100644
+index 85a0c55..4b3fc95 100644
 --- a/public/ai-message-actions.js
 +++ b/public/ai-message-actions.js
 @@ -11,6 +11,16 @@ function copyWithDocument(rawMarkdown, documentRef) {
@@ -27,18 +27,18 @@ index 85a0c555..4b3fc953 100644
    throw new Error("当前浏览器不支持剪贴板写入");
  }
 diff --git a/public/app.js b/public/app.js
-index 20770c03..9f314b24 100644
+index dd9b215..d6cea43 100644
 --- a/public/app.js
 +++ b/public/app.js
-@@ -31,6 +31,7 @@ import {
+@@ -38,6 +38,7 @@ import {
  } from "/foreshadow-reminder.js?v=20260812-editor-reminder-v1";
  import { buildVditorLineNumberRows } from "/vditor-line-number-layout.js?v=20260729-vditor-line-numbers-v3";
  import { MIN_MODEL_CONTEXT_WINDOW, MODEL_PURPOSE_OPTIONS, MODEL_THINKING_EFFORT_OPTIONS, isKimiModelId, modelContextWindowGuidance, modelFormValues, modelOptionLabel, modelPayload, modelThinkingEffortLabel, supportsMultimodalModelProtocol } from "/model-config.js?v=20260822-ai-model-thinking-label-v3&feature=ai-provider-responses-v1&feature=semantic-search-v6";
 +import { renderAiProviderConfigurationCards } from "/ai-provider-config-view.js?v=20260823-desktop-local-ai-shared-ui-v1";
  import { connectivityConfigurationSavedToast, connectivityTestErrorToast, connectivityTestResultToast } from "/ai-connectivity-test.js?v=20260822-private-ai-endpoint-hint-v1";
- import { shouldSendAiPrompt } from "/ai-prompt-keyboard.js?v=20260713-enter-to-send";
- import { estimateAiMessageTokens, formatAiMessageMeta } from "/ai-message-meta.js?v=20260814-ai-model-lock-v1";
-@@ -55,7 +56,7 @@ import {
+ import { shouldActivateAiSendControl, shouldSendAiPrompt } from "/ai-prompt-keyboard.js?v=20260919-ai-send-mode-v2";
+ import { aiSendModeAction, normalizeAiSendMode, readStoredAiSendMode, writeStoredAiSendMode } from "/ai-send-mode.js?v=20260919-ai-send-mode-v2";
+@@ -73,7 +74,7 @@ import {
    isInteractiveToolPending,
    aiFormatDateTime
  } from "/ai-interactive.js?v=20260915-plan-status-sync-v1";
@@ -47,7 +47,7 @@ index 20770c03..9f314b24 100644
  import { bindPlainTextPaste } from "/plain-text-paste.js?v=20260815-plain-text-paste-v1";
  import { clipboardImageFiles } from "/character-markdown.js?v=20260820-ai-chat-image-attachments-v1";
  import { AI_CHAT_IMAGE_ATTACHMENT_MAX_COUNT, aiChatImageAttachmentIds, isAiChatImageFile, normalizeAiChatImageAttachments } from "/ai-image-attachments.js?v=20260820-ai-chat-image-attachments-v2";
-@@ -125,12 +126,18 @@ import {
+@@ -143,12 +144,18 @@ import {
  } from "/outline-board.js?v=20260813-outline-board-page-v1";
  import { backgroundTaskActivityCount, backgroundTaskPollDelay, collectBackgroundTaskTransitions, filterBackgroundTaskTransitionsForAnnouncement } from "/background-task-center.js?v=20260817-analysis-task-expired-toast-v1";
  import { createModuleRequestCache } from "/module-request-cache.js?v=20260730-module-request-cache-v1";
@@ -66,7 +66,7 @@ index 20770c03..9f314b24 100644
  import { buildGlobalReplaceRefreshPlan, resolveGlobalReplaceChapterCount } from "/global-replace-refresh.js?v=20260812-global-replace-tree-v2";
  import {
    clampCropRect,
-@@ -240,6 +247,298 @@ const state = {
+@@ -259,6 +266,298 @@ const state = {
    contextChapterId: null
  };
  
@@ -365,7 +365,7 @@ index 20770c03..9f314b24 100644
  let platformAiProtocolOptions = [];
  
  const aiRequestManager = createAiRequestManager();
-@@ -516,6 +815,14 @@ function applyWorkAccessMode() {
+@@ -541,6 +840,14 @@ function applyWorkAccessMode() {
    $("#ai-scene-present").readOnly = aiReadOnly;
    $("#ai-scene-time").readOnly = aiReadOnly;
    $("#ai-send").classList.toggle("permission-hidden", aiReadOnly);
@@ -380,7 +380,7 @@ index 20770c03..9f314b24 100644
    renderAiRoleplayCharacterSelect();
    updateBackgroundTaskCenterVisibility();
    if (proseReadOnly) {
-@@ -647,7 +954,7 @@ function setAiChatTabStatus(tab, status) {
+@@ -673,7 +980,7 @@ function setAiChatTabStatus(tab, status) {
  function aiRequestTargetsCurrentState(request) {
    const tab = aiChatTabForRequest(request);
    return aiRequestManager.isCurrent(request) && Boolean(tab) && aiRequestTargetsState(request, {
@@ -389,7 +389,7 @@ index 20770c03..9f314b24 100644
      conversationId: tab.conversationId
    });
  }
-@@ -1120,6 +1427,11 @@ async function refreshPresence() {
+@@ -1566,6 +1873,11 @@ async function refreshPresence() {
    const requestId = ++presenceHeartbeatRequest;
    if (presenceHeartbeatTimer !== null) clearTimeout(presenceHeartbeatTimer);
    presenceHeartbeatTimer = null;
@@ -401,7 +401,7 @@ index 20770c03..9f314b24 100644
    const workId = state.work?.id;
    const page = presencePageForRoute();
    if (!workId || !page || !state.user) {
-@@ -1514,7 +1826,7 @@ let chapterLineDrag = null;
+@@ -1960,7 +2272,7 @@ let chapterLineDrag = null;
  let chapterWhitespaceVisible = true;
  let chapterAutoSaveTimer = null;
  let chapterSaveInFlight = null;
@@ -410,7 +410,7 @@ index 20770c03..9f314b24 100644
  let lastSavedChapterSnapshot = null;
  let chapterDraftLineIdState = null;
  let chapterBeforeInputState = null;
-@@ -1578,6 +1890,7 @@ let outlineBoardRenderRequestId = 0;
+@@ -2024,6 +2336,7 @@ let outlineBoardRenderRequestId = 0;
  let outlineBoardSearchTimer = null;
  const relationshipFilters = { fromCharacterIds: [], toCharacterIds: [] };
  let relationshipFiltersPanelOpen = false;
@@ -418,7 +418,7 @@ index 20770c03..9f314b24 100644
  
  function createEditorDirtyTracker(initialSnapshot = "") {
    let savedSnapshot = String(initialSnapshot);
-@@ -2528,7 +2841,7 @@ function createAiChatTabState(input = {}) {
+@@ -2988,7 +3301,7 @@ function createAiChatTabState(input = {}) {
    const feed = input.feed ?? createAiChatFeed();
    bindAiFeedAutoScroll(feed);
    const tab = aiChatTabManager.open({
@@ -427,7 +427,7 @@ index 20770c03..9f314b24 100644
      conversationId: input.conversationId ?? null,
      title: input.title ?? "新对话",
      modelId: input.modelId ?? null,
-@@ -2557,7 +2870,7 @@ function createAiChatTabState(input = {}) {
+@@ -3017,7 +3330,7 @@ function createAiChatTabState(input = {}) {
  function persistActiveAiChatTab() {
    const tab = activeAiChatTab();
    if (!tab) return null;
@@ -436,7 +436,7 @@ index 20770c03..9f314b24 100644
    tab.conversationId = state.aiConversationId;
    tab.title = $("#ai-conversation-title").textContent || tab.title || "新对话";
    tab.modelId = state.aiConversationModelId;
-@@ -2741,6 +3054,9 @@ function setAiConversationSwitcherVisible(visible) {
+@@ -3201,6 +3514,9 @@ function setAiConversationSwitcherVisible(visible) {
  
  function setAiConversationWorkspaceVisible(visible) {
    const mobileWorkspace = isPhoneClient() || isMobileViewport();
@@ -446,7 +446,7 @@ index 20770c03..9f314b24 100644
    aiConversationWorkspaceOpen = Boolean(visible);
    panelLayout.aiCollapsed = aiConversationWorkspaceOpen ? false : mobileWorkspace;
    $("#app").classList.toggle("ai-workspace-mode", aiConversationWorkspaceOpen);
-@@ -4823,6 +5139,12 @@ function renderAiModelOptions() {
+@@ -5299,6 +5615,12 @@ function renderAiModelOptions() {
      copy.className = "ai-model-option-copy";
      const name = document.createElement("strong");
      name.textContent = String(model.displayName ?? model.modelId ?? "模型");
@@ -459,7 +459,7 @@ index 20770c03..9f314b24 100644
      const provider = document.createElement("small");
      provider.textContent = [String(model.providerName ?? "").trim(), modelThinkingEffortLabel(model)]
        .filter(Boolean)
-@@ -4872,7 +5194,7 @@ function syncAiModelPicker() {
+@@ -5348,7 +5670,7 @@ function syncAiModelPicker() {
    if (interactionBusy) setAiModelPickerVisible(false);
  }
  
@@ -468,7 +468,7 @@ index 20770c03..9f314b24 100644
    if (!locked) return false;
    const now = Date.now();
    const lastToastAt = Number(select.dataset.lockedToastAt ?? 0);
-@@ -4901,7 +5223,7 @@ function blockLockedAiConversationOptionKeydown(event) {
+@@ -5377,7 +5699,7 @@ function blockLockedAiConversationOptionKeydown(event) {
  }
  
  function syncAiTaskOptions() {
@@ -477,7 +477,7 @@ index 20770c03..9f314b24 100644
    const relationshipRoleplaySelectable = roleplaySelected
      && Boolean(state.aiRoleplayCharacter)
      && (!state.aiPromptSent || Boolean(state.aiRoleplayUserCharacter));
-@@ -4913,9 +5235,12 @@ function syncAiTaskOptions() {
+@@ -5389,9 +5711,12 @@ function syncAiTaskOptions() {
    $("#ai-roleplay-user-character").classList.toggle("hidden", !relationshipRoleplaySelectable);
    $("#ai-roleplay-user-character").setAttribute("aria-hidden", String(!relationshipRoleplaySelectable));
    $("#ai-task").disabled = interactionBusy;
@@ -492,7 +492,7 @@ index 20770c03..9f314b24 100644
      ? aiConversationOptionLockedMessage
      : roleplaySelected ? "角色扮演模式可以查询角色记忆、相识角色、知情设定、故事正文和设定图片" : "";
    syncAiModelPicker();
-@@ -5146,20 +5471,22 @@ function activeAiModel() {
+@@ -5622,20 +5947,22 @@ function activeAiModel() {
  }
  
  function aiModelSupportsImageInput() {
@@ -520,7 +520,7 @@ index 20770c03..9f314b24 100644
  }
  
  function renderAiImageAttachments() {
-@@ -5805,20 +6132,14 @@ function clearChapterLineSelection() {
+@@ -6281,20 +6608,14 @@ function clearChapterLineSelection() {
  }
  
  const typographyStorageKey = "ai-novel-typography-v1";
@@ -546,7 +546,7 @@ index 20770c03..9f314b24 100644
  };
  const typographyFontSizes = [15, 16, 17, 18, 20];
  const typographyUiFontSizes = [14, 15, 16, 17, 18];
-@@ -6017,6 +6338,17 @@ function attachOptimisticVersion(path, method, body) {
+@@ -6493,6 +6814,17 @@ function attachOptimisticVersion(path, method, body) {
  async function api(path, options = {}) {
    const method = String(options.method ?? "GET").toUpperCase();
    const body = options.skipOptimisticVersion ? options.body : attachOptimisticVersion(path, method, options.body);
@@ -564,7 +564,7 @@ index 20770c03..9f314b24 100644
    const headers = { ...(options.headers ?? {}) };
    if (state.csrfToken && !["GET", "HEAD", "OPTIONS"].includes(method)) headers["X-CSRF-Token"] = state.csrfToken;
    if (!(body instanceof FormData)) headers["Content-Type"] = "application/json";
-@@ -6558,7 +6890,6 @@ function applyAuthenticatedUser(session) {
+@@ -7045,7 +7377,6 @@ function applyAuthenticatedUser(session) {
    $("#account-menu-role").textContent = isSystemAdmin ? "系统管理员" : "普通用户";
    $("#auth-view").classList.add("hidden");
    document.documentElement.classList.remove("login-route");
@@ -572,7 +572,7 @@ index 20770c03..9f314b24 100644
    // 注意：auth-pending 由 initializePage 路由完成后才移除，
    // 避免会话确认后、目标视图渲染前露出无内容的编辑器外壳
  }
-@@ -6619,9 +6950,42 @@ async function loadPlatformUiSettings() {
+@@ -7106,9 +7437,42 @@ async function loadPlatformUiSettings() {
    }
  }
  
@@ -616,7 +616,7 @@ index 20770c03..9f314b24 100644
    if (!response.ok) throw new Error("无法读取登录状态");
    const session = (await response.json()).data;
    if (!session.authenticated) {
-@@ -6634,6 +6998,11 @@ async function initializeAuthentication() {
+@@ -7121,6 +7485,11 @@ async function initializeAuthentication() {
    if (route.view === "login") window.history.replaceState(null, "", serializePageRoute({ view: "shelf" }));
    observeSystemBootId(session.bootId);
    applyAuthenticatedUser(session);
@@ -628,7 +628,7 @@ index 20770c03..9f314b24 100644
    scheduleSystemBootCheck();
    await loadPlatformUiSettings();
    startS3BackupEventPolling();
-@@ -7068,7 +7437,11 @@ function scheduleChapterAutoSave(delay = chapterAutoSaveDelay) {
+@@ -7555,7 +7924,11 @@ function scheduleChapterAutoSave(delay = chapterAutoSaveDelay) {
    }, delay);
  }
  
@@ -641,7 +641,7 @@ index 20770c03..9f314b24 100644
    if (!canEditProse() || chapterEditorReadOnly) return null;
    if (!state.chapter) {
      if (!automatic) toast("请先选择章节", "error");
-@@ -7082,16 +7455,6 @@ async function persistChapter({ automatic = false } = {}) {
+@@ -7569,16 +7942,6 @@ async function persistChapter({ automatic = false } = {}) {
        return null;
      }
    }
@@ -658,7 +658,7 @@ index 20770c03..9f314b24 100644
    const draft = chapterDraftSnapshot();
    if (!draft?.title) {
      setSaveState("标题不能为空", true);
-@@ -7099,14 +7462,13 @@ async function persistChapter({ automatic = false } = {}) {
+@@ -7586,14 +7949,13 @@ async function persistChapter({ automatic = false } = {}) {
      return null;
    }
    if (sameChapterSnapshot(draft, lastSavedChapterSnapshot)) {
@@ -677,7 +677,7 @@ index 20770c03..9f314b24 100644
    if (!confirmed) {
      setSaveState("检测到同页协作，未保存", true);
      return null;
-@@ -7127,6 +7489,7 @@ async function persistChapter({ automatic = false } = {}) {
+@@ -7614,6 +7976,7 @@ async function persistChapter({ automatic = false } = {}) {
      if (state.work?.id !== workId || state.chapter?.id !== draft.chapterId) return saved.chapter;
      state.chapter = saved.chapter;
      state.work = saved.work;
@@ -685,7 +685,7 @@ index 20770c03..9f314b24 100644
      resetChapterDraftLineIds(state.chapter);
      lastSavedChapterSnapshot = draft;
      renderTree();
-@@ -7138,7 +7501,9 @@ async function persistChapter({ automatic = false } = {}) {
+@@ -7625,7 +7988,9 @@ async function persistChapter({ automatic = false } = {}) {
      }
      const currentDraft = chapterDraftSnapshot();
      if (sameChapterSnapshot(currentDraft, draft)) {
@@ -696,7 +696,7 @@ index 20770c03..9f314b24 100644
      } else {
        scheduleChapterAutoSave(250);
      }
-@@ -7187,7 +7552,10 @@ function chooseExistingWorkImportMode(file) {
+@@ -7674,7 +8039,10 @@ function chooseExistingWorkImportMode(file) {
  
  function updateDocumentTitle(work = null) {
    const workTitle = String(work?.title ?? "").trim();
@@ -708,7 +708,7 @@ index 20770c03..9f314b24 100644
  }
  
  async function loadWorks(preferredId) {
-@@ -7215,7 +7583,15 @@ async function initializePage() {
+@@ -7702,7 +8070,15 @@ async function initializePage() {
    const earlyReaderChapterRequest = window.__scriverseReaderChapterPrefetch;
    const earlyReaderWorksRequest = window.__scriverseReaderWorksPrefetch;
    const earlyReaderWorkRequest = window.__scriverseReaderWorkPrefetch;
@@ -725,7 +725,7 @@ index 20770c03..9f314b24 100644
    if (!authenticated) {
      restoringPageRoute = false;
      return;
-@@ -7240,6 +7616,14 @@ async function initializePage() {
+@@ -7727,6 +8103,14 @@ async function initializePage() {
    ]);
    state.works = worksPage.items;
    initialWorkDetail = requestedWorkDetail;
@@ -740,7 +740,7 @@ index 20770c03..9f314b24 100644
    try {
      if (route.view === "shelf") {
        showShelf();
-@@ -7325,11 +7709,16 @@ async function initializePage() {
+@@ -7812,11 +8196,16 @@ async function initializePage() {
      document.documentElement.classList.remove("pending-shelf-mode");
      restoringPageRoute = false;
      replacePageRoute(currentPageRoute());
@@ -758,7 +758,7 @@ index 20770c03..9f314b24 100644
    imWorkspace.close();
    stopBackgroundTaskCenter();
    dismissChapterInsightToast();
-@@ -7376,6 +7765,8 @@ function renderSettingsHub() {
+@@ -7863,6 +8252,8 @@ function renderSettingsHub() {
    $("#admin-ai-conversations-button").classList.toggle("hidden", !isAdmin);
    $("#platform-ui-settings-button").classList.toggle("hidden", !isAdmin);
    $("#s3-backup-button").classList.toggle("hidden", !isAdmin);
@@ -767,7 +767,7 @@ index 20770c03..9f314b24 100644
    $("#collaboration-button").disabled = !canManageWork;
    $("#writing-progress-button").disabled = !hasWork || !canReadModule("editor");
    $("#work-audit-button").disabled = !canManageWork;
-@@ -7389,6 +7780,29 @@ function renderSettingsHub() {
+@@ -7876,6 +8267,29 @@ function renderSettingsHub() {
    $("#settings-work-note").textContent = hasWork
      ? `当前作品：《${state.work.title}》。导出正文时可选择 Markdown ZIP 或 DOCX；DOCX 在有封面时会嵌入为首页。`
      : "当前未选择作品；打开作品后可使用导出。";
@@ -797,7 +797,7 @@ index 20770c03..9f314b24 100644
  }
  
  function renderWritingProgress(progress) {
-@@ -8766,6 +9180,10 @@ async function showPlatformUsage() {
+@@ -9305,6 +9719,10 @@ async function showPlatformUsage() {
  
  function renderShelf() {
    const shelf = $("#book-shelf");
@@ -808,7 +808,7 @@ index 20770c03..9f314b24 100644
    shelf.innerHTML = `${state.works.map((work) => `
      <article class="book-card" data-work-card="${esc(work.id)}">
        <button class="book-open" type="button" data-open-work="${esc(work.id)}" aria-label="打开 ${esc(work.title)}">
-@@ -8775,18 +9193,20 @@ function renderShelf() {
+@@ -9314,18 +9732,20 @@ function renderShelf() {
          </span>
          <span class="book-info"><strong>${esc(work.title)}</strong><small>${esc(work.author || "未署名")} · ${work.chapterCount} 章 · ${Number(work.wordCount ?? 0).toLocaleString("zh-CN")} 字</small><span>${esc(work.description || "尚未填写作品简介")}</span><em class="book-access-badge">${work.accessRole === "viewer" ? "全部只读" : work.accessRole === "settings-editor" ? "设定协作" : work.accessRole === "editor" ? "全部可编辑" : work.accessRole === "custom" ? "自定义权限" : work.accessRole === "admin" ? "管理员访问" : "我的作品"}</em></span>
        </button>
@@ -832,7 +832,7 @@ index 20770c03..9f314b24 100644
    chapterSelectionRequestId += 1;
    clearChapterForeshadowReminders({ invalidateRequest: true });
    invalidateAiConversationNavigation("已切换作品");
-@@ -8807,6 +9227,7 @@ function resetWorkScopedUiCaches() {
+@@ -9346,6 +9766,7 @@ function resetWorkScopedUiCaches() {
    loadedRaceHierarchyWorkId = null;
    raceListRequestId += 1;
    state.models = [];
@@ -840,7 +840,7 @@ index 20770c03..9f314b24 100644
    state.characters = [];
    state.settings = [];
    state.races = [];
-@@ -8887,7 +9308,7 @@ async function selectWork(workId, preferredChapterId = null) {
+@@ -9426,7 +9847,7 @@ async function selectWork(workId, preferredChapterId = null) {
    chapterEditorReadOnly = true;
    if (!canReadModule(state.module)) state.module = firstReadableUiModule(state.work) ?? "editor";
    applyWorkAccessMode();
@@ -849,7 +849,7 @@ index 20770c03..9f314b24 100644
    updateDocumentTitle(state.work);
    $("#work-meta").textContent = `${state.work.title}${state.work.author ? ` · ${state.work.author}` : ""} · ${Number(state.work.wordCount ?? 0).toLocaleString("zh-CN")} 字`;
    $("#top-search-button").disabled = !canReadAggregateContent();
-@@ -8978,6 +9399,7 @@ function renderTree() {
+@@ -9517,6 +9938,7 @@ function renderTree() {
    if (!state.work) return;
    const count = state.work.volumes.reduce((total, volume) => total + Number(volume.chapterCount ?? volume.chapters?.length ?? 0), 0);
    const proseEditable = canEditProse();
@@ -857,7 +857,7 @@ index 20770c03..9f314b24 100644
    $("#chapter-count").querySelector(".chapter-count-number").textContent = String(count);
    $("#reader-open-button").disabled = !canReadModule("editor") || count === 0;
    $("#novel-tree").classList.remove("empty-copy");
-@@ -8992,16 +9414,16 @@ function renderTree() {
+@@ -9531,16 +9953,16 @@ function renderTree() {
            ? '<p class="entity-history-empty">展开后加载章节。</p>'
            : chapters.length
              ? chapters.map((chapter) => `
@@ -878,7 +878,7 @@ index 20770c03..9f314b24 100644
        </div>
        <div class="volume-chapters">
        ${chapterContent}
-@@ -9018,16 +9440,16 @@ function renderTree() {
+@@ -9557,16 +9979,16 @@ function renderTree() {
        renderTree();
      });
      button.addEventListener("contextmenu", (event) => {
@@ -898,7 +898,7 @@ index 20770c03..9f314b24 100644
        button.addEventListener("dragover", (event) => {
          if (!event.dataTransfer?.types.includes("text/plain")) return;
          event.preventDefault();
-@@ -9073,7 +9495,7 @@ function renderTree() {
+@@ -9612,7 +10034,7 @@ function renderTree() {
        const rect = button.getBoundingClientRect();
        openChapterTypeMenu(button.dataset.chapterId, rect.left, rect.bottom);
      });
@@ -907,7 +907,7 @@ index 20770c03..9f314b24 100644
        button.addEventListener("dragstart", (event) => {
          event.dataTransfer?.setData("text/plain", button.dataset.chapterId);
          if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
-@@ -9155,7 +9577,7 @@ function updateChapterBatchControls() {
+@@ -9694,7 +10116,7 @@ function updateChapterBatchControls() {
  }
  
  function openChapterBatchDialog() {
@@ -916,7 +916,7 @@ index 20770c03..9f314b24 100644
    chapterBatchSelectedIds.clear();
    $("#chapter-batch-search").value = "";
    renderChapterBatchDialog();
-@@ -9249,6 +9671,7 @@ function findChapterLocation(chapterId) {
+@@ -9788,6 +10210,7 @@ function findChapterLocation(chapterId) {
  }
  
  async function moveChapterInTree(chapterId, volumeId, sortOrder) {
@@ -924,7 +924,7 @@ index 20770c03..9f314b24 100644
    const location = findChapterLocation(chapterId);
    if (!location || chapterMovePending) return;
    const samePosition = location.volume.id === volumeId && location.chapterIndex === sortOrder;
-@@ -9305,6 +9728,7 @@ function openChapterTypeMenu(chapterId, clientX, clientY) {
+@@ -9844,6 +10267,7 @@ function openChapterTypeMenu(chapterId, clientX, clientY) {
      button.classList.toggle("active", button.dataset.chapterType === (chapter.chapterType || "正文"));
      button.setAttribute("aria-checked", String(button.classList.contains("active")));
    });
@@ -932,7 +932,7 @@ index 20770c03..9f314b24 100644
    menu.classList.remove("hidden");
    const rect = menu.getBoundingClientRect();
    menu.style.left = `${Math.max(8, Math.min(clientX, window.innerWidth - rect.width - 8))}px`;
-@@ -9312,6 +9736,7 @@ function openChapterTypeMenu(chapterId, clientX, clientY) {
+@@ -9851,6 +10275,7 @@ function openChapterTypeMenu(chapterId, clientX, clientY) {
  }
  
  async function deleteChapter(chapterId) {
@@ -940,7 +940,7 @@ index 20770c03..9f314b24 100644
    if (!state.work || !canEditProse()) return toast("当前权限不能删除正文", "error");
    const chaptersBeforeDelete = state.work.volumes.flatMap((volume) => volume.chapters);
    const chapterIndex = chaptersBeforeDelete.findIndex((chapter) => chapter.id === chapterId);
-@@ -9613,6 +10038,7 @@ async function selectChapter(chapterId, { editMode = false } = {}) {
+@@ -10152,6 +10577,7 @@ async function selectChapter(chapterId, { editMode = false } = {}) {
    renderTree();
    replacePageRoute({ view: "editor", workId: state.work.id, chapterId: state.chapter.id });
    await loadChapterForeshadowReminders();
@@ -948,7 +948,7 @@ index 20770c03..9f314b24 100644
    return true;
  }
  
-@@ -10099,7 +10525,7 @@ async function saveChapter() {
+@@ -10638,7 +11064,7 @@ async function saveChapter() {
    const dismissSavingToast = persistentToast("正在保存中");
    try {
      const saved = await persistChapter({ automatic: false });
@@ -957,7 +957,7 @@ index 20770c03..9f314b24 100644
      return saved;
    } finally {
      dismissSavingToast();
-@@ -10121,6 +10547,7 @@ function tidyChapterBlankLines() {
+@@ -10660,6 +11086,7 @@ function tidyChapterBlankLines() {
  }
  
  function showWelcome(hasWork = false) {
@@ -965,7 +965,7 @@ index 20770c03..9f314b24 100644
    imWorkspace.close();
    chapterSelectionRequestId += 1;
    clearChapterForeshadowReminders({ invalidateRequest: true });
-@@ -10139,6 +10566,18 @@ function markActiveModule(module) {
+@@ -10678,6 +11105,18 @@ function markActiveModule(module) {
    $("#module-nav").querySelectorAll("button").forEach((button) => button.classList.toggle("active", button.dataset.module === module || (button.id === "ai-assistant-entry" && aiConversationWorkspaceOpen)));
  }
  
@@ -984,7 +984,7 @@ index 20770c03..9f314b24 100644
  const moduleMeta = {
    drafts: ["临时想法", "创作想法", "记录可能采用、也可能永远不会写入正文或正式设定的想法。", "新建想法"],
    settings: ["世界事实", "世界观与设定库", "锁定的设定会成为 AI 续写与校对的硬约束。", "新建设定"],
-@@ -10171,6 +10610,7 @@ async function showModule(module) {
+@@ -10710,6 +11149,7 @@ async function showModule(module) {
    }
    if (module !== "editor" && state.module === "editor" && !(await confirmDiscardChanges())) return;
    if (module !== "editor" && state.module === "editor" && state.dirty) setSaveState("已放弃修改");
@@ -992,7 +992,7 @@ index 20770c03..9f314b24 100644
    dismissDeleteToasts();
    state.module = module;
    if (module !== "editor") {
-@@ -10201,8 +10641,15 @@ async function showModule(module) {
+@@ -10740,8 +11180,15 @@ async function showModule(module) {
    $("#module-header-actions").querySelectorAll("[data-module-header-action]").forEach((action) => action.remove());
    $("#module-create-button").textContent = meta[3];
    $("#module-create-button").classList.toggle("hidden", module === "ai-settings" || module === "comments" || !canEditModule(module));
@@ -1008,7 +1008,7 @@ index 20770c03..9f314b24 100644
    try {
      if (module === "drafts") await renderDrafts();
      if (module === "settings") await renderSettings();
-@@ -10219,6 +10666,7 @@ async function showModule(module) {
+@@ -10758,6 +11205,7 @@ async function showModule(module) {
    } catch (error) {
      $("#module-content").innerHTML = `<div class="empty-state"><b>载入失败</b>${esc(error.message)}</div>`;
    }
@@ -1016,7 +1016,7 @@ index 20770c03..9f314b24 100644
    replacePageRoute({ view: "module", workId: state.work.id, module });
  }
  
-@@ -11951,8 +12399,12 @@ async function renderOutlines(foreshadowPage = moduleListPages.foreshadows, boar
+@@ -12491,8 +12939,12 @@ async function renderOutlines(foreshadowPage = moduleListPages.foreshadows, boar
  }
  
  async function renderRelationships(page = moduleListPages.relationships) {
@@ -1031,7 +1031,7 @@ index 20770c03..9f314b24 100644
    const filteredRelationships = filterRelationships(relationships, relationshipFilters);
    const pageResult = paginateModuleItems(filteredRelationships, page, "relationships");
    moduleListPages.relationships = pageResult.page;
-@@ -11974,10 +12426,7 @@ async function renderRelationships(page = moduleListPages.relationships) {
+@@ -12514,10 +12966,7 @@ async function renderRelationships(page = moduleListPages.relationships) {
      <div class="character-filter-toolbar-actions">${hasRelationshipFilters ? `<span class="character-filter-result-count" aria-live="polite">筛选后剩余 ${filteredRelationships.length} 条关系</span>` : ""}<button id="clear-relationship-filters" class="ghost-button" type="button" ${hasRelationshipFilters ? "" : "disabled"}>重置筛选</button></div>
    </section>`;
    mountRelationshipFilterToggle();
@@ -1043,7 +1043,7 @@ index 20770c03..9f314b24 100644
    const graph = buildRelationshipGraph(state.characters, relationships);
    state.relationshipGraph = graph;
    const relationshipList = filteredRelationships.length ? `<div class="relationship-table-wrapper"><table class="table-list relationship-table"><thead><tr><th>人物</th><th>关系</th><th>关键词</th><th>证据</th><th>置信度</th><th>状态</th><th>操作</th></tr></thead><tbody>${pageResult.items.map((item) => `
-@@ -13263,31 +13712,7 @@ function openTaskDetailDialog(task, trace) {
+@@ -13803,31 +14252,7 @@ function openTaskDetailDialog(task, trace) {
  }
  
  function renderProviderCards(providers, models, protocolOptions) {
@@ -1076,7 +1076,7 @@ index 20770c03..9f314b24 100644
  }
  
  async function deletePlatformModel(item) {
-@@ -13498,6 +13923,7 @@ function updateBackgroundTaskCenterVisibility() {
+@@ -14038,6 +14463,7 @@ function updateBackgroundTaskCenterVisibility() {
    if (!button) return;
    const visible = Boolean(state.user);
    button.classList.toggle("hidden", !visible);
@@ -1084,7 +1084,7 @@ index 20770c03..9f314b24 100644
    if (!visible) {
      $("#background-task-count")?.classList.add("hidden");
      return;
-@@ -13511,7 +13937,7 @@ function updateBackgroundTaskCenterVisibility() {
+@@ -14051,7 +14477,7 @@ function updateBackgroundTaskCenterVisibility() {
    badge.classList.toggle("hidden", activityCount === 0);
    button.classList.toggle("is-active", activityCount > 0);
    button.setAttribute("aria-label", activityCount > 0 ? `后台任务中心，${activityCount} 项进行中` : "后台任务中心");
@@ -1093,7 +1093,7 @@ index 20770c03..9f314b24 100644
  }
  
  function backgroundProductUpdateMarkup() {
-@@ -13969,6 +14395,39 @@ function scrollUsageCalendarsToLatest(root) {
+@@ -14509,6 +14935,39 @@ function scrollUsageCalendarsToLatest(root) {
        calendar.scrollLeft = calendar.scrollWidth;
      });
    });
@@ -1133,7 +1133,7 @@ index 20770c03..9f314b24 100644
  }
  
  let tokenUsageDetailsTrigger = null;
-@@ -14743,12 +15202,30 @@ async function loadModels() {
+@@ -15283,12 +15742,30 @@ async function loadModels() {
    const workId = state.work?.id;
    if (!workId) return;
    const generation = workScopedUiGeneration;
@@ -1166,7 +1166,7 @@ index 20770c03..9f314b24 100644
  function applyAiModels(models) {
    state.models = models.filter((model) => isSelectableModel(model));
    const select = $("#ai-model");
-@@ -14764,6 +15241,20 @@ function applyAiModels(models) {
+@@ -15304,6 +15781,20 @@ function applyAiModels(models) {
  }
  
  async function ensureAiModelsLoaded() {
@@ -1187,7 +1187,7 @@ index 20770c03..9f314b24 100644
    const workId = state.work?.id;
    if (!workId || loadedAiModelsWorkId === workId) return;
    if (aiModelsLoadPromise && aiModelsLoadWorkId === workId) return aiModelsLoadPromise;
-@@ -15483,6 +15974,10 @@ function openWorkSettingsDialog(work) {
+@@ -16023,6 +16514,10 @@ function openWorkSettingsDialog(work) {
      <div><strong id="work-access-title">成员权限</strong><small>选择成员后，可为每个作品模块单独设置无权限、只读或可编辑。</small><div class="work-access-options" aria-label="成员权限配置方式"><span>按成员配置</span><span>按模块授权</span><span>读写分离</span></div></div>
      ${canManageAccess ? '<button id="work-access-manage" class="ghost-button" type="button">配置成员权限</button>' : '<small>仅作品创建者或系统管理员可以调整访问权限。</small>'}
    </section>`;
@@ -1198,7 +1198,7 @@ index 20770c03..9f314b24 100644
    const importHistoryField = `<section class="work-access-field" aria-labelledby="import-history-settings-title">
      <div><strong id="import-history-settings-title">正文导入历史</strong><small>查看导入前快照并恢复被覆盖的分卷、章节标题和正文；大纲、伏笔等章节关联资料不在快照中。</small></div>
      <button id="import-history-button" class="ghost-button" type="button" aria-controls="import-history-dialog" aria-haspopup="dialog" ${canOpenImportHistory ? "" : "disabled"}>${importHistoryAction}</button>
-@@ -15511,7 +16006,7 @@ function openWorkSettingsDialog(work) {
+@@ -16051,7 +16546,7 @@ function openWorkSettingsDialog(work) {
      </div>
    </section>`;
    openDialog("作品信息",
@@ -1207,7 +1207,7 @@ index 20770c03..9f314b24 100644
      async (form) => {
        await api(`/api/works/${work.id}`, { method: "PATCH", body: {
          title: form.get("title"),
-@@ -15595,6 +16090,7 @@ async function deleteWork(work) {
+@@ -16135,6 +16630,7 @@ async function deleteWork(work) {
  
  async function openChapterDialog(volumeId = null) {
    if (!state.work) return openWorkDialog();
@@ -1215,7 +1215,7 @@ index 20770c03..9f314b24 100644
    if (!canEditProse()) return toast("当前权限只能编辑设定资料，正文为只读", "error");
    if (!state.work.volumes.length) {
      await api(`/api/works/${state.work.id}/volumes`, { method: "POST", body: { title: "正文", kind: "main" } });
-@@ -15611,6 +16107,7 @@ async function openChapterDialog(volumeId = null) {
+@@ -16151,6 +16647,7 @@ async function openChapterDialog(volumeId = null) {
  
  function openVolumeDialog(item) {
    if (!state.work) return openWorkDialog();
@@ -1223,7 +1223,7 @@ index 20770c03..9f314b24 100644
    if (!canEditProse()) return toast("当前权限只能编辑设定资料，不能修改分卷", "error");
    const kindOptions = [["main", "正文卷"], ["prequel", "前传"], ["extra", "番外"], ["epilogue", "后记"], ["appendix", "附录"]];
    const nextStoryOrder = Math.max(-1, ...state.work.volumes.map((volume) => Number(volume.storyOrder)).filter(Number.isInteger)) + 1;
-@@ -15673,7 +16170,7 @@ function syncSettingEditorChrome(viewOnly) {
+@@ -16213,7 +16710,7 @@ function syncSettingEditorChrome(viewOnly) {
    $("#setting-editor-version").textContent = item ? `v${item.versionNo}` : "新档案";
    $("#setting-editor-submit").textContent = item ? "保存新版本" : "创建设定";
    $("#setting-editor-submit").classList.toggle("hidden", viewOnly);
@@ -1232,7 +1232,7 @@ index 20770c03..9f314b24 100644
    $("#setting-editor-confirm").classList.toggle("hidden", !showManagementActions || item?.status !== "pending");
    $("#setting-editor-deprecate").classList.toggle("hidden", !showManagementActions || item?.status !== "pending");
    $("#setting-editor-history").classList.toggle("hidden", !showManagementActions);
-@@ -15825,7 +16322,9 @@ async function openSettingEditor(item = null, { readOnly = false } = {}) {
+@@ -16365,7 +16862,9 @@ async function openSettingEditor(item = null, { readOnly = false } = {}) {
          replacePageRoute(currentPageRoute());
          return {
            buttonLabel: "保存新版本",
@@ -1243,7 +1243,7 @@ index 20770c03..9f314b24 100644
          };
        }
      });
-@@ -15834,6 +16333,7 @@ async function openSettingEditor(item = null, { readOnly = false } = {}) {
+@@ -16374,6 +16873,7 @@ async function openSettingEditor(item = null, { readOnly = false } = {}) {
    settingEditorDirtyTracker.markSaved(settingEditorSnapshot(item?.content ?? ""));
    settingEditorVditor = createVditorEditor($("#setting-editor-markdown"), item?.content ?? "", {
      onInput: (markdown) => syncSettingEditorDirty(markdown),
@@ -1251,7 +1251,7 @@ index 20770c03..9f314b24 100644
      readOnly: viewOnly
    });
    (readOnly ? $("#setting-editor-back") : $("#setting-editor-name")).focus();
-@@ -16161,7 +16661,7 @@ async function loadVditorResources() {
+@@ -16701,7 +17201,7 @@ async function loadVditorResources() {
    return vditorResourcesPromise;
  }
  
@@ -1260,7 +1260,7 @@ index 20770c03..9f314b24 100644
    if (!window.Vditor) {
      toast("Markdown 编辑器资源加载失败，请刷新页面后重试", "error");
      return null;
-@@ -16179,7 +16679,7 @@ function createVditorEditor(host, value, { onInput = () => {}, uploadAttachment
+@@ -16719,7 +17219,7 @@ function createVditorEditor(host, value, { onInput = () => {}, uploadAttachment
      placeholder,
      preview: { transform: transformVditorPreview },
      cache: { enable: false },
@@ -1269,7 +1269,7 @@ index 20770c03..9f314b24 100644
        name: "line-number",
        tip: "显示/隐藏行号",
        tipPosition: "s",
-@@ -16187,12 +16687,12 @@ function createVditorEditor(host, value, { onInput = () => {}, uploadAttachment
+@@ -16727,12 +17227,12 @@ function createVditorEditor(host, value, { onInput = () => {}, uploadAttachment
        icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h3M4 9h3M4 13h3M4 17h3M10 5h10M10 9h10M10 13h10M10 17h10" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.6"/></svg>',
        click: () => toggleVditorLineNumbers(editor)
      }, "edit-mode"],
@@ -1284,7 +1284,7 @@ index 20770c03..9f314b24 100644
      input: (markdown) => {
        normalizeVditorAttachmentImages(editor);
        updateVditorWordCount(editor, markdown);
-@@ -17576,13 +18076,15 @@ async function openTaskDialog() {
+@@ -18117,13 +18617,15 @@ async function openTaskDialog() {
    let relationshipCharacters = [];
    let taskModels = [];
    let taskDefaults = [];
@@ -1302,7 +1302,7 @@ index 20770c03..9f314b24 100644
      ]);
    } catch (error) {
      toast(`分析任务配置加载失败：${error.message}`, "error");
-@@ -17656,7 +18158,7 @@ async function openTaskDialog() {
+@@ -18197,7 +18699,7 @@ async function openTaskDialog() {
      </div>`;
    };
    const defaultModelByTask = new Map(taskDefaults.map((item) => [item.taskType, item.model.id]));
@@ -1311,7 +1311,7 @@ index 20770c03..9f314b24 100644
    const characterOptions = relationshipCharacters.map((character) => [character.id, character.name]);
    const relationshipCharacterPicker = `<div class="form-field relationship-character-field">
      <span id="relationship-character-label">被分析角色（可多选）</span>
-@@ -17680,7 +18182,7 @@ async function openTaskDialog() {
+@@ -18221,7 +18723,7 @@ async function openTaskDialog() {
    const defaultModelId = defaultModelByTask.get(analysisTaskModelPurpose(defaultTaskType)) ?? "";
    const modelField = `<label>任务模型<select name="modelId" required aria-describedby="analysis-task-model-help">
      <option value="" ${availableTaskModels.some((model) => model.id === defaultModelId) ? "" : "selected"} disabled>${availableTaskModels.length ? "请选择模型" : "没有可用模型"}</option>
@@ -1320,7 +1320,7 @@ index 20770c03..9f314b24 100644
    </select><small id="analysis-task-model-help">默认值来自“本书 AI 设置”，只修改当前任务，不会改变全书默认模型。</small><p class="analysis-context-warning hidden" data-analysis-context-warning role="alert"></p></label>`;
    const chapterField = taskScopePicker(chapterOptions, "选择需要分析的章节");
    const relationshipFields = `<div class="relationship-analysis-options hidden">
-@@ -18400,11 +18902,515 @@ function openModelDialog(providerId, item = null, provider = null, protocolOptio
+@@ -18941,11 +19443,515 @@ function openModelDialog(providerId, item = null, provider = null, protocolOptio
    syncModelKindFields();
  }
  
@@ -1836,7 +1836,7 @@ index 20770c03..9f314b24 100644
    if (!state.work) return toast("请先选择作品", "error");
    const tab = activeAiChatTab();
    if (!tab) return toast("Agent 对话页签尚未就绪", "error");
-@@ -18467,7 +19473,9 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
+@@ -19016,7 +20022,9 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
      const modelId = tab.selectedModelId || state.models[0]?.id || (isActiveAiChatTab(tab) ? $("#ai-model").value : "");
      if (!modelId) return toast("请先在 AI 管理中配置并选择模型", "error");
      tab.selectedModelId = modelId;
@@ -1846,7 +1846,7 @@ index 20770c03..9f314b24 100644
      if (imageAttachmentIds.length > 0 && !state.models.find((model) => model.id === modelId)?.multimodalEnabled) {
        return toast("当前选择的模型不是多模态模型，无法发送图片附件", "error");
      }
-@@ -18479,11 +19487,57 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
+@@ -19028,11 +20036,57 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
      }
      setAiChatTabStatus(tab, "streaming");
      if (retry?.message?.isConnected) retry.message.remove();
@@ -1905,7 +1905,7 @@ index 20770c03..9f314b24 100644
      const streamed = await streamChat(requestHolder, aiRetryStreamRequestBody({
        instruction,
        ...(sceneDirection ? { sceneDirection } : {}),
-@@ -18494,7 +19548,17 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
+@@ -19043,7 +20097,17 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
        ...(imageAttachmentIds.length ? { imageAttachmentIds } : {}),
        conversationId: requestHolder.snapshot.conversationId,
        ...(ignoreContextWarning ? { ignoreContextWarning: true } : {})
@@ -1924,7 +1924,7 @@ index 20770c03..9f314b24 100644
      const streamedRequest = assertAiRequestCurrent(requestHolder.snapshot);
      if (streamed.action === "warn") return;
      assistantContent = streamed.content;
-@@ -18643,7 +19707,7 @@ function renderAiStreamingCharacterProgress(meta, visibleCharacters) {
+@@ -19205,7 +20269,7 @@ function renderAiStreamingCharacterProgress(meta, visibleCharacters) {
    meta.replaceChildren("正在生成 · ", createAiStreamCharacterCount(visible), " 字");
  }
  
@@ -1933,7 +1933,7 @@ index 20770c03..9f314b24 100644
    const tab = aiChatTabForRequest(requestHolder.snapshot);
    if (!tab) throw createAiRequestAbortError("Agent 对话页签已关闭");
    const feed = tab.feed;
-@@ -18666,7 +19730,7 @@ async function streamChat(requestHolder, body, idempotencyKey, { endpoint = null
+@@ -19228,7 +20292,7 @@ async function streamChat(requestHolder, body, idempotencyKey, { endpoint = null
      window.clearInterval(streamConnectionTimer);
      streamConnectionTimer = null;
    };
@@ -1942,7 +1942,7 @@ index 20770c03..9f314b24 100644
    const streamSpeedController = createStreamTypewriterSpeedController();
    let messageMounted = false;
    const mountAssistantMessage = () => {
-@@ -18739,12 +19803,14 @@ async function streamChat(requestHolder, body, idempotencyKey, { endpoint = null
+@@ -19342,12 +20406,14 @@ async function streamChat(requestHolder, body, idempotencyKey, { endpoint = null
    };
    try {
      const request = assertAiRequestCurrent(requestHolder.snapshot);
@@ -1963,7 +1963,7 @@ index 20770c03..9f314b24 100644
      assertAiRequestCurrent(requestHolder.snapshot);
      if (!response.ok || !response.body) {
        const payload = await response.json().catch(() => ({ error: { message: `请求失败：${response.status}` } }));
-@@ -18826,6 +19892,11 @@ async function streamChat(requestHolder, body, idempotencyKey, { endpoint = null
+@@ -19433,6 +20499,11 @@ async function streamChat(requestHolder, body, idempotencyKey, { endpoint = null
          streamedText += delta;
          streamedPendingText += delta;
          typewriter.append(delta);
@@ -1975,7 +1975,7 @@ index 20770c03..9f314b24 100644
        } else if (eventName === "process_step") {
          mountAssistantMessage();
          const step = { ...payload };
-@@ -18890,6 +19961,7 @@ async function streamChat(requestHolder, body, idempotencyKey, { endpoint = null
+@@ -19497,6 +20568,7 @@ async function streamChat(requestHolder, body, idempotencyKey, { endpoint = null
            ? payload.processDurationMs
            : elapsedProcessTime();
          generatedMetadata = {
@@ -1983,7 +1983,7 @@ index 20770c03..9f314b24 100644
            modelDisplayName: payload.model?.displayName,
            outputTokens: payload.outputTokens,
            cacheHitPercent: payload.cacheHitPercent,
-@@ -19700,6 +20772,23 @@ $("#home-button").addEventListener("click", async () => {
+@@ -20315,6 +21387,23 @@ $("#home-button").addEventListener("click", async () => {
  $("#settings-button").addEventListener("click", () => {
    void showSettingsHub();
  });
@@ -2007,7 +2007,7 @@ index 20770c03..9f314b24 100644
  $("#global-replace-button").addEventListener("click", openGlobalReplaceDialog);
  $("#account-button").addEventListener("click", () => {
    const expanded = $("#account-menu").classList.toggle("hidden") === false;
-@@ -20244,6 +21333,12 @@ $("#logout-button").addEventListener("click", async () => {
+@@ -20859,6 +21948,12 @@ $("#logout-button").addEventListener("click", async () => {
    try {
      stopS3BackupEventPolling();
      await api("/api/auth/session", { method: "DELETE" });
@@ -2020,7 +2020,7 @@ index 20770c03..9f314b24 100644
      state.user = null;
      state.csrfToken = null;
      window.location.reload();
-@@ -21765,6 +22860,11 @@ $("#reader-viewport").addEventListener("scroll", () => {
+@@ -22396,6 +23491,11 @@ $("#reader-viewport").addEventListener("scroll", () => {
  }, { passive: true });
  document.addEventListener("visibilitychange", () => {
    if (document.visibilityState !== "visible") return;
@@ -2032,7 +2032,7 @@ index 20770c03..9f314b24 100644
    if (state.user && !systemRestartDetected) scheduleSystemBootCheck(0);
    if (state.user?.role === "admin" && !systemRestartDetected) void refreshS3BackupEvents();
    void refreshSystemHealth();
-@@ -21780,10 +22880,26 @@ window.addEventListener("beforeunload", (event) => {
+@@ -22411,10 +23511,26 @@ window.addEventListener("beforeunload", (event) => {
    }
  });
  window.addEventListener("online", () => {
@@ -2060,7 +2060,7 @@ index 20770c03..9f314b24 100644
  window.addEventListener("resize", () => {
    if (aiCitationPopoverTrigger && !$("#ai-citation-popover").classList.contains("hidden")) positionAiCitationPopover(aiCitationPopoverTrigger);
    if ($("#reader-view").classList.contains("hidden") || readingPreferences.mode !== "paged") return;
-@@ -21822,5 +22938,5 @@ initializePage().catch((error) => {
+@@ -22453,5 +23569,5 @@ initializePage().catch((error) => {
    showShelf();
    toast(`系统初始化失败：${error.message}`, "error");
  }).finally(() => {
@@ -2068,18 +2068,18 @@ index 20770c03..9f314b24 100644
 +  if (state.user && !desktopOfflineMode) void imWorkspace.activate().catch((error) => toast(`IM 初始化失败：${error.message}`, "error"));
  });
 diff --git a/public/index.html b/public/index.html
-index 2376f67f..a442e809 100644
+index fdf708e..16e78a2 100644
 --- a/public/index.html
 +++ b/public/index.html
 @@ -10,6 +10,7 @@
      <link rel="icon" href="/icon.svg?v=20260712" type="image/svg+xml">
      <link rel="manifest" href="/site.webmanifest">
-     <link rel="stylesheet" href="/styles.css?v=20260816-task-scope-volume-collapse-v2&feature=ai-tool-call-copy-feedback-v2&feature=ai-send-control-v3&feature=character-gender-v1&feature=character-filter-state-v1&feature=relationship-canvas-scale-v1&feature=relationship-table-scroll-v1&feature=galaxy-compact-controls-v2&feature=galaxy-motion-mode-v2&feature=chapter-search-replace-v3&feature=task-auto-run-ring-center-v3&feature=character-relationship-delete-v1&feature=ai-assistant-workspace-v2&feature=mobile-module-tab-position-v1&feature=volume-detail-icon-v1&feature=editor-actions-flow-v1&feature=reader-controls-subpanel-v1&feature=reader-focus-ring-v1&feature=ai-message-actions-v1&feature=assistant-responsive-navigation-v2&feature=ai-composer-square-controls-v2&feature=ai-composer-compact-controls-v1&feature=ai-context-meter-ring-only-v2&feature=ai-context-cache-hit-v1&feature=annotation-line-counts-v1&feature=chapter-comment-filters-v1&feature=line-number-gutter-fill-v1&feature=ai-relationship-roleplay-v1&feature=ai-model-picker-v1&feature=markdown-word-count-five-digit-v2&feature=ai-stream-character-count-stable-v1&feature=ai-stream-character-count-five-digit-v1&feature=annotation-marker-offset-v1&feature=mobile-ai-entry-hidden-v1&feature=phone-client-entry-v1&feature=ai-stream-idle-timeout-v1&feature=ai-user-message-width-v2&feature=ai-chat-image-attachments-v9&feature=ai-message-image-preview-v1&feature=ai-thinking-scroll-v2&feature=toast-click-dismiss-v3&feature=character-avatar-v6&feature=admin-ai-conversations-v1&feature=ai-usage-pricing-v1&feature=ai-usage-pricing-badge-v2&feature=ai-token-quota-positive-v5&feature=ai-token-usage-details-v1&feature=ai-token-usage-details-centered-v1&feature=ai-stream-connection-seconds-v1&feature=ai-token-usage-estimated-price-v1&feature=record-favorites-v1&feature=entity-detail-favorites-v1&feature=entity-pin-v1&feature=character-persona-summary-v1&feature=ai-roleplay-scene-turn-v1&feature=admin-account-identity-v2&feature=task-detail-failure-orange-v1&feature=character-card-header-alignment-v6&feature=character-card-title-fit-v2&feature=book-import-progress-v1&feature=editor-toolbar-compact-v2&feature=reader-first-frame-v1&feature=auth-compact-v2&feature=editor-preview-toggle-v2&feature=setting-title-chrome-v2&feature=entity-pin-icon-center-v1&feature=chapter-center-bottom-space-v1&feature=work-editor-preferences-v1&feature=work-editor-preference-checkbox-v1&feature=ai-roleplay-memory-v2&feature=ai-roleplay-memory-v3&feature=ai-roleplay-memory-v5&feature=character-editor-header-actions-v1&feature=roleplay-memory-header-actions-v1&feature=roleplay-memory-action-icons-v1&feature=roleplay-memory-action-colors-v1&feature=roleplay-memory-pin-border-v1&feature=ai-write-tools-v2&feature=ai-write-card-actions-compact-v1&feature=ai-write-plan-actions-footer-v1&feature=ai-question-actions-footer-v1&feature=ai-question-selection-highlight-v1&feature=ai-question-submit-guidance-v1&feature=ai-question-answer-limit-v1&feature=ai-question-batch-v1&feature=semantic-search-v6&feature=chapter-title-renumber-v1&feature=ai-writing-skills-v1&feature=remote-mcp-v1&feature=character-alias-chips-v2&feature=character-title-input-v1&feature=character-detail-value-wrap-v2&feature=ai-settings-textarea-font-v1&feature=ai-usage-stat-display-v1&feature=ai-usage-year-v1&feature=ai-skill-slash-menu-v1&feature=ai-message-citation-popover-v1&feature=line-citation-menu-separator-v1&feature=global-im-v106&feature=im-sidebar-compact-v1&feature=im-narration-contrast-v1&feature=im-member-add-plus-v2&feature=im-button-hierarchy-v1&feature=im-icon-button-size-v1&feature=compact-sidebar-directory-v5&feature=ai-model-config-dialog-v1&feature=system-prompt-override-v3&feature=entity-editor-back-icon-v1&feature=toast-stack-v1&feature=chapter-header-compact-v4&feature=ai-attachment-disabled-v1&feature=ai-prose-acceptance-removed-v1&feature=chapter-line-scroll-bind-v1&feature=writing-goal-module-navigation-v2&feature=invite-registration-v1">
+     <link rel="stylesheet" href="/styles.css?v=20260816-task-scope-volume-collapse-v2&feature=ai-tool-call-copy-feedback-v2&feature=ai-send-control-v3&feature=character-gender-v1&feature=character-filter-state-v1&feature=relationship-canvas-scale-v1&feature=relationship-table-scroll-v1&feature=galaxy-compact-controls-v2&feature=galaxy-motion-mode-v2&feature=chapter-search-replace-v3&feature=task-auto-run-ring-center-v3&feature=character-relationship-delete-v1&feature=ai-assistant-workspace-v2&feature=mobile-module-tab-position-v1&feature=volume-detail-icon-v1&feature=editor-actions-flow-v1&feature=reader-controls-subpanel-v1&feature=reader-focus-ring-v1&feature=ai-message-actions-v1&feature=assistant-responsive-navigation-v2&feature=ai-composer-square-controls-v2&feature=ai-composer-compact-controls-v1&feature=ai-context-meter-ring-only-v2&feature=ai-context-cache-hit-v1&feature=annotation-line-counts-v1&feature=chapter-comment-filters-v1&feature=line-number-gutter-fill-v1&feature=ai-relationship-roleplay-v1&feature=ai-model-picker-v1&feature=markdown-word-count-five-digit-v2&feature=ai-stream-character-count-stable-v1&feature=ai-stream-character-count-five-digit-v1&feature=annotation-marker-offset-v1&feature=mobile-ai-entry-hidden-v1&feature=phone-client-entry-v1&feature=ai-stream-idle-timeout-v1&feature=ai-user-message-width-v2&feature=ai-chat-image-attachments-v9&feature=ai-message-image-preview-v1&feature=ai-thinking-scroll-v2&feature=toast-click-dismiss-v3&feature=character-avatar-v6&feature=admin-ai-conversations-v1&feature=ai-usage-pricing-v1&feature=ai-usage-pricing-badge-v2&feature=ai-token-quota-positive-v5&feature=ai-token-usage-details-v1&feature=ai-token-usage-details-centered-v1&feature=ai-stream-connection-seconds-v1&feature=ai-token-usage-estimated-price-v1&feature=record-favorites-v1&feature=entity-detail-favorites-v1&feature=entity-pin-v1&feature=character-persona-summary-v1&feature=ai-roleplay-scene-turn-v1&feature=admin-account-identity-v2&feature=task-detail-failure-orange-v1&feature=character-card-header-alignment-v6&feature=character-card-title-fit-v2&feature=book-import-progress-v1&feature=editor-toolbar-compact-v2&feature=reader-first-frame-v1&feature=auth-compact-v2&feature=editor-preview-toggle-v2&feature=setting-title-chrome-v2&feature=entity-pin-icon-center-v1&feature=chapter-center-bottom-space-v1&feature=work-editor-preferences-v1&feature=work-editor-preference-checkbox-v1&feature=ai-roleplay-memory-v2&feature=ai-roleplay-memory-v3&feature=ai-roleplay-memory-v5&feature=character-editor-header-actions-v1&feature=roleplay-memory-header-actions-v1&feature=roleplay-memory-action-icons-v1&feature=roleplay-memory-action-colors-v1&feature=roleplay-memory-pin-border-v1&feature=ai-write-tools-v2&feature=ai-write-card-actions-compact-v1&feature=ai-write-plan-actions-footer-v1&feature=ai-question-actions-footer-v1&feature=ai-question-selection-highlight-v1&feature=ai-question-submit-guidance-v1&feature=ai-question-answer-limit-v1&feature=ai-question-batch-v1&feature=semantic-search-v6&feature=chapter-title-renumber-v1&feature=ai-writing-skills-v1&feature=remote-mcp-v1&feature=character-alias-chips-v2&feature=character-title-input-v1&feature=character-detail-value-wrap-v2&feature=ai-settings-textarea-font-v1&feature=ai-usage-stat-display-v1&feature=ai-usage-year-v1&feature=ai-skill-slash-menu-v1&feature=ai-message-citation-popover-v1&feature=line-citation-menu-separator-v1&feature=global-im-v106&feature=im-sidebar-compact-v1&feature=im-narration-contrast-v1&feature=im-member-add-plus-v2&feature=im-button-hierarchy-v1&feature=im-icon-button-size-v1&feature=compact-sidebar-directory-v5&feature=ai-model-config-dialog-v1&feature=system-prompt-override-v3&feature=entity-editor-back-icon-v1&feature=toast-stack-v1&feature=chapter-header-compact-v4&feature=ai-attachment-disabled-v1&feature=ai-prose-acceptance-removed-v1&feature=chapter-line-scroll-bind-v1&feature=writing-goal-module-navigation-v2&feature=invite-registration-v1&feature=ai-send-mode-v2&feature=character-attributes-prune-v1">
 +    <link rel="stylesheet" href="/desktop-fonts.css?v=20260902-desktop-embedded-fonts-v1">
    </head>
    <body class="auth-pending">
      <section id="auth-view" class="auth-view hidden" aria-labelledby="auth-title">
-@@ -86,8 +87,12 @@
+@@ -87,8 +88,12 @@
              <strong id="account-menu-name" class="account-menu-name"><span id="account-menu-display-name">账户</span><span id="account-menu-username" class="account-menu-username">@account</span></strong><small id="account-menu-role">普通用户</small>
              <button id="onboarding-menu-button" type="button" role="menuitem">功能导览</button>
              <button id="account-settings-button" type="button" role="menuitem">账户设置</button>
@@ -2092,7 +2092,7 @@ index 2376f67f..a442e809 100644
            <button id="background-task-button" class="topbar-icon-button background-task-button hidden" type="button" aria-label="后台任务中心" title="后台任务中心" aria-haspopup="dialog" aria-controls="background-task-dialog">
              <svg class="topbar-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5h16M4 12h16M4 16.5h10"/><circle cx="18" cy="16.5" r="2.5"/></svg>
              <span id="background-task-count" class="background-task-count hidden" aria-hidden="true">0</span>
-@@ -234,7 +239,10 @@
+@@ -236,7 +241,10 @@
          <section id="settings-hub-view" class="shelf-view hidden" aria-labelledby="settings-hub-title">
            <div class="shelf-header settings-hub-header">
              <div><span class="eyebrow">工作台配置</span><h1 id="settings-hub-title">设置</h1><p>集中管理 AI、显示偏好、内容检索与作品导出。</p></div>
@@ -2104,14 +2104,15 @@ index 2376f67f..a442e809 100644
            </div>
            <div class="settings-hub-grid">
              <button id="platform-ai-button" class="settings-hub-card hidden" type="button" data-settings-action="ai"><span class="settings-card-mark">AI</span><strong>AI 管理</strong><small>供应商、模型、上下文与全局提示词</small></button>
-@@ -243,5 +251,6 @@
+@@ -245,6 +253,7 @@
              <button id="admin-ai-conversations-button" class="settings-hub-card hidden" type="button"><span class="settings-card-mark">话</span><strong>Chat 对话</strong><small>查看所有作品、所有用户的对话记录</small></button>
              <button id="platform-ui-settings-button" class="settings-hub-card hidden" type="button"><span class="settings-card-mark">界</span><strong>界面与分页</strong><small>设置通知位置、银河图性能及各模块的单页数量</small></button>
              <button id="s3-backup-button" class="settings-hub-card hidden" type="button"><span class="settings-card-mark">S3</span><strong>S3 备份</strong><small>将整个系统的数据库和图片同步到多个目标</small></button>
 +            <button id="desktop-sync-button" class="settings-hub-card hidden" type="button"><span class="settings-card-mark">D</span><strong>离线与同步</strong><small>下载本机副本、查看待同步项目并处理冲突</small></button>
              <button id="collaboration-button" class="settings-hub-card" type="button"><span class="settings-card-mark">协</span><strong>作品协作</strong><small>邀请注册用户共同编辑当前作品</small></button>
              <button id="work-audit-button" class="settings-hub-card" type="button"><span class="settings-card-mark">录</span><strong>操作记录</strong><small>查看作品修改、操作者、对象与时间</small></button>
-@@ -866,20 +875,14 @@
+             <button id="global-replace-button" class="settings-hub-card" type="button"><span class="settings-card-mark">替</span><strong>全局替换</strong><small>替换已保存正文、设定库或两者内容</small></button>
+@@ -876,20 +885,14 @@
          <div class="appearance-grid">
            <label>中文字体
              <select id="appearance-cjk-font" name="cjkFont">
@@ -2136,7 +2137,7 @@ index 2376f67f..a442e809 100644
              </select>
            </label>
            <label>界面字号
-@@ -1426,8 +1429,24 @@
+@@ -1447,8 +1450,24 @@
        </form>
      </dialog>
  
@@ -2157,13 +2158,13 @@ index 2376f67f..a442e809 100644
 +      <div class="dialog-actions"><button id="desktop-conflict-cancel" class="ghost-button" type="button">稍后处理</button><button id="desktop-conflict-resolve" class="primary-button" type="button">保存最终内容</button></div>
 +    </dialog>
      <div id="auth-loading" class="auth-loading" role="status" aria-label="正在载入工作台"></div>
--    <script type="module" src="/app.js?v=20260816-extended-thinking-effort-v1&feature=ai-history-rename-v1&feature=ai-tool-call-copy-feedback-v2&feature=ai-send-control-v2&feature=analysis-task-queue-refresh-v1&feature=character-gender-v1&feature=character-filter-state-v1&feature=relationship-canvas-scale-v1&feature=relationship-table-scroll-v1&feature=ai-session-id-copy-v2&feature=galaxy-motion-mode-v3&feature=galaxy-edge-label-threshold-v1&feature=calculate-time-tool-v2&feature=analysis-task-expired-toast-v1&feature=global-replace-volume-v1&feature=chapter-search-replace-v1&feature=chapter-save-toast-v1&feature=character-relationship-delete-v1&feature=character-relationship-group-v1&feature=analysis-task-stability-delay-v1&feature=ai-assistant-workspace-v2&feature=volume-detail-icon-v1&feature=volume-story-order-v1&feature=reader-manual-chapter-navigation-v1&feature=ai-message-reference-badges-v1&feature=ai-roleplay-message-reference-v1&feature=ai-message-actions-v1&feature=assistant-responsive-navigation-v3&feature=annotation-permissions-v1&feature=annotation-line-counts-v1&feature=ai-relationship-roleplay-v1&feature=ai-roleplay-user-character-visibility-v1&feature=ai-roleplay-story-recall-v1&feature=ai-model-picker-v1&feature=ai-fork-model-unlock-v1&feature=context-percent-format-v1&feature=annotation-precise-locate-v1&feature=markdown-word-count-stable-v1&feature=ai-stream-character-count-stable-v2&feature=ai-process-empty-intermediate-v1&feature=ai-feed-scroll-follow-v2&feature=ai-message-retry-v1&feature=ai-stream-idle-timeout-v2&feature=ai-config-delete-v1&feature=ai-provider-protocol-options-v1&feature=ai-provider-thinking-type-v1&feature=ai-chat-image-attachments-v8&feature=ai-message-image-preview-v1&feature=ai-thinking-scroll-v2&feature=ai-image-conversation-model-lock-v1&feature=toast-click-dismiss-v2&feature=system-restart-dialog-delay-v1&feature=character-avatar-v6&feature=character-death-position-v1&feature=admin-ai-conversations-v1&feature=ai-usage-pricing-v1&feature=ai-usage-pricing-badge-v2&feature=ai-usage-pricing-label-v1&feature=ai-usage-token-breakdown-v1&feature=ai-usage-pricing-cache-v2&feature=ai-usage-pricing-manual-refresh-v1&feature=ai-monthly-token-quota-v1&feature=ai-provider-token-quota-v1&feature=ai-token-quota-positive-v6&feature=ai-model-thinking-label-v1&feature=ai-model-picker-focus-v1&feature=ai-provider-model-import-v1&feature=ai-assistant-brain-icon-v1&feature=ai-token-usage-details-v1&feature=ai-token-usage-details-centered-v1&feature=ai-token-usage-raw-input-v1&feature=ai-stream-connection-seconds-v1&feature=phone-client-entry-v1&feature=ai-usage-pricing-cache-v1&feature=ai-model-thinking-label-v3&feature=ai-roleplay-speaker-label-v1&feature=toast-modal-host-v1&feature=api-key-copy-existing-v1&feature=character-favorite-v1&feature=record-favorites-v1&feature=ai-token-usage-estimated-price-v1&feature=entity-detail-favorites-v1&feature=entity-pin-v1&feature=entity-pin-icon-v1&feature=roleplay-favorite-label-v1&feature=ai-roleplay-knowledge-tools-v1&feature=character-persona-summary-v1&feature=ai-roleplay-scene-turn-v2&feature=admin-account-identity-v2&feature=ai-provider-analysis-timeout-v1&feature=task-detail-failure-orange-v1&feature=book-import-progress-v1&feature=presence-multiple-users-v1&feature=ai-context-input-output-v1&feature=editor-blank-lines-preserved-v1&feature=reader-first-frame-v1&feature=vditor-lazy-load-v1&feature=ui-module-preload-v1&feature=reader-initial-prefetch-v1&feature=editor-preview-toggle-v2&feature=vditor-fullscreen-disabled-v1&feature=chapter-auto-indent-v1&feature=chapter-centered-scroll-v1&feature=work-editor-preferences-v1&feature=ai-context-output-usage-v1&feature=ai-context-meter-ring-only-v1&feature=ai-context-cache-hit-v1&feature=ai-roleplay-memory-v4&feature=ai-roleplay-memory-v5&feature=roleplay-memory-header-actions-v1&feature=roleplay-memory-header-toolbar-v1&feature=roleplay-memory-action-icons-v1&feature=roleplay-memory-action-colors-v1&feature=annotation-line-anchor-v1&feature=stable-line-ids-v1&feature=live-annotation-anchors-v1&feature=chapter-comment-filters-v1&feature=ai-write-tools-v3&feature=ai-question-option-supplement-v1&feature=ai-question-selection-highlight-v1&feature=ai-question-continuation-ui-v3&feature=ai-background-stream-v1&feature=ai-question-tool-result-v1&feature=ai-question-tool-summary-v1&feature=ai-question-submit-guidance-v1&feature=ai-question-batch-v1&feature=ai-question-answer-limit-v1&feature=semantic-search-v6&feature=chapter-title-renumber-v1&feature=ai-writing-skills-v3&feature=ai-cancel-preserve-process-v2&feature=remote-mcp-v1&feature=character-alias-chips-v2&feature=character-title-input-v1&feature=character-detail-value-wrap-v2&feature=chapter-batch-editor-refresh-v1&feature=ai-usage-stat-display-v1&feature=ai-usage-year-v1&feature=semantic-search-rag-label-v1&feature=ai-skill-slash-menu-v1&feature=ai-roleplay-scene-bubble-v1&feature=ai-roleplay-scene-collapse-v1&feature=markdown-adjacent-blockquotes-v1&feature=chapter-save-shortcut-v2&feature=ai-message-citation-popover-v1&feature=line-citation-menu-separator-v1&feature=global-im-v106&feature=im-sidebar-compact-v1&feature=ai-fork-progress-toast-v1&feature=im-settings-gear-v1&feature=compact-sidebar-directory-v2&feature=chapter-word-count-consistency-v1&feature=ai-all-message-references-v2&feature=ai-question-render-recovery-v3&feature=setting-category-preservation-v1&feature=toast-stack-v1&feature=toast-stack-label-v2&feature=agent-tool-limits-300-v1&feature=server-dev-logo-v1&feature=chapter-directory-ai-reference-v3&feature=ai-error-origin-v1&feature=ai-stream-render-performance-v2&feature=ai-attachment-disabled-v1&feature=ai-prose-acceptance-removed-v1&feature=ai-inline-message-references-v1&feature=ai-write-plan-status-sync-v1&feature=writing-goal-module-navigation-v2&feature=chapter-line-scroll-bind-v1&feature=invite-registration-v1"></script>
-+    <script type="module" src="/app.js?v=20260816-extended-thinking-effort-v1&feature=ai-history-rename-v1&feature=ai-tool-call-copy-feedback-v2&feature=ai-send-control-v2&feature=analysis-task-queue-refresh-v1&feature=character-gender-v1&feature=character-filter-state-v1&feature=relationship-canvas-scale-v1&feature=relationship-table-scroll-v1&feature=ai-session-id-copy-v2&feature=galaxy-motion-mode-v3&feature=galaxy-edge-label-threshold-v1&feature=calculate-time-tool-v2&feature=analysis-task-expired-toast-v1&feature=global-replace-volume-v1&feature=chapter-search-replace-v1&feature=chapter-save-toast-v1&feature=character-relationship-delete-v1&feature=character-relationship-group-v1&feature=analysis-task-stability-delay-v1&feature=ai-assistant-workspace-v2&feature=volume-detail-icon-v1&feature=volume-story-order-v1&feature=reader-manual-chapter-navigation-v1&feature=ai-message-reference-badges-v1&feature=ai-roleplay-message-reference-v1&feature=ai-message-actions-v1&feature=assistant-responsive-navigation-v3&feature=annotation-permissions-v1&feature=annotation-line-counts-v1&feature=ai-relationship-roleplay-v1&feature=ai-roleplay-user-character-visibility-v1&feature=ai-roleplay-story-recall-v1&feature=ai-model-picker-v1&feature=ai-fork-model-unlock-v1&feature=context-percent-format-v1&feature=annotation-precise-locate-v1&feature=markdown-word-count-stable-v1&feature=ai-stream-character-count-stable-v2&feature=ai-process-empty-intermediate-v1&feature=ai-feed-scroll-follow-v2&feature=ai-message-retry-v1&feature=ai-stream-idle-timeout-v2&feature=ai-config-delete-v1&feature=ai-provider-protocol-options-v1&feature=ai-provider-thinking-type-v1&feature=ai-chat-image-attachments-v8&feature=ai-message-image-preview-v1&feature=ai-thinking-scroll-v2&feature=ai-image-conversation-model-lock-v1&feature=toast-click-dismiss-v2&feature=system-restart-dialog-delay-v1&feature=character-avatar-v6&feature=character-death-position-v1&feature=admin-ai-conversations-v1&feature=ai-usage-pricing-v1&feature=ai-usage-pricing-badge-v2&feature=ai-usage-pricing-label-v1&feature=ai-usage-token-breakdown-v1&feature=ai-usage-pricing-cache-v2&feature=ai-usage-pricing-manual-refresh-v1&feature=ai-monthly-token-quota-v1&feature=ai-provider-token-quota-v1&feature=ai-token-quota-positive-v6&feature=ai-model-thinking-label-v1&feature=ai-model-picker-focus-v1&feature=ai-provider-model-import-v1&feature=ai-assistant-brain-icon-v1&feature=ai-token-usage-details-v1&feature=ai-token-usage-details-centered-v1&feature=ai-token-usage-raw-input-v1&feature=ai-stream-connection-seconds-v1&feature=phone-client-entry-v1&feature=ai-usage-pricing-cache-v1&feature=ai-model-thinking-label-v3&feature=ai-roleplay-speaker-label-v1&feature=toast-modal-host-v1&feature=api-key-copy-existing-v1&feature=character-favorite-v1&feature=record-favorites-v1&feature=ai-token-usage-estimated-price-v1&feature=entity-detail-favorites-v1&feature=entity-pin-v1&feature=entity-pin-icon-v1&feature=roleplay-favorite-label-v1&feature=ai-roleplay-knowledge-tools-v1&feature=character-persona-summary-v1&feature=ai-roleplay-scene-turn-v2&feature=admin-account-identity-v2&feature=ai-provider-analysis-timeout-v1&feature=task-detail-failure-orange-v1&feature=book-import-progress-v1&feature=presence-multiple-users-v1&feature=ai-context-input-output-v1&feature=editor-blank-lines-preserved-v1&feature=reader-first-frame-v1&feature=vditor-lazy-load-v1&feature=ui-module-preload-v1&feature=reader-initial-prefetch-v1&feature=editor-preview-toggle-v2&feature=vditor-fullscreen-disabled-v1&feature=chapter-auto-indent-v1&feature=chapter-centered-scroll-v1&feature=work-editor-preferences-v1&feature=ai-context-output-usage-v1&feature=ai-context-meter-ring-only-v1&feature=ai-context-cache-hit-v1&feature=ai-roleplay-memory-v4&feature=ai-roleplay-memory-v5&feature=roleplay-memory-header-actions-v1&feature=roleplay-memory-header-toolbar-v1&feature=roleplay-memory-action-icons-v1&feature=roleplay-memory-action-colors-v1&feature=annotation-line-anchor-v1&feature=stable-line-ids-v1&feature=live-annotation-anchors-v1&feature=chapter-comment-filters-v1&feature=ai-write-tools-v3&feature=ai-question-option-supplement-v1&feature=ai-question-selection-highlight-v1&feature=ai-question-continuation-ui-v3&feature=ai-background-stream-v1&feature=ai-question-tool-result-v1&feature=ai-question-tool-summary-v1&feature=ai-question-submit-guidance-v1&feature=ai-question-batch-v1&feature=ai-question-answer-limit-v1&feature=semantic-search-v6&feature=chapter-title-renumber-v1&feature=ai-writing-skills-v3&feature=ai-cancel-preserve-process-v2&feature=remote-mcp-v1&feature=character-alias-chips-v2&feature=character-title-input-v1&feature=character-detail-value-wrap-v2&feature=chapter-batch-editor-refresh-v1&feature=ai-usage-stat-display-v1&feature=ai-usage-year-v1&feature=semantic-search-rag-label-v1&feature=ai-skill-slash-menu-v1&feature=ai-roleplay-scene-bubble-v1&feature=ai-roleplay-scene-collapse-v1&feature=markdown-adjacent-blockquotes-v1&feature=chapter-save-shortcut-v2&feature=ai-message-citation-popover-v1&feature=line-citation-menu-separator-v1&feature=global-im-v106&feature=im-sidebar-compact-v1&feature=ai-fork-progress-toast-v1&feature=im-settings-gear-v1&feature=compact-sidebar-directory-v2&feature=chapter-word-count-consistency-v1&feature=ai-all-message-references-v2&feature=ai-question-render-recovery-v3&feature=setting-category-preservation-v1&feature=toast-stack-v1&feature=toast-stack-label-v2&feature=agent-tool-limits-300-v1&feature=server-dev-logo-v1&feature=chapter-directory-ai-reference-v3&feature=ai-error-origin-v1&feature=ai-stream-render-performance-v2&feature=ai-attachment-disabled-v1&feature=ai-prose-acceptance-removed-v1&feature=ai-inline-message-references-v1&feature=ai-write-plan-status-sync-v1&feature=writing-goal-module-navigation-v2&feature=chapter-line-scroll-bind-v1&feature=invite-registration-v1&feature=desktop-same-workspace-v1&feature=desktop-sync-fetch-brand-v1&feature=desktop-offline-worker-ready-v1&feature=desktop-local-ai-shared-ui-v1&feature=desktop-local-ai-workspace-v1&feature=desktop-local-ai-offline-v1&feature=desktop-rescue-export-v1&feature=desktop-profile-removal-guard-v1&feature=desktop-initial-offline-download-v2&feature=desktop-local-model-badge-only-v1&feature=desktop-sync-status-v1&feature=desktop-provider-stream-v1&feature=desktop-sync-icon-only-v1&feature=desktop-route-ready-cover-v1&feature=desktop-quit-confirmation-v1"></script>
+-    <script type="module" src="/app.js?v=20260816-extended-thinking-effort-v1&feature=ai-history-rename-v1&feature=ai-tool-call-copy-feedback-v2&feature=ai-send-control-v2&feature=analysis-task-queue-refresh-v1&feature=character-gender-v1&feature=character-filter-state-v1&feature=relationship-canvas-scale-v1&feature=relationship-table-scroll-v1&feature=ai-session-id-copy-v2&feature=galaxy-motion-mode-v3&feature=galaxy-edge-label-threshold-v1&feature=calculate-time-tool-v2&feature=analysis-task-expired-toast-v1&feature=global-replace-volume-v1&feature=chapter-search-replace-v1&feature=chapter-save-toast-v1&feature=character-relationship-delete-v1&feature=character-relationship-group-v1&feature=analysis-task-stability-delay-v1&feature=ai-assistant-workspace-v2&feature=volume-detail-icon-v1&feature=volume-story-order-v1&feature=reader-manual-chapter-navigation-v1&feature=ai-message-reference-badges-v1&feature=ai-roleplay-message-reference-v1&feature=ai-message-actions-v1&feature=assistant-responsive-navigation-v3&feature=annotation-permissions-v1&feature=annotation-line-counts-v1&feature=ai-relationship-roleplay-v1&feature=ai-roleplay-user-character-visibility-v1&feature=ai-roleplay-story-recall-v1&feature=ai-model-picker-v1&feature=ai-fork-model-unlock-v1&feature=context-percent-format-v1&feature=annotation-precise-locate-v1&feature=markdown-word-count-stable-v1&feature=ai-stream-character-count-stable-v2&feature=ai-process-empty-intermediate-v1&feature=ai-feed-scroll-follow-v2&feature=ai-message-retry-v1&feature=ai-stream-idle-timeout-v2&feature=ai-config-delete-v1&feature=ai-provider-protocol-options-v1&feature=ai-provider-thinking-type-v1&feature=ai-chat-image-attachments-v8&feature=ai-message-image-preview-v1&feature=ai-thinking-scroll-v2&feature=ai-image-conversation-model-lock-v1&feature=toast-click-dismiss-v2&feature=system-restart-dialog-delay-v1&feature=character-avatar-v6&feature=character-death-position-v1&feature=admin-ai-conversations-v1&feature=ai-usage-pricing-v1&feature=ai-usage-pricing-badge-v2&feature=ai-usage-pricing-label-v1&feature=ai-usage-token-breakdown-v1&feature=ai-usage-pricing-cache-v2&feature=ai-usage-pricing-manual-refresh-v1&feature=ai-monthly-token-quota-v1&feature=ai-provider-token-quota-v1&feature=ai-token-quota-positive-v6&feature=ai-model-thinking-label-v1&feature=ai-model-picker-focus-v1&feature=ai-provider-model-import-v1&feature=ai-assistant-brain-icon-v1&feature=ai-token-usage-details-v1&feature=ai-token-usage-details-centered-v1&feature=ai-token-usage-raw-input-v1&feature=ai-stream-connection-seconds-v1&feature=phone-client-entry-v1&feature=ai-usage-pricing-cache-v1&feature=ai-model-thinking-label-v3&feature=ai-roleplay-speaker-label-v1&feature=toast-modal-host-v1&feature=api-key-copy-existing-v1&feature=character-favorite-v1&feature=record-favorites-v1&feature=ai-token-usage-estimated-price-v1&feature=entity-detail-favorites-v1&feature=entity-pin-v1&feature=entity-pin-icon-v1&feature=roleplay-favorite-label-v1&feature=ai-roleplay-knowledge-tools-v1&feature=character-persona-summary-v1&feature=ai-roleplay-scene-turn-v2&feature=admin-account-identity-v2&feature=ai-provider-analysis-timeout-v1&feature=task-detail-failure-orange-v1&feature=book-import-progress-v1&feature=presence-multiple-users-v1&feature=ai-context-input-output-v1&feature=editor-blank-lines-preserved-v1&feature=reader-first-frame-v1&feature=vditor-lazy-load-v1&feature=ui-module-preload-v1&feature=reader-initial-prefetch-v1&feature=editor-preview-toggle-v2&feature=vditor-fullscreen-disabled-v1&feature=chapter-auto-indent-v1&feature=chapter-centered-scroll-v1&feature=work-editor-preferences-v1&feature=ai-context-output-usage-v1&feature=ai-context-meter-ring-only-v1&feature=ai-context-cache-hit-v1&feature=ai-roleplay-memory-v4&feature=ai-roleplay-memory-v5&feature=roleplay-memory-header-actions-v1&feature=roleplay-memory-header-toolbar-v1&feature=roleplay-memory-action-icons-v1&feature=roleplay-memory-action-colors-v1&feature=annotation-line-anchor-v1&feature=stable-line-ids-v1&feature=live-annotation-anchors-v1&feature=chapter-comment-filters-v1&feature=ai-write-tools-v3&feature=ai-question-option-supplement-v1&feature=ai-question-selection-highlight-v1&feature=ai-question-continuation-ui-v3&feature=ai-background-stream-v1&feature=ai-question-tool-result-v1&feature=ai-question-tool-summary-v1&feature=ai-question-submit-guidance-v1&feature=ai-question-batch-v1&feature=ai-question-answer-limit-v1&feature=semantic-search-v6&feature=chapter-title-renumber-v1&feature=ai-writing-skills-v3&feature=ai-cancel-preserve-process-v2&feature=remote-mcp-v1&feature=character-alias-chips-v2&feature=character-title-input-v1&feature=character-detail-value-wrap-v2&feature=chapter-batch-editor-refresh-v1&feature=ai-usage-stat-display-v1&feature=ai-usage-year-v1&feature=semantic-search-rag-label-v1&feature=ai-skill-slash-menu-v1&feature=ai-roleplay-scene-bubble-v1&feature=ai-roleplay-scene-collapse-v1&feature=markdown-adjacent-blockquotes-v1&feature=chapter-save-shortcut-v2&feature=ai-message-citation-popover-v1&feature=line-citation-menu-separator-v1&feature=global-im-v106&feature=im-sidebar-compact-v1&feature=ai-fork-progress-toast-v1&feature=im-settings-gear-v1&feature=compact-sidebar-directory-v2&feature=chapter-word-count-consistency-v1&feature=ai-all-message-references-v2&feature=ai-question-render-recovery-v3&feature=setting-category-preservation-v1&feature=toast-stack-v1&feature=toast-stack-label-v2&feature=agent-tool-limits-300-v1&feature=server-dev-logo-v1&feature=chapter-directory-ai-reference-v3&feature=ai-error-origin-v1&feature=ai-stream-render-performance-v2&feature=ai-attachment-disabled-v1&feature=ai-prose-acceptance-removed-v1&feature=ai-inline-message-references-v1&feature=ai-write-plan-status-sync-v1&feature=writing-goal-module-navigation-v2&feature=chapter-line-scroll-bind-v1&feature=invite-registration-v1&feature=ai-send-mode-v2&feature=character-attributes-prune-v1&feature=annotation-note-limit-v1"></script>
++    <script type="module" src="/app.js?v=20260816-extended-thinking-effort-v1&feature=ai-history-rename-v1&feature=ai-tool-call-copy-feedback-v2&feature=ai-send-control-v2&feature=analysis-task-queue-refresh-v1&feature=character-gender-v1&feature=character-filter-state-v1&feature=relationship-canvas-scale-v1&feature=relationship-table-scroll-v1&feature=ai-session-id-copy-v2&feature=galaxy-motion-mode-v3&feature=galaxy-edge-label-threshold-v1&feature=calculate-time-tool-v2&feature=analysis-task-expired-toast-v1&feature=global-replace-volume-v1&feature=chapter-search-replace-v1&feature=chapter-save-toast-v1&feature=character-relationship-delete-v1&feature=character-relationship-group-v1&feature=analysis-task-stability-delay-v1&feature=ai-assistant-workspace-v2&feature=volume-detail-icon-v1&feature=volume-story-order-v1&feature=reader-manual-chapter-navigation-v1&feature=ai-message-reference-badges-v1&feature=ai-roleplay-message-reference-v1&feature=ai-message-actions-v1&feature=assistant-responsive-navigation-v3&feature=annotation-permissions-v1&feature=annotation-line-counts-v1&feature=ai-relationship-roleplay-v1&feature=ai-roleplay-user-character-visibility-v1&feature=ai-roleplay-story-recall-v1&feature=ai-model-picker-v1&feature=ai-fork-model-unlock-v1&feature=context-percent-format-v1&feature=annotation-precise-locate-v1&feature=markdown-word-count-stable-v1&feature=ai-stream-character-count-stable-v2&feature=ai-process-empty-intermediate-v1&feature=ai-feed-scroll-follow-v2&feature=ai-message-retry-v1&feature=ai-stream-idle-timeout-v2&feature=ai-config-delete-v1&feature=ai-provider-protocol-options-v1&feature=ai-provider-thinking-type-v1&feature=ai-chat-image-attachments-v8&feature=ai-message-image-preview-v1&feature=ai-thinking-scroll-v2&feature=ai-image-conversation-model-lock-v1&feature=toast-click-dismiss-v2&feature=system-restart-dialog-delay-v1&feature=character-avatar-v6&feature=character-death-position-v1&feature=admin-ai-conversations-v1&feature=ai-usage-pricing-v1&feature=ai-usage-pricing-badge-v2&feature=ai-usage-pricing-label-v1&feature=ai-usage-token-breakdown-v1&feature=ai-usage-pricing-cache-v2&feature=ai-usage-pricing-manual-refresh-v1&feature=ai-monthly-token-quota-v1&feature=ai-provider-token-quota-v1&feature=ai-token-quota-positive-v6&feature=ai-model-thinking-label-v1&feature=ai-model-picker-focus-v1&feature=ai-provider-model-import-v1&feature=ai-assistant-brain-icon-v1&feature=ai-token-usage-details-v1&feature=ai-token-usage-details-centered-v1&feature=ai-token-usage-raw-input-v1&feature=ai-stream-connection-seconds-v1&feature=phone-client-entry-v1&feature=ai-usage-pricing-cache-v1&feature=ai-model-thinking-label-v3&feature=ai-roleplay-speaker-label-v1&feature=toast-modal-host-v1&feature=api-key-copy-existing-v1&feature=character-favorite-v1&feature=record-favorites-v1&feature=ai-token-usage-estimated-price-v1&feature=entity-detail-favorites-v1&feature=entity-pin-v1&feature=entity-pin-icon-v1&feature=roleplay-favorite-label-v1&feature=ai-roleplay-knowledge-tools-v1&feature=character-persona-summary-v1&feature=ai-roleplay-scene-turn-v2&feature=admin-account-identity-v2&feature=ai-provider-analysis-timeout-v1&feature=task-detail-failure-orange-v1&feature=book-import-progress-v1&feature=presence-multiple-users-v1&feature=ai-context-input-output-v1&feature=editor-blank-lines-preserved-v1&feature=reader-first-frame-v1&feature=vditor-lazy-load-v1&feature=ui-module-preload-v1&feature=reader-initial-prefetch-v1&feature=editor-preview-toggle-v2&feature=vditor-fullscreen-disabled-v1&feature=chapter-auto-indent-v1&feature=chapter-centered-scroll-v1&feature=work-editor-preferences-v1&feature=ai-context-output-usage-v1&feature=ai-context-meter-ring-only-v1&feature=ai-context-cache-hit-v1&feature=ai-roleplay-memory-v4&feature=ai-roleplay-memory-v5&feature=roleplay-memory-header-actions-v1&feature=roleplay-memory-header-toolbar-v1&feature=roleplay-memory-action-icons-v1&feature=roleplay-memory-action-colors-v1&feature=annotation-line-anchor-v1&feature=stable-line-ids-v1&feature=live-annotation-anchors-v1&feature=chapter-comment-filters-v1&feature=ai-write-tools-v3&feature=ai-question-option-supplement-v1&feature=ai-question-selection-highlight-v1&feature=ai-question-continuation-ui-v3&feature=ai-background-stream-v1&feature=ai-question-tool-result-v1&feature=ai-question-tool-summary-v1&feature=ai-question-submit-guidance-v1&feature=ai-question-batch-v1&feature=ai-question-answer-limit-v1&feature=semantic-search-v6&feature=chapter-title-renumber-v1&feature=ai-writing-skills-v3&feature=ai-cancel-preserve-process-v2&feature=remote-mcp-v1&feature=character-alias-chips-v2&feature=character-title-input-v1&feature=character-detail-value-wrap-v2&feature=chapter-batch-editor-refresh-v1&feature=ai-usage-stat-display-v1&feature=ai-usage-year-v1&feature=semantic-search-rag-label-v1&feature=ai-skill-slash-menu-v1&feature=ai-roleplay-scene-bubble-v1&feature=ai-roleplay-scene-collapse-v1&feature=markdown-adjacent-blockquotes-v1&feature=chapter-save-shortcut-v2&feature=ai-message-citation-popover-v1&feature=line-citation-menu-separator-v1&feature=global-im-v106&feature=im-sidebar-compact-v1&feature=ai-fork-progress-toast-v1&feature=im-settings-gear-v1&feature=compact-sidebar-directory-v2&feature=chapter-word-count-consistency-v1&feature=ai-all-message-references-v2&feature=ai-question-render-recovery-v3&feature=setting-category-preservation-v1&feature=toast-stack-v1&feature=toast-stack-label-v2&feature=agent-tool-limits-300-v1&feature=server-dev-logo-v1&feature=chapter-directory-ai-reference-v3&feature=ai-error-origin-v1&feature=ai-stream-render-performance-v2&feature=ai-attachment-disabled-v1&feature=ai-prose-acceptance-removed-v1&feature=ai-inline-message-references-v1&feature=ai-write-plan-status-sync-v1&feature=writing-goal-module-navigation-v2&feature=chapter-line-scroll-bind-v1&feature=invite-registration-v1&feature=ai-send-mode-v2&feature=character-attributes-prune-v1&feature=annotation-note-limit-v1&feature=desktop-same-workspace-v1&feature=desktop-sync-fetch-brand-v1&feature=desktop-offline-worker-ready-v1&feature=desktop-local-ai-shared-ui-v1&feature=desktop-local-ai-workspace-v1&feature=desktop-local-ai-offline-v1&feature=desktop-rescue-export-v1&feature=desktop-profile-removal-guard-v1&feature=desktop-initial-offline-download-v2&feature=desktop-local-model-badge-only-v1&feature=desktop-sync-status-v1&feature=desktop-provider-stream-v1&feature=desktop-sync-icon-only-v1&feature=desktop-route-ready-cover-v1&feature=desktop-quit-confirmation-v1"></script>
  
    </body>
  </html>
 diff --git a/public/styles.css b/public/styles.css
-index 3867f910..4723acd0 100644
+index 8a1f3db..ea9ef13 100644
 --- a/public/styles.css
 +++ b/public/styles.css
 @@ -581,7 +581,7 @@ input[type="checkbox"][hidden] { display: none; }
@@ -2239,7 +2240,7 @@ index 3867f910..4723acd0 100644
  .dialog.writing-progress-dialog { width: min(900px, 94vw); }
  .writing-progress-dialog form { display: grid; }
  .writing-progress-body { display: grid; gap: 18px; max-height: calc(88vh - 150px); padding: 20px 24px; overflow-y: auto; }
-@@ -1284,7 +1323,7 @@ body.work-viewer-mode .character-editor-actions { display: none !important; }
+@@ -1321,7 +1360,7 @@ body.work-viewer-mode .character-editor-actions { display: none !important; }
  .api-key-actions { display: inline-flex; align-items: center; gap: 8px; }
  .api-key-actions button { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; }
  .book-access-badge { display: inline-flex; width: fit-content; margin-top: 7px; padding: 2px 7px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--accent-dark); font-size: 9px; }
@@ -2248,7 +2249,7 @@ index 3867f910..4723acd0 100644
  .book-card { position: relative; min-width: 0; border: 0; background: transparent; text-align: left; }
  .book-open { width: 100%; padding: 0; border: 0; background: transparent; text-align: left; }
  .book-cover { position: relative; display: grid; place-items: center; width: 90%; margin-inline: auto; aspect-ratio: 3 / 4.25; overflow: hidden; border-radius: 8px 13px 13px 8px; background: linear-gradient(145deg, #a96350, #612d27); color: rgba(255,255,255,.9); box-shadow: 0 20px 34px rgba(62,39,29,.18), inset 9px 0 0 rgba(0,0,0,.08); transition: transform .2s ease, box-shadow .2s ease; }
-@@ -1358,7 +1397,7 @@ body.work-viewer-mode .character-editor-actions { display: none !important; }
+@@ -1395,7 +1434,7 @@ body.work-viewer-mode .character-editor-actions { display: none !important; }
  .work-cover-actions { grid-column: 2; display: flex; flex-wrap: wrap; gap: 8px; }
  .work-cover-actions .ghost-button { min-height: 32px; padding: 6px 11px; font-size: 11px; }
  .work-cover-actions button:disabled { cursor: wait; opacity: .55; }
@@ -2257,7 +2258,7 @@ index 3867f910..4723acd0 100644
  .book-add-card span { display: grid; place-items: center; width: 58px; height: 58px; margin-bottom: 15px; border: 1px solid var(--line); border-radius: 50%; font-size: 34px; color: var(--accent); }
  .book-add-card strong { color: var(--ink); margin-bottom: 8px; }
  .book-add-card small { max-width: 160px; text-align: center; line-height: 1.5; }
-@@ -1727,6 +1766,8 @@ select:focus, input:focus, textarea:focus { border-color: #a77768; box-shadow: 0
+@@ -1766,6 +1805,8 @@ select:focus, input:focus, textarea:focus { border-color: #a77768; box-shadow: 0
  .provider-card.is-disabled { border-style: dashed; border-color: color-mix(in srgb, var(--accent) 68%, var(--line)); background: color-mix(in srgb, var(--accent) 5%, var(--surface-soft)); }
  .provider-card-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
  .provider-card-meta small { min-width: 0; }
@@ -2266,7 +2267,7 @@ index 3867f910..4723acd0 100644
  .provider-status-badge, .model-status-badge { display: inline-flex; flex: 0 0 auto; align-items: center; min-height: 22px; padding: 3px 8px; border: 1px solid var(--line); border-radius: 999px; font-size: 9px; font-weight: 700; line-height: 1.1; white-space: nowrap; }
  .provider-status-badge.is-enabled { border-color: color-mix(in srgb, var(--green) 48%, var(--line)); background: color-mix(in srgb, var(--green) 10%, var(--surface)); color: var(--green); }
  .provider-status-badge.is-disabled, .model-status-badge.is-disabled { border-color: color-mix(in srgb, var(--accent) 68%, var(--line)); background: color-mix(in srgb, var(--accent) 18%, var(--surface)); color: var(--accent-dark); }
-@@ -3262,6 +3303,7 @@ select:focus, input:focus, textarea:focus { border-color: #a77768; box-shadow: 0
+@@ -3324,6 +3365,7 @@ select:focus, input:focus, textarea:focus { border-color: #a77768; box-shadow: 0
  .ai-model-option-copy { display: grid; min-width: 0; gap: 3px; }
  .ai-model-option-copy strong, .ai-model-option-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
  .ai-model-option-copy strong { color: var(--ink); font-size: 10px; font-weight: 600; }
@@ -2274,7 +2275,7 @@ index 3867f910..4723acd0 100644
  .ai-model-option-copy small { color: var(--muted); font: 9px/1.2 var(--font-latin), var(--font-cjk), sans-serif; }
  .ai-model-option-image { display: grid; flex: 0 0 20px; place-items: center; width: 20px; height: 20px; border-radius: 4px; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent-dark); }
  .ai-model-option-image-icon { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.6; }
-@@ -4475,16 +4517,17 @@ select:focus, input:focus, textarea:focus { border-color: #a77768; box-shadow: 0
+@@ -4543,16 +4585,17 @@ select:focus, input:focus, textarea:focus { border-color: #a77768; box-shadow: 0
    #shelf-view, #settings-hub-view { padding-bottom: 0; }
    #shelf-view .product-footer, #settings-hub-view .product-footer { margin-bottom: 0; padding-bottom: env(safe-area-inset-bottom); }
    .shelf-header, .module-header { align-items: stretch; flex-direction: column; gap: 14px; margin-bottom: 20px; }

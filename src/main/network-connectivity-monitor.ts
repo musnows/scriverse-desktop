@@ -1,4 +1,4 @@
-export const NETWORK_CONNECTIVITY_CHECK_INTERVAL_MS = 10_000;
+export const NETWORK_CONNECTIVITY_CHECK_INTERVAL_MS = 15_000;
 
 type NetworkConnectivityMonitorOptions = {
   readOnline: () => boolean;

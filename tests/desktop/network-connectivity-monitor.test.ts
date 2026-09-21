@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { NetworkConnectivityMonitor } from "../../src/main/network-connectivity-monitor.js";
+import { NETWORK_CONNECTIVITY_CHECK_INTERVAL_MS, NetworkConnectivityMonitor } from "../../src/main/network-connectivity-monitor.js";
 
 describe("Desktop 网络连接监测", () => {
+  it("默认每 15 秒检查一次网络状态", () => {
+    expect(NETWORK_CONNECTIVITY_CHECK_INTERVAL_MS).toBe(15_000);
+  });
+
   it("在初始状态和网络状态变化时通知一次，并在释放后停止检测", () => {
     vi.useFakeTimers();
     try {

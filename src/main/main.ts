@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, dialog, shell, utilityProcess, type RenderProcessGoneDetails, type Session, type UtilityProcess } from "electron";
+import { app, BrowserWindow, clipboard, dialog, net, shell, utilityProcess, type RenderProcessGoneDetails, type Session, type UtilityProcess } from "electron";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -39,6 +39,7 @@ import { handleSquirrelStartup } from "./squirrel-startup.js";
 import { applyWindowPlacement, captureWindowPlacement } from "./window-placement.js";
 import { DesktopSettingsStore } from "./desktop-settings-store.js";
 import { BackgroundTray } from "./background-tray.js";
+import { NetworkConnectivityMonitor } from "./network-connectivity-monitor.js";
 import { installDesktopProcessLogging, type DesktopProcessLogging } from "./desktop-file-logger.js";
 import { REMOTE_MEDIA_REFRESH_INTERVAL_MS, RemoteMediaCache, formatRemoteMediaBytes } from "./remote-media-cache.js";
 import { LOCAL_PROFILE_ID, type RemoteWorkspaceProfile } from "../shared/contracts.js";
@@ -88,6 +89,7 @@ let desktopUpdater: DesktopUpdater | null = null;
 let backgroundTray: BackgroundTray | null = null;
 let desktopProcessLogging: DesktopProcessLogging | null = null;
 let remoteMediaCache: RemoteMediaCache | null = null;
+let networkConnectivityMonitor: NetworkConnectivityMonitor | null = null;
 let quitAfterLocalShutdown = false;
 let desktopQuitConfirmed = false;
 let nativeQuitConfirmationInFlight: Promise<void> | null = null;
@@ -323,6 +325,11 @@ function showSelectorFromWorkspace(window: BrowserWindow): void {
   selector.show();
   selector.focus();
   window.hide();
+}
+
+function disposeNetworkConnectivityMonitor(): void {
+  networkConnectivityMonitor?.dispose();
+  networkConnectivityMonitor = null;
 }
 
 function updateBackgroundTrayStatus(): void {
@@ -641,19 +648,27 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
     conflicts: persistedState?.conflicts ?? 0,
     rejected: persistedState?.rejected ?? 0
   };
+  const desktopSettings = desktopSettingsStore!.get();
   remoteWorkspaceOpenPromise = createRemoteWorkspaceWindow({
     profile,
     connectionMode,
     desktopRoot,
-    colorTheme: desktopSettingsStore!.get().colorTheme,
+    colorTheme: desktopSettings.colorTheme,
+    remoteServerUnreachableFailureThreshold: desktopSettings.remoteServerUnreachableFailureThreshold,
     offlineShellRoot: join(applicationRoot, "dist", "public"),
     remoteMediaCache: remoteMediaCache ?? undefined,
     remoteUserId: cachedUser.userId,
     ...(mainWindow && !mainWindow.isDestroyed() ? { placement: captureWindowPlacement(mainWindow) } : {}),
     onExternalUrlRequest: (requestWindow, target) => externalUrlNavigation.request(requestWindow, target),
+    onRemoteServerNetworkStatus: (online) => {
+      const activeWindow = workspaceWindow;
+      if (connectionMode !== "online" || !activeWindow || activeWindow.isDestroyed() || activeWorkspaceKind !== "remote") return;
+      activeWindow.webContents.send("workspace:shell:network-status", { online, monitoring: true });
+    },
     onRendererRecoveryFailed: handleRendererRecoveryFailed,
     onCreated: (window) => {
       workspaceWindow = window;
+      disposeNetworkConnectivityMonitor();
       disposeWorkspaceDownloadPolicy?.();
       disposeWorkspaceDownloadPolicy = registerDownloadPolicy(window.webContents.session, () => workspaceWindow === window ? window : null);
       disposeRemoteAvatarRefresh?.();
@@ -665,6 +680,7 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
         activeProfileId: () => activeRemoteProfileId,
         getCachedUser: () => remoteAuthCoordinator!.cachedUser(profile),
         getConnectionMode: () => remoteAuthCoordinator!.connectionMode(profile),
+        getNetworkStatus: () => ({ online: net.isOnline(), monitoring: connectionMode === "online" }),
         getLocalAiCatalog: () => localAiRequestCoordinator!.catalog(),
         completeLocalAi: (_userId, input, onEvent) => localAiRequestCoordinator!.complete(input, onEvent),
         cancelLocalAi: (_userId, requestId) => localAiRequestCoordinator!.cancel(requestId),
@@ -685,9 +701,20 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
         openExternalUrl: (input) => externalUrlNavigation.respond(window, input),
         writeClipboardText: (text) => clipboard.writeText(text)
       });
+      if (connectionMode === "online") {
+        networkConnectivityMonitor = new NetworkConnectivityMonitor({
+          readOnline: () => net.isOnline(),
+          onStatusChange: (online) => {
+            if (workspaceWindow !== window || activeWorkspaceKind !== "remote" || window.isDestroyed()) return;
+            window.webContents.send("workspace:shell:network-status", { online, monitoring: true });
+          }
+        });
+        networkConnectivityMonitor.start();
+      }
     },
     onReady: () => mainWindow?.hide(),
     onClosed: () => {
+      disposeNetworkConnectivityMonitor();
       disposeWorkspaceDownloadPolicy?.();
       disposeWorkspaceDownloadPolicy = null;
       disposeRemoteAvatarRefresh?.();
@@ -707,6 +734,7 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
     activeWorkspaceKind = "remote";
     activeRemoteProfileId = profile.id;
   }).catch((error) => {
+    disposeNetworkConnectivityMonitor();
     disposeWorkspaceIpc?.();
     disposeWorkspaceIpc = null;
     workspaceWindow = null;
@@ -1071,6 +1099,7 @@ if (handleSquirrelStartup()) {
       return;
     }
     desktopUpdater?.dispose();
+    disposeNetworkConnectivityMonitor();
     backgroundTray?.dispose();
     backgroundTray = null;
   });

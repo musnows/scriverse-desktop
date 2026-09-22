@@ -20,11 +20,13 @@ export async function createRemoteWorkspaceWindow(options: {
   offlineShellRoot: string;
   remoteMediaCache?: RemoteMediaCache;
   remoteUserId?: string;
+  remoteServerUnreachableFailureThreshold: number;
   colorTheme: DesktopColorTheme;
   placement?: DesktopWindowPlacement;
   onCreated?: (window: BrowserWindow) => void;
   show?: boolean;
   onExternalUrlRequest: (window: BrowserWindow, target: string) => boolean;
+  onRemoteServerNetworkStatus?: (online: boolean) => void;
   onRendererRecoveryFailed?: (window: BrowserWindow, details: RenderProcessGoneDetails) => void;
 }): Promise<BrowserWindow> {
   const shellUrl = remoteWorkspaceShellUrl(options.profile.id);
@@ -97,7 +99,9 @@ export async function createRemoteWorkspaceWindow(options: {
       options.offlineShellRoot,
       options.connectionMode,
       options.remoteMediaCache ?? null,
-      options.remoteUserId ?? null
+      options.remoteUserId ?? null,
+      options.onRemoteServerNetworkStatus ?? null,
+      options.remoteServerUnreachableFailureThreshold
     );
     await window.loadURL(shellUrl);
   } catch (error) {

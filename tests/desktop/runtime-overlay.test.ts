@@ -232,6 +232,17 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain('desktop-offline-api.js?v=20260825-desktop-media-cache-v1');
   });
 
+  it("在远端工作区断网时显示页面居中的重新进入引导", () => {
+    const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
+
+    expect(overlayPatch).toContain('desktop-network-guidance.js?v=20260922-network-offline-guidance-v1');
+    expect(overlayPatch).toContain('installDesktopNetworkGuidance({');
+    expect(overlayPatch).toContain('id="desktop-network-guidance-toast"');
+    expect(overlayPatch).toContain('id="desktop-network-guidance-switch"');
+    expect(overlayPatch).toContain("desktop-network-guidance-toast { position: fixed; inset: 0;");
+    expect(overlayPatch).toContain("place-items: center");
+  });
+
   it("confirms external website navigation while leaving image resources alone", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
     const workspace = readFileSync(join(process.cwd(), "runtime-overlay/public/desktop-workspace.js"), "utf8");

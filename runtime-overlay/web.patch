@@ -1554,12 +1554,12 @@ index 924fb0b..0a406be 100644
 +  return key ? structuredClone(desktopOfflineLocalAiMessagesByEntity.get(key) ?? []) : [];
 +}
 +
-+function appendDesktopOfflineLocalAiMessage(role, content) {
++function appendDesktopOfflineLocalAiMessage(role, content, citations = []) {
 +  const key = desktopOfflineLocalAiEntityKey();
 +  if (!key) return;
 +  const messages = [
 +    ...(desktopOfflineLocalAiMessagesByEntity.get(key) ?? []),
-+    { role, content, createdAt: new Date().toISOString() }
++    { role, content, citations: structuredClone(citations), createdAt: new Date().toISOString() }
 +  ].slice(-40);
 +  desktopOfflineLocalAiMessagesByEntity.set(key, messages);
 +}
@@ -1629,7 +1629,7 @@ index 924fb0b..0a406be 100644
 +  const intro = tab.feed.querySelector(".message-body p");
 +  if (intro) intro.textContent = "当前使用本机离线副本。远端 AI 设置未下载；恢复连接后可继续使用依赖 Server 的能力。";
 +  for (const message of desktopOfflineLocalAiMessagesForCurrentEntity()) {
-+    appendMessage(message.role, message.content, [], message.createdAt ?? null, {}, null, { tab });
++    appendMessage(message.role, message.content, message.citations ?? [], message.createdAt ?? null, {}, null, { tab });
 +  }
 +}
 +
@@ -1761,7 +1761,9 @@ index 924fb0b..0a406be 100644
 +  const tab = activeAiChatTab();
 +  if (!tab) return toast("创作助手页签尚未就绪", "error");
 +  if (aiRequestManager.hasActive(tab.id)) return;
-+  const instruction = captureAiPromptComposer().text.trim();
++  const composerSnapshot = captureAiPromptComposer();
++  const instruction = composerSnapshot.text.trim();
++  const citations = composerSnapshot.citations.map(({ chapterId, chapterTitle, startLine, endLine, text }) => ({ chapterId, chapterTitle, startLine, endLine, text }));
 +  if (!instruction) return toast("请输入指令", "error");
 +  const taskType = $("#ai-task").value;
 +  if (taskType === "roleplay") return toast("离线状态暂不支持角色扮演", "error");
@@ -1789,8 +1791,8 @@ index 924fb0b..0a406be 100644
 +  tab.selectedModelId = model.id;
 +  setAiChatTabStatus(tab, "streaming");
 +  syncAiRequestControls();
-+  appendDesktopOfflineLocalAiMessage("user", instruction);
-+  appendMessage("user", instruction, [], null, {}, null, { tab });
++  appendDesktopOfflineLocalAiMessage("user", instruction, citations);
++  appendMessage("user", instruction, citations, null, {}, null, { tab });
 +  clearAiPromptComposer();
 +  const requestId = crypto.randomUUID();
 +  const cancel = () => { void bridge.cancel({ requestId }); };

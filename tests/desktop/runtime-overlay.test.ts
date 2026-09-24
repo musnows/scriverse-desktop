@@ -94,6 +94,10 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).not.toContain("/desktop-local-ai/prepare");
     expect(overlayPatch).toContain("remoteSystemPrompt: desktopOfflineLocalAiSystemPrompt(context)");
     expect(overlayPatch).toContain("messages: desktopOfflineLocalAiMessages(history, instruction)");
+    expect(overlayPatch).toContain("const composerSnapshot = captureAiPromptComposer()");
+    expect(overlayPatch).toContain('appendDesktopOfflineLocalAiMessage("user", instruction, citations)');
+    expect(overlayPatch).toContain('appendMessage("user", instruction, citations, null, {}, null, { tab })');
+    expect(overlayPatch).toContain("message.citations ?? []");
     expect(overlayPatch).toContain('scope.className = "ai-model-option-scope is-local"');
     expect(overlayPatch).toContain('scope.textContent = "本地"');
     expect(overlayPatch).not.toContain("function aiModelLocalIconMarkup()");

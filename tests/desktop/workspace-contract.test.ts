@@ -30,6 +30,9 @@ describe("Desktop 工作区最小 bridge", () => {
 
   it("只暴露有限 shell 方法并在 Main 复核 sender origin 与 session", () => {
     expect(preloadSource).toContain("getCapabilities");
+    expect(preloadSource).toContain("getNetworkStatus");
+    expect(preloadSource).toContain("onNetworkStatus");
+    expect(preloadSource).toContain('const networkStatusEventChannel = "workspace:shell:network-status"');
     expect(preloadSource).toContain("function applyDesktopColorTheme(): void");
     expect(preloadSource).toContain('localStorage.setItem("scriverse-color-theme-v1", theme)');
     expect(preloadSource).toContain('document.querySelector("#theme-toggle")?.remove()');
@@ -60,6 +63,8 @@ describe("Desktop 工作区最小 bridge", () => {
     expect(ipcSource).toContain("activeProfileId() !== profile.id");
     expect(ipcSource).toContain("user: options.getCachedUser()");
     expect(ipcSource).toContain("connectionMode: options.getConnectionMode()");
+    expect(ipcSource).toContain('"workspace:shell:get-network-status"');
+    expect(ipcSource).toContain("getNetworkStatus: () => { online: boolean; monitoring: boolean }");
     expect(ipcSource).toContain("getLocalAiCatalog");
     expect(ipcSource).toContain("parseLocalAiCompletionRequestInput");
     expect(ipcSource).toContain("parseLocalAiAgentRoundInput");

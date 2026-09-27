@@ -7,10 +7,13 @@ import {
   DEFAULT_DESKTOP_LOG_STORAGE_LIMIT_MIB,
   DEFAULT_DESKTOP_COLOR_THEME,
   DEFAULT_LOCAL_SERVER_PORT,
+  DEFAULT_REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD,
   DESKTOP_LOG_STORAGE_LIMIT_MIB_OPTIONS,
   LOCAL_SERVER_PORT_SCAN_COUNT,
   LocalServerPortUnavailableError,
   localServerPortCandidates,
+  MAX_REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD,
+  MIN_REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD,
   selectLocalServerPort
 } from "../../src/shared/desktop-settings-contract.js";
 
@@ -22,13 +25,20 @@ describe("Desktop 系统设置与本地端口", () => {
       localServerPort: DEFAULT_LOCAL_SERVER_PORT,
       logStorageLimitMiB: DEFAULT_DESKTOP_LOG_STORAGE_LIMIT_MIB,
       colorTheme: DEFAULT_DESKTOP_COLOR_THEME,
+      remoteServerUnreachableFailureThreshold: DEFAULT_REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD,
       updatedAt: null
     });
-    const updated = store.update({ colorTheme: DEFAULT_DESKTOP_COLOR_THEME, localServerPort: 24_321, logStorageLimitMiB: 2_048 });
+    const updated = store.update({
+      colorTheme: DEFAULT_DESKTOP_COLOR_THEME,
+      localServerPort: 24_321,
+      logStorageLimitMiB: 2_048,
+      remoteServerUnreachableFailureThreshold: 2
+    });
     expect(updated).toMatchObject({
       localServerPort: 24_321,
       logStorageLimitMiB: 2_048,
       colorTheme: DEFAULT_DESKTOP_COLOR_THEME,
+      remoteServerUnreachableFailureThreshold: 2,
       updatedAt: expect.any(String)
     });
     expect(new DesktopSettingsStore(path).get()).toEqual(updated);
@@ -36,35 +46,56 @@ describe("Desktop 系统设置与本地端口", () => {
       version: 1,
       localServerPort: 24_321,
       logStorageLimitMiB: 2_048,
-      colorTheme: DEFAULT_DESKTOP_COLOR_THEME
+      colorTheme: DEFAULT_DESKTOP_COLOR_THEME,
+      remoteServerUnreachableFailureThreshold: 2
     });
-    expect(store.update({ colorTheme: DEFAULT_DESKTOP_COLOR_THEME, localServerPort: 20_001, logStorageLimitMiB: 500 }).localServerPort).toBe(20_001);
-    expect(store.update({ colorTheme: DEFAULT_DESKTOP_COLOR_THEME, localServerPort: 60_000, logStorageLimitMiB: 500 }).localServerPort).toBe(60_000);
-    expect(() => store.update({ colorTheme: DEFAULT_DESKTOP_COLOR_THEME, localServerPort: 20_000, logStorageLimitMiB: 500 })).toThrowError(/20001/u);
-    expect(() => store.update({ colorTheme: DEFAULT_DESKTOP_COLOR_THEME, localServerPort: 60_001, logStorageLimitMiB: 500 })).toThrowError(/60000/u);
-    expect(() => store.update({ colorTheme: DEFAULT_DESKTOP_COLOR_THEME, localServerPort: 23_241.5, logStorageLimitMiB: 500 })).toThrowError(/整数/u);
+    expect(store.update({ colorTheme: DEFAULT_DESKTOP_COLOR_THEME, localServerPort: 20_001, logStorageLimitMiB: 500, remoteServerUnreachableFailureThreshold: 3 }).localServerPort).toBe(20_001);
+    expect(store.update({ colorTheme: DEFAULT_DESKTOP_COLOR_THEME, localServerPort: 60_000, logStorageLimitMiB: 500, remoteServerUnreachableFailureThreshold: 3 }).localServerPort).toBe(60_000);
+    expect(() => store.update({ colorTheme: DEFAULT_DESKTOP_COLOR_THEME, localServerPort: 20_000, logStorageLimitMiB: 500, remoteServerUnreachableFailureThreshold: 3 })).toThrowError(/20001/u);
+    expect(() => store.update({ colorTheme: DEFAULT_DESKTOP_COLOR_THEME, localServerPort: 60_001, logStorageLimitMiB: 500, remoteServerUnreachableFailureThreshold: 3 })).toThrowError(/60000/u);
+    expect(() => store.update({ colorTheme: DEFAULT_DESKTOP_COLOR_THEME, localServerPort: 23_241.5, logStorageLimitMiB: 500, remoteServerUnreachableFailureThreshold: 3 })).toThrowError(/整数/u);
   });
 
   it("只接受白天和黑夜模式，并随系统设置一并持久化", () => {
     const path = join(tmpdir(), `scriverse-desktop-theme-settings-${process.pid}-${crypto.randomUUID()}`, "settings.json");
     const store = new DesktopSettingsStore(path);
-    expect(store.update({ colorTheme: "dark", localServerPort: DEFAULT_LOCAL_SERVER_PORT, logStorageLimitMiB: 500 }).colorTheme).toBe("dark");
+    expect(store.update({ colorTheme: "dark", localServerPort: DEFAULT_LOCAL_SERVER_PORT, logStorageLimitMiB: 500, remoteServerUnreachableFailureThreshold: 3 }).colorTheme).toBe("dark");
     expect(new DesktopSettingsStore(path).get().colorTheme).toBe("dark");
-    expect(() => store.update({ colorTheme: "auto", localServerPort: DEFAULT_LOCAL_SERVER_PORT, logStorageLimitMiB: 500 })).toThrowError(/白天或黑夜/u);
+    expect(() => store.update({ colorTheme: "auto", localServerPort: DEFAULT_LOCAL_SERVER_PORT, logStorageLimitMiB: 500, remoteServerUnreachableFailureThreshold: 3 })).toThrowError(/白天或黑夜/u);
   });
 
   it("仅接受五档日志空间上限并拒绝其他大小", () => {
     const path = join(tmpdir(), `scriverse-desktop-log-settings-${process.pid}-${crypto.randomUUID()}`, "settings.json");
     const store = new DesktopSettingsStore(path);
     for (const logStorageLimitMiB of DESKTOP_LOG_STORAGE_LIMIT_MIB_OPTIONS) {
-      expect(store.update({ colorTheme: DEFAULT_DESKTOP_COLOR_THEME, localServerPort: DEFAULT_LOCAL_SERVER_PORT, logStorageLimitMiB }).logStorageLimitMiB).toBe(logStorageLimitMiB);
+      expect(store.update({ colorTheme: DEFAULT_DESKTOP_COLOR_THEME, localServerPort: DEFAULT_LOCAL_SERVER_PORT, logStorageLimitMiB, remoteServerUnreachableFailureThreshold: 3 }).logStorageLimitMiB).toBe(logStorageLimitMiB);
     }
     for (const invalid of [0, 499, 1_000, 4_096, 10_241, "500"]) {
-      expect(() => store.update({ colorTheme: DEFAULT_DESKTOP_COLOR_THEME, localServerPort: DEFAULT_LOCAL_SERVER_PORT, logStorageLimitMiB: invalid })).toThrowError(
+      expect(() => store.update({ colorTheme: DEFAULT_DESKTOP_COLOR_THEME, localServerPort: DEFAULT_LOCAL_SERVER_PORT, logStorageLimitMiB: invalid, remoteServerUnreachableFailureThreshold: 3 })).toThrowError(
         /500 MB、1 GB、2 GB、5 GB 或 10 GB/u
       );
     }
     expect(() => store.update({ colorTheme: DEFAULT_DESKTOP_COLOR_THEME, localServerPort: DEFAULT_LOCAL_SERVER_PORT })).toThrowError(/设置请求无效/u);
+  });
+
+  it("支持设置远端 Server 不可达连续失败次数", () => {
+    const path = join(tmpdir(), `scriverse-desktop-network-settings-${process.pid}-${crypto.randomUUID()}`, "settings.json");
+    const store = new DesktopSettingsStore(path);
+    expect(store.update({
+      colorTheme: DEFAULT_DESKTOP_COLOR_THEME,
+      localServerPort: DEFAULT_LOCAL_SERVER_PORT,
+      logStorageLimitMiB: 500,
+      remoteServerUnreachableFailureThreshold: 2
+    }).remoteServerUnreachableFailureThreshold).toBe(2);
+    expect(new DesktopSettingsStore(path).get().remoteServerUnreachableFailureThreshold).toBe(2);
+    for (const invalid of [0, MAX_REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD + 1, 1.5, "3"]) {
+      expect(() => store.update({
+        colorTheme: DEFAULT_DESKTOP_COLOR_THEME,
+        localServerPort: DEFAULT_LOCAL_SERVER_PORT,
+        logStorageLimitMiB: 500,
+        remoteServerUnreachableFailureThreshold: invalid
+      })).toThrowError(new RegExp(`${MIN_REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD} 到 ${MAX_REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD}`, "u"));
+    }
   });
 
   it("已有端口设置在缺少日志上限时使用新的 500 MB 默认值", () => {
@@ -77,6 +108,7 @@ describe("Desktop 系统设置与本地端口", () => {
       localServerPort: 24_321,
       logStorageLimitMiB: 500,
       colorTheme: DEFAULT_DESKTOP_COLOR_THEME,
+      remoteServerUnreachableFailureThreshold: DEFAULT_REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD,
       updatedAt
     });
   });
@@ -91,6 +123,7 @@ describe("Desktop 系统设置与本地端口", () => {
       localServerPort: DEFAULT_LOCAL_SERVER_PORT,
       logStorageLimitMiB: 500,
       colorTheme: DEFAULT_DESKTOP_COLOR_THEME,
+      remoteServerUnreachableFailureThreshold: DEFAULT_REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD,
       updatedAt
     });
   });

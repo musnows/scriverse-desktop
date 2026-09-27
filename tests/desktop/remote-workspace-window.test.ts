@@ -62,6 +62,20 @@ describe("Desktop 远端工作区窗口", () => {
     expect(windowSource).not.toContain('window.webContents.on("render-process-gone"');
   });
 
+  it("在线远端工作区通过主进程网络状态检测引导重新进入离线模式", () => {
+    const mainSource = readFileSync(join(root, "src/main/main.ts"), "utf8");
+
+    expect(mainSource).toContain("net.isOnline()");
+    expect(mainSource).toContain("NetworkConnectivityMonitor");
+    expect(mainSource).toContain('connectionMode === "online"');
+    expect(mainSource).toContain('window.webContents.send("workspace:shell:network-status", { online, monitoring: true })');
+    expect(mainSource).toContain("onRemoteServerNetworkStatus");
+    expect(mainSource).toContain("remoteServerUnreachableFailureThreshold: desktopSettings.remoteServerUnreachableFailureThreshold");
+    expect(windowSource).toContain("options.remoteServerUnreachableFailureThreshold");
+    expect(windowSource).toContain("onRemoteServerNetworkStatus ?? null");
+    expect(mainSource).toContain("disposeNetworkConnectivityMonitor");
+  });
+
   it("只拦截顶层外链导航，不拦截图片等资源请求", () => {
     expect(windowSource).toContain('setWindowOpenHandler((details) =>');
     expect(windowSource).not.toContain("webRequest.onBeforeRequest");

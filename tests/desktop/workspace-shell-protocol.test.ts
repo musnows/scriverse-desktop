@@ -2,6 +2,8 @@ import type { Session } from "electron";
 import { describe, expect, it, vi } from "vitest";
 import {
   isRemoteWorkspaceShellUrl,
+  RemoteServerReachability,
+  REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD,
   registerBundledWorkspaceShell,
   remoteWorkspaceShellUrl,
   resolveWorkspaceShellAsset
@@ -24,6 +26,17 @@ const profile: RemoteWorkspaceProfile = {
 describe("Desktop 远端工作区网页壳协议", () => {
   const shellUrl = remoteWorkspaceShellUrl(profileId);
   const publicRoot = "/app/dist/public";
+
+  it("按配置的连续失败次数标记远端不可达，并在下次成功时恢复", () => {
+    const reachability = new RemoteServerReachability(2);
+
+    expect(REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD).toBe(3);
+    expect(reachability.recordNetworkFailure()).toBe(false);
+    expect(reachability.recordNetworkFailure()).toBe(true);
+    expect(reachability.recordNetworkFailure()).toBe(false);
+    expect(reachability.recordSuccess()).toBe(true);
+    expect(reachability.recordNetworkFailure()).toBe(false);
+  });
 
   it("按 profile 隔离 app origin 并限制静态资源目录", () => {
     expect(shellUrl).toBe(`app://workspace-${profileId}/`);
@@ -72,6 +85,50 @@ describe("Desktop 远端工作区网页壳协议", () => {
     expect(init).toMatchObject({ method: "GET", redirect: "manual", bypassCustomProtocolHandlers: true });
     dispose();
     expect(unhandle).toHaveBeenCalledWith("app");
+  });
+
+  it("仅在配置次数的远端传输失败后通知离线，成功响应会恢复在线状态", async () => {
+    let handler: ((request: Request) => Response | Promise<Response>) | null = null;
+    const fetchImpl = vi.fn().mockRejectedValue(new TypeError("fetch failed"));
+    const onRemoteServerNetworkStatus = vi.fn();
+    const electronSession = {
+      fetch: fetchImpl,
+      protocol: {
+        handle: vi.fn((_scheme: string, registered: typeof handler) => { handler = registered; }),
+        unhandle: vi.fn()
+      }
+    } as unknown as Session;
+    registerBundledWorkspaceShell(electronSession, profile, publicRoot, "online", null, null, onRemoteServerNetworkStatus, 2);
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      expect((await handler!(new Request(`${shellUrl}api/health`))).status).toBe(502);
+    }
+    expect(onRemoteServerNetworkStatus).toHaveBeenCalledTimes(1);
+    expect(onRemoteServerNetworkStatus).toHaveBeenLastCalledWith(false);
+
+    fetchImpl.mockResolvedValueOnce(Response.json({ data: { status: "ok" } }));
+    expect((await handler!(new Request(`${shellUrl}api/health`))).status).toBe(200);
+    expect(onRemoteServerNetworkStatus).toHaveBeenCalledTimes(2);
+    expect(onRemoteServerNetworkStatus).toHaveBeenLastCalledWith(true);
+  });
+
+  it("HTTP 响应表明 Server 可达，不会计入网络不可达次数", async () => {
+    let handler: ((request: Request) => Response | Promise<Response>) | null = null;
+    const fetchImpl = vi.fn(async () => new Response("unavailable", { status: 503 }));
+    const onRemoteServerNetworkStatus = vi.fn();
+    const electronSession = {
+      fetch: fetchImpl,
+      protocol: {
+        handle: vi.fn((_scheme: string, registered: typeof handler) => { handler = registered; }),
+        unhandle: vi.fn()
+      }
+    } as unknown as Session;
+    registerBundledWorkspaceShell(electronSession, profile, publicRoot, "online", null, null, onRemoteServerNetworkStatus);
+
+    for (let attempt = 0; attempt < REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD; attempt += 1) {
+      expect((await handler!(new Request(`${shellUrl}api/health`))).status).toBe(503);
+    }
+    expect(onRemoteServerNetworkStatus).not.toHaveBeenCalled();
   });
 
   it("离线模式不向 Server 转发 API", async () => {

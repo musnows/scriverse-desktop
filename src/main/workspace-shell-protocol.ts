@@ -2,9 +2,11 @@ import type { Session } from "electron";
 import { readFile } from "node:fs/promises";
 import { extname, isAbsolute, relative, resolve, sep } from "node:path";
 import type { RemoteWorkspaceProfile } from "../shared/contracts.js";
+import { DEFAULT_REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD } from "../shared/desktop-settings-contract.js";
 import { REMOTE_MEDIA_DOWNLOAD_HEADER, RemoteMediaCache, parseRemoteMediaRoute } from "./remote-media-cache.js";
 
 const WORKSPACE_SHELL_CSP = "default-src 'self'; base-uri 'none'; connect-src 'self'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data: blob:; manifest-src 'self'; media-src 'none'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; worker-src 'self'";
+export const REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD = DEFAULT_REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD;
 
 const contentTypes = new Map<string, string>([
   [".css", "text/css; charset=utf-8"],
@@ -112,7 +114,30 @@ function remoteRequestHeaders(request: Request, profile: RemoteWorkspaceProfile)
   return headers;
 }
 
-async function proxyRemoteApi(request: Request, electronSession: Session, profile: RemoteWorkspaceProfile): Promise<Response> {
+export class RemoteServerReachability {
+  private consecutiveNetworkFailures = 0;
+
+  constructor(private readonly failureThreshold = REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD) {}
+
+  recordSuccess(): boolean {
+    const recovered = this.consecutiveNetworkFailures >= this.failureThreshold;
+    this.consecutiveNetworkFailures = 0;
+    return recovered;
+  }
+
+  recordNetworkFailure(): boolean {
+    this.consecutiveNetworkFailures += 1;
+    return this.consecutiveNetworkFailures === this.failureThreshold;
+  }
+}
+
+async function proxyRemoteApi(
+  request: Request,
+  electronSession: Session,
+  profile: RemoteWorkspaceProfile,
+  reachability: RemoteServerReachability,
+  onRemoteServerNetworkStatus: ((online: boolean) => void) | null
+): Promise<Response> {
   const sourceUrl = new URL(request.url);
   const targetUrl = new URL(`${sourceUrl.pathname}${sourceUrl.search}`, `${profile.origin}/`);
   const method = request.method.toUpperCase();
@@ -127,6 +152,7 @@ async function proxyRemoteApi(request: Request, electronSession: Session, profil
       redirect: "manual",
       bypassCustomProtocolHandlers: true
     });
+    if (reachability.recordSuccess()) onRemoteServerNetworkStatus?.(true);
     const headers = new Headers(response.headers);
     headers.delete("set-cookie");
     headers.delete("set-cookie2");
@@ -136,6 +162,7 @@ async function proxyRemoteApi(request: Request, electronSession: Session, profil
       headers
     });
   } catch {
+    if (reachability.recordNetworkFailure()) onRemoteServerNetworkStatus?.(false);
     return Response.json({ error: { code: "REMOTE_API_UNAVAILABLE", message: "无法连接当前 Server" } }, {
       status: 502,
       headers: { "Cache-Control": "no-store" }
@@ -149,9 +176,12 @@ export function registerBundledWorkspaceShell(
   publicRoot: string,
   connectionMode: "online" | "offline",
   mediaCache: RemoteMediaCache | null = null,
-  userId: string | null = null
+  userId: string | null = null,
+  onRemoteServerNetworkStatus: ((online: boolean) => void) | null = null,
+  remoteServerUnreachableFailureThreshold = REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD
 ): () => void {
   let active = true;
+  const reachability = new RemoteServerReachability(remoteServerUnreachableFailureThreshold);
   electronSession.protocol.handle("app", async (request) => {
     if (!isRemoteWorkspaceShellUrl(request.url, profile.id)) {
       return new Response("Not found", { status: 404, headers: securityHeaders() });
@@ -183,7 +213,7 @@ export function registerBundledWorkspaceShell(
           headers: { "Cache-Control": "no-store" }
         });
       }
-      return proxyRemoteApi(request, electronSession, profile);
+      return proxyRemoteApi(request, electronSession, profile, reachability, onRemoteServerNetworkStatus);
     }
     if (request.method !== "GET" && request.method !== "HEAD") {
       return new Response("Method not allowed", { status: 405, headers: securityHeaders() });

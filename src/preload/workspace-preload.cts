@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require("electron") as typeof import("ele
 const menuCommands = new Set(["open-sync-center", "request-quit"]);
 const aiStreamChannel = "workspace:local-ai:stream-event";
 const externalUrlRequestChannel = "workspace:shell:external-url-request";
+const networkStatusEventChannel = "workspace:shell:network-status";
 
 function applyDesktopColorTheme(): void {
   const argument = process.argv.find((value) => value.startsWith("--scriverse-desktop-color-theme="));
@@ -87,6 +88,7 @@ contextBridge.exposeInMainWorld("scriverseDesktopWorkspace", Object.freeze({
   syncProtocol: 1,
   shell: Object.freeze({
     getCapabilities: () => ipcRenderer.invoke("workspace:shell:get-capabilities"),
+    getNetworkStatus: () => ipcRenderer.invoke("workspace:shell:get-network-status"),
     reportLeaveState: (input: unknown) => ipcRenderer.invoke("workspace:shell:report-leave-state", input),
     requestSwitch: () => ipcRenderer.invoke("workspace:shell:request-switch"),
     confirmQuit: () => ipcRenderer.invoke("workspace:shell:confirm-quit"),
@@ -104,6 +106,18 @@ contextBridge.exposeInMainWorld("scriverseDesktopWorkspace", Object.freeze({
       };
       ipcRenderer.on(externalUrlRequestChannel, handler);
       return () => ipcRenderer.removeListener(externalUrlRequestChannel, handler);
+    },
+    onNetworkStatus: (listener: (status: { online: boolean; monitoring: boolean }) => void) => {
+      if (typeof listener !== "function") return () => undefined;
+      const handler = (_event: Electron.IpcRendererEvent, payload: unknown) => {
+        if (!payload || typeof payload !== "object" || Array.isArray(payload)) return;
+        const status = payload as Record<string, unknown>;
+        if (typeof status.online === "boolean" && status.monitoring === true) {
+          listener({ online: status.online, monitoring: true });
+        }
+      };
+      ipcRenderer.on(networkStatusEventChannel, handler);
+      return () => ipcRenderer.removeListener(networkStatusEventChannel, handler);
     },
     onMenuCommand: (listener: (command: string) => void) => {
       if (typeof listener !== "function") return () => undefined;

@@ -3,6 +3,7 @@ import {
   DEFAULT_DESKTOP_LOG_STORAGE_LIMIT_MIB,
   DEFAULT_DESKTOP_COLOR_THEME,
   DEFAULT_LOCAL_SERVER_PORT,
+  DEFAULT_REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD,
   DESKTOP_SETTINGS_VERSION,
   MIN_LOCAL_SERVER_PORT,
   DesktopSettingsContractError,
@@ -10,6 +11,7 @@ import {
   parseDesktopSettingsUpdate,
   parseDesktopLogStorageLimitMiB,
   parseLocalServerPort,
+  parseRemoteServerUnreachableFailureThreshold,
   type DesktopColorTheme,
   type DesktopLogStorageLimitMiB,
   type DesktopSettingsSummary
@@ -23,6 +25,7 @@ type DesktopSettingsDocument = {
   localServerPort: number;
   logStorageLimitMiB: DesktopLogStorageLimitMiB;
   colorTheme: DesktopColorTheme;
+  remoteServerUnreachableFailureThreshold: number;
   updatedAt: string;
 };
 
@@ -43,7 +46,8 @@ function parseDocument(value: unknown): DesktopSettingsDocument {
   }
   const keys = Object.keys(value).toSorted().join(",");
   if (
-    keys !== "colorTheme,localServerPort,logStorageLimitMiB,updatedAt,version"
+    keys !== "colorTheme,localServerPort,logStorageLimitMiB,remoteServerUnreachableFailureThreshold,updatedAt,version"
+    && keys !== "colorTheme,localServerPort,logStorageLimitMiB,updatedAt,version"
     && keys !== "localServerPort,logStorageLimitMiB,updatedAt,version"
     && keys !== "localServerPort,updatedAt,version"
   ) {
@@ -61,6 +65,9 @@ function parseDocument(value: unknown): DesktopSettingsDocument {
     colorTheme: value.colorTheme === undefined
       ? DEFAULT_DESKTOP_COLOR_THEME
       : parseDesktopColorTheme(value.colorTheme),
+    remoteServerUnreachableFailureThreshold: value.remoteServerUnreachableFailureThreshold === undefined
+      ? DEFAULT_REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD
+      : parseRemoteServerUnreachableFailureThreshold(value.remoteServerUnreachableFailureThreshold),
     updatedAt: value.updatedAt
   };
 }
@@ -86,6 +93,8 @@ export class DesktopSettingsStore {
       localServerPort: this.document?.localServerPort ?? DEFAULT_LOCAL_SERVER_PORT,
       logStorageLimitMiB: this.document?.logStorageLimitMiB ?? DEFAULT_DESKTOP_LOG_STORAGE_LIMIT_MIB,
       colorTheme: this.document?.colorTheme ?? DEFAULT_DESKTOP_COLOR_THEME,
+      remoteServerUnreachableFailureThreshold: this.document?.remoteServerUnreachableFailureThreshold
+        ?? DEFAULT_REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD,
       updatedAt: this.document?.updatedAt ?? null
     };
   }
@@ -97,6 +106,7 @@ export class DesktopSettingsStore {
       localServerPort: input.localServerPort,
       logStorageLimitMiB: input.logStorageLimitMiB,
       colorTheme: input.colorTheme,
+      remoteServerUnreachableFailureThreshold: input.remoteServerUnreachableFailureThreshold,
       updatedAt: new Date().toISOString()
     };
     writeDesktopJsonAtomically(this.path, this.document);

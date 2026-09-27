@@ -46,6 +46,7 @@ const localLoginSubmit = document.querySelector("#local-login-submit");
 const systemSettingsDialog = document.querySelector("#system-settings-dialog");
 const systemSettingsForm = document.querySelector("#system-settings-form");
 const localServerPort = document.querySelector("#local-server-port");
+const remoteServerUnreachableFailureThreshold = document.querySelector("#remote-server-unreachable-failure-threshold");
 const logStorageLimit = document.querySelector("#log-storage-limit");
 const openLogDirectory = document.querySelector("#open-log-directory");
 const systemSettingsError = document.querySelector("#system-settings-error");
@@ -132,6 +133,7 @@ function requireElement(element, label) {
   [systemSettingsDialog, "system-settings-dialog"],
   [systemSettingsForm, "system-settings-form"],
   [localServerPort, "local-server-port"],
+  [remoteServerUnreachableFailureThreshold, "remote-server-unreachable-failure-threshold"],
   [logStorageLimit, "log-storage-limit"],
   [openLogDirectory, "open-log-directory"],
   [systemSettingsError, "system-settings-error"],
@@ -544,6 +546,7 @@ async function openSystemSettingsDialog() {
     applyDesktopTheme(state.desktopSettings.colorTheme);
     desktopColorTheme.value = state.desktopSettings.colorTheme;
     localServerPort.value = String(state.desktopSettings.localServerPort);
+    remoteServerUnreachableFailureThreshold.value = String(state.desktopSettings.remoteServerUnreachableFailureThreshold);
     logStorageLimit.value = String(state.desktopSettings.logStorageLimitMiB);
     systemSettingsDialog.showModal();
     window.setTimeout(() => localServerPort.focus(), 0);
@@ -730,12 +733,15 @@ systemSettingsForm.addEventListener("submit", async (event) => {
     state.desktopSettings = unwrap(await bridge.settings.update({
       colorTheme: desktopColorTheme.value,
       localServerPort: Number(localServerPort.value),
-      logStorageLimitMiB: Number(logStorageLimit.value)
+      logStorageLimitMiB: Number(logStorageLimit.value),
+      remoteServerUnreachableFailureThreshold: Number(remoteServerUnreachableFailureThreshold.value)
     }));
     applyDesktopTheme(state.desktopSettings.colorTheme);
     closeSystemSettingsDialog();
     await loadProfiles();
-    showToast(state.localStatus.phase === "running" ? "设置已保存；日志上限已生效，端口将在下次启动本地工作区时生效" : "系统设置已保存");
+    showToast(state.localStatus.phase === "running"
+      ? "设置已保存；日志上限已生效，端口与 Server 不可达阈值将在下次进入相应工作区时生效"
+      : "系统设置已保存；Server 不可达阈值将在下次进入远端工作区时生效");
   } catch (error) {
     systemSettingsError.textContent = error.message;
     systemSettingsError.hidden = false;

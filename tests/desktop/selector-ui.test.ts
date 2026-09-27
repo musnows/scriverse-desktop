@@ -30,6 +30,9 @@ describe("Desktop Selector UI", () => {
     expect(html).toContain('id="local-server-port"');
     expect(html).toContain("本地服务首选端口");
     expect(html).toContain('min="20001" max="60000"');
+    expect(html).toContain('id="remote-server-unreachable-failure-threshold"');
+    expect(html).toContain("Server 不可达连续失败次数");
+    expect(html).toContain('min="1" max="10"');
     expect(html).toContain('id="log-storage-limit"');
     expect(html).toContain('id="open-log-directory"');
     for (const option of ["500 MB", "1 GB", "2 GB", "5 GB", "10 GB"]) expect(html).toContain(`>${option}</option>`);
@@ -65,6 +68,7 @@ describe("Desktop Selector UI", () => {
     expect(script).toContain('window.addEventListener("focus", () => { void loadProfiles(); });');
     expect(script).toContain("localServerPort: Number(localServerPort.value)");
     expect(script).toContain("logStorageLimitMiB: Number(logStorageLimit.value)");
+    expect(script).toContain("remoteServerUnreachableFailureThreshold: Number(remoteServerUnreachableFailureThreshold.value)");
     expect(script).toContain("bridge.settings.openLogs()");
     expect(script).toContain("colorTheme: desktopColorTheme.value");
     expect(script).toContain("function applyDesktopTheme(theme)");

@@ -47,11 +47,13 @@ describe("Desktop 本地服务消息契约", () => {
       APP_DEV_SKIP_AUTH: "true",
       APP_AUTH_PASSWORD: "secret",
       SCRIVERSE_AI_RETRY_COUNT: "4",
+      SCRIVERSE_AI_RESPONSE_MAX_BYTES: "0",
       APP_UPDATE_CHECK_RETRIES: "2"
     })).toEqual({
       NODE_ENV: "production",
       APP_ALLOW_PRIVATE_AI_ENDPOINTS: "true",
       SCRIVERSE_AI_RETRY_COUNT: "4",
+      SCRIVERSE_AI_RESPONSE_MAX_BYTES: "0",
       APP_UPDATE_CHECK_RETRIES: "2"
     });
     expect(() => parseLocalServerEnvironment({

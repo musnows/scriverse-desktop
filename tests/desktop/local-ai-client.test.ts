@@ -1,10 +1,10 @@
 import { generateKeyPairSync } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import {
-  LOCAL_AI_MAX_RESPONSE_BYTES,
   LocalAiClient,
   localAiChatCompletionsUrl
 } from "../../src/main/local-ai-client.js";
+import { AI_RESPONSE_MAX_BYTES_ENV } from "../../src/shared/ai-response-limit.js";
 import type { LocalAiModelCredential } from "../../src/main/local-ai-provider-store.js";
 
 const credential: LocalAiModelCredential = {
@@ -287,14 +287,37 @@ describe("Desktop 本地 AI 调用", () => {
     timeout.mockRestore();
   });
 
-  it("拒绝超大响应并把连接失败转换为安全错误", async () => {
-    const oversized = vi.fn<typeof fetch>().mockResolvedValue(new Response("{}", {
+  it("默认不限制 AI 响应字节，并在设置上限后拒绝超大响应", async () => {
+    const previous = process.env[AI_RESPONSE_MAX_BYTES_ENV];
+    const body = JSON.stringify({ choices: [{ message: { content: "完成" } }] });
+    const unlimited = vi.fn<typeof fetch>().mockImplementation(async () => new Response(body, {
       status: 200,
-      headers: { "content-length": String(LOCAL_AI_MAX_RESPONSE_BYTES + 1) }
+      headers: { "content-length": String(32 * 1024 * 1024), "content-type": "application/json" }
     }));
-    await expect(new LocalAiClient(oversized).complete(credential, input)).rejects.toMatchObject({
-      code: "LOCAL_AI_RESPONSE_TOO_LARGE"
-    });
+    try {
+      delete process.env[AI_RESPONSE_MAX_BYTES_ENV];
+      await expect(new LocalAiClient(unlimited).complete(credential, input)).resolves.toMatchObject({ content: "完成" });
+
+      process.env[AI_RESPONSE_MAX_BYTES_ENV] = "0";
+      await expect(new LocalAiClient(unlimited).complete(credential, input)).resolves.toMatchObject({ content: "完成" });
+
+      process.env[AI_RESPONSE_MAX_BYTES_ENV] = "nope";
+      await expect(new LocalAiClient(unlimited).complete(credential, input)).resolves.toMatchObject({ content: "完成" });
+
+      process.env[AI_RESPONSE_MAX_BYTES_ENV] = "1";
+      const oversized = vi.fn<typeof fetch>().mockResolvedValue(new Response(body, {
+        status: 200,
+        headers: { "content-length": "2", "content-type": "application/json" }
+      }));
+      await expect(new LocalAiClient(oversized).complete(credential, input)).rejects.toMatchObject({
+        code: "LOCAL_AI_RESPONSE_TOO_LARGE",
+        message: "AI 供应商响应超过 1 字节上限"
+      });
+    } finally {
+      if (previous === undefined) delete process.env[AI_RESPONSE_MAX_BYTES_ENV];
+      else process.env[AI_RESPONSE_MAX_BYTES_ENV] = previous;
+    }
+
     const failed = vi.fn<typeof fetch>().mockRejectedValue(new TypeError("connect ECONNREFUSED 127.0.0.1"));
     await expect(new LocalAiClient(failed).complete(credential, input)).rejects.toMatchObject({
       code: "LOCAL_AI_NETWORK_ERROR",

@@ -11,6 +11,7 @@ import {
   type LocalAiMessage,
   type LocalAiStreamEvent
 } from "../shared/local-ai-contract.js";
+import { isAiResponseByteLimitExceeded, resolveAiResponseMaxBytes } from "../shared/ai-response-limit.js";
 import type { LocalAiModelCredential } from "./local-ai-provider-store.js";
 import {
   LocalAiCredentialResolver,
@@ -21,7 +22,6 @@ import {
 } from "./local-ai-protocol.js";
 
 export const LOCAL_AI_REQUEST_TIMEOUT_MS = 180_000;
-export const LOCAL_AI_MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
 
 export class LocalAiClientError extends Error {
   constructor(readonly code: string, message: string) {
@@ -131,15 +131,17 @@ function appendStreamToolCalls(target: StreamToolCall[], value: unknown): void {
   }
 }
 
+function assertAiResponseWithinLimit(receivedBytes: number): void {
+  const maximumBytes = resolveAiResponseMaxBytes();
+  if (!isAiResponseByteLimitExceeded(receivedBytes, maximumBytes)) return;
+  throw new LocalAiClientError("LOCAL_AI_RESPONSE_TOO_LARGE", `AI 供应商响应超过 ${maximumBytes} 字节上限`);
+}
+
 async function boundedResponseText(response: Response): Promise<string> {
   const declaredBytes = Number(response.headers.get("content-length") ?? "0");
-  if (Number.isFinite(declaredBytes) && declaredBytes > LOCAL_AI_MAX_RESPONSE_BYTES) {
-    throw new LocalAiClientError("LOCAL_AI_RESPONSE_TOO_LARGE", "AI 供应商响应过大");
-  }
+  if (Number.isFinite(declaredBytes)) assertAiResponseWithinLimit(declaredBytes);
   const text = await response.text();
-  if (new TextEncoder().encode(text).byteLength > LOCAL_AI_MAX_RESPONSE_BYTES) {
-    throw new LocalAiClientError("LOCAL_AI_RESPONSE_TOO_LARGE", "AI 供应商响应过大");
-  }
+  assertAiResponseWithinLimit(new TextEncoder().encode(text).byteLength);
   return text;
 }
 
@@ -223,9 +225,11 @@ async function streamedOpenAiChatCompletionBody(response: Response, onEvent?: St
     const { done, value } = await reader.read();
     if (done) break;
     receivedBytes += value.byteLength;
-    if (receivedBytes > LOCAL_AI_MAX_RESPONSE_BYTES) {
+    try {
+      assertAiResponseWithinLimit(receivedBytes);
+    } catch (error) {
       await reader.cancel().catch(() => undefined);
-      throw new LocalAiClientError("LOCAL_AI_RESPONSE_TOO_LARGE", "AI 供应商响应过大");
+      throw error;
     }
     buffered += decoder.decode(value, { stream: true });
     while (true) {
@@ -258,9 +262,7 @@ async function streamedOpenAiChatCompletionBody(response: Response, onEvent?: St
     ...(usage === undefined ? {} : { usage })
   };
   const serialized = JSON.stringify(body);
-  if (new TextEncoder().encode(serialized).byteLength > LOCAL_AI_MAX_RESPONSE_BYTES) {
-    throw new LocalAiClientError("LOCAL_AI_RESPONSE_TOO_LARGE", "AI 供应商响应过大");
-  }
+  assertAiResponseWithinLimit(new TextEncoder().encode(serialized).byteLength);
   return serialized;
 }
 
@@ -293,9 +295,11 @@ async function readEventStream(
     const { done, value } = await reader.read();
     if (done) break;
     receivedBytes += value.byteLength;
-    if (receivedBytes > LOCAL_AI_MAX_RESPONSE_BYTES) {
+    try {
+      assertAiResponseWithinLimit(receivedBytes);
+    } catch (error) {
       await reader.cancel().catch(() => undefined);
-      throw new LocalAiClientError("LOCAL_AI_RESPONSE_TOO_LARGE", "AI 供应商响应过大");
+      throw error;
     }
     buffered += decoder.decode(value, { stream: true });
     while (true) {

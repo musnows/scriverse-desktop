@@ -62,7 +62,7 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain('"/ai-message-actions.js?v=20260906-desktop-clipboard-v1"');
   });
 
-  it("基于 Server 1.1.1 保留双方静态资源缓存标记", () => {
+  it("基于 Server 1.1.3 保留双方静态资源缓存标记", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 
     expect(overlayPatch).toContain("feature=ai-context-meter-ring-only-v2");
@@ -71,8 +71,11 @@ describe("Desktop Web runtime overlay", () => {
     expect(applicationEntry).toContain("feature=writing-goal-module-navigation-v2");
     expect(applicationEntry).toContain("feature=chapter-line-scroll-bind-v1");
     expect(applicationEntry).toContain("feature=invite-registration-v1");
+    expect(applicationEntry).toContain("feature=character-attributes-prune-v1");
     expect(applicationEntry).toContain("feature=chapter-directory-performance-v2");
     expect(applicationEntry).toContain("feature=chapter-directory-click-priority-v1");
+    expect(applicationEntry).toContain("feature=mobile-offline-runtime-v6");
+    expect(applicationEntry).toContain("feature=ai-title-first-turn-v1");
     expect(applicationEntry).toContain("feature=ai-optimistic-send-v1");
     expect(applicationEntry).toContain("feature=desktop-quit-confirmation-v1");
     expect(overlayPatch).toContain("feature=annotation-bubble-visibility-v1");
@@ -316,8 +319,8 @@ describe("Desktop Web runtime overlay", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 
     expect(overlayPatch).toContain('payload?.error?.code === "DESKTOP_OFFLINE"');
-    expect(overlayPatch).toContain("+  if (!response.ok && isDesktopWorkspaceRuntime() && await isDesktopOfflineAuthResponse(response)) {");
-    expect(overlayPatch).toContain("+    return await enterDesktopOfflineMode();");
+    expect(overlayPatch).toContain("+    if (!response.ok && isDesktopWorkspaceRuntime() && await isDesktopOfflineAuthResponse(response)) {");
+    expect(overlayPatch).toContain("+      return await enterDesktopOfflineMode();");
     expect(overlayPatch).toContain('if (!response.ok) throw new Error("无法读取登录状态");');
   });
 });

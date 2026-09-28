@@ -84,7 +84,15 @@ describe("Desktop 发布链路", () => {
     expect(artifactVerifier).toContain('/latest(?:-arm64|-ia32)?\\.yml$/u');
     expect(release).toContain('codesign --verify --deep --strict "$app_path"');
     expect(release).toContain('grep -F "Signature=adhoc"');
-    expect(release).toContain('if: ${{ always() && !cancelled() }}');
+    expect(release).toContain("github.event.release.prerelease == false");
+    expect(release).toContain("always() && !cancelled() && github.event.release.prerelease == false");
+    expect(developPackage).toContain("needs.test.outputs.sha");
+    expect(developPackage).toContain("--prerelease");
+    expect(developPackage).toContain("--latest=false");
+    expect(developPackage).toContain('tag="v${version}-beta.${short}"');
+    expect(developPackage).toContain('test "$tag" != "v${version}"');
+    expect(developPackage).toContain('test "${#dirs[@]}" -eq 6');
+    expect(developPackage).not.toContain("  release:");
     expect(release).toContain("merge-multiple: false");
     expect(release).toContain("Disambiguate Linux artifacts");
     expect(release).toContain('label="${artifact_dir##*-release-}"');

@@ -15,12 +15,19 @@ jobs:
     name: Desktop develop tests
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    outputs:
+      sha: ${{ steps.develop.outputs.sha }}
 
     steps:
       - name: Checkout Desktop develop
         uses: actions/checkout@v6
         with:
           ref: develop
+
+      - name: Record develop commit
+        id: develop
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -66,7 +73,7 @@ jobs:
       - name: Checkout Desktop develop
         uses: actions/checkout@v6
         with:
-          ref: develop
+          ref: ${{ needs.test.outputs.sha }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -173,3 +180,88 @@ jobs:
             !out/make/**/builder-debug.yml
           if-no-files-found: error
           retention-days: 14
+
+  publish:
+    name: Publish develop prerelease
+    needs:
+      - test
+      - package
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout packaged develop commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.test.outputs.sha }}
+
+      - name: Download develop artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: scriverse-desktop-develop-*
+          path: release-artifacts
+          merge-multiple: false
+
+      - name: Disambiguate Linux artifacts
+        shell: bash
+        run: |
+          shopt -s nullglob
+          for artifact_dir in release-artifacts/scriverse-desktop-develop-linux-*; do
+            label="${artifact_dir##*-develop-}"
+            for file in "$artifact_dir"/*; do
+              test -f "$file" || continue
+              mv "$file" "$artifact_dir/${label}-$(basename "$file")"
+            done
+          done
+
+      - name: Publish prerelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGED_SHA: ${{ needs.test.outputs.sha }}
+        run: |
+          version="$(node --print "require('./package.json').version")"
+          sha="$(git rev-parse HEAD)"
+          test "$sha" = "$PACKAGED_SHA"
+          short="$(printf '%s' "$sha" | cut -c1-8)"
+          tag="v${version}-beta.${short}"
+          printf '%s\n' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9a-f]{8}$'
+          test "$tag" != "v${version}"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Prerelease tag already exists: $tag" >&2
+            exit 1
+          fi
+          mapfile -d '' found < <(find release-artifacts -type f -print0)
+          files=()
+          for file in "${found[@]}"; do
+            test -n "$file" && test -f "$file" && files+=("$file")
+          done
+          test "${#files[@]}" -gt 0
+          names=()
+          for file in "${files[@]}"; do
+            names+=("$(basename "$file")")
+          done
+          duplicate="$(printf '%s\n' "${names[@]}" | sort | uniq -d)"
+          test -z "$duplicate"
+          dirs=(release-artifacts/scriverse-desktop-develop-*)
+          test "${#dirs[@]}" -eq 6
+          notes="$(cat <<EOF
+          ### Scriverse Desktop ${tag}
+
+          这是 Desktop develop 的预发布包，不是正式稳定版。应用版本号仍是 ${version}，兼容 Server v${version}。请不要把它当作 v${version} 稳定版。
+
+          源提交：\`${sha}\`
+          EOF
+          )"
+          gh release create "$tag" "${files[@]}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$sha" \
+            --prerelease \
+            --latest=false \
+            --title "$tag" \
+            --notes "$notes"
+          latest="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq .tag_name)"
+          test "$latest" = "v${version}"
+          published="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json name,tagName,isPrerelease --jq '.name + " " + .tagName + " " + (.isPrerelease|tostring)')"
+          test "$published" = "${tag} ${tag} true"

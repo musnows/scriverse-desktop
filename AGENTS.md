@@ -137,8 +137,8 @@ npm run verify:package
 ### CI 触发边界
 
 - `.github/workflows/desktop-checks.yml` 只能由指向 `main` 的 `pull_request` 触发，只执行代码检查，不执行打包。
-- `.github/workflows/desktop-release.yml` 只能由 GitHub Release 的 `published` 事件触发正式六架构打包；禁止提供人工触发、分支 push 触发或 PR 触发入口。
-- `.github/workflows/desktop-develop-package.yml` 只允许 `workflow_dispatch` 人工触发，且始终检出 Desktop `develop`，用于六架构开发包验收；不得自动触发，也不得上传到 GitHub Release。
+- `.github/workflows/desktop-release.yml` 只能由 GitHub Release 的 `published` 事件触发正式六架构打包，并且必须跳过 prerelease；禁止提供人工触发、分支 push 触发或 PR 触发入口。
+- `.github/workflows/desktop-develop-package.yml` 只允许 `workflow_dispatch` 人工触发，且始终从 Desktop `develop` 当时的提交打包六架构开发包；不得自动触发。它可以把同一批安装包发布为 GitHub prerelease，tag 使用 `vX.Y.Z-beta.<8位提交>`，不得覆盖已发布的稳定 tag，也不得标成 Latest。正式稳定 Release 仍只由 `desktop-release.yml` 打包。
 - 正式发布与 `develop` 人工打包都必须根据 `package.json.scriverseServerVersion` 检出精确的 Scriverse Server Release tag，禁止通过可变仓库变量或人工输入绕过版本对齐。
 
 ### Commit 与发布操作

@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { registerDesktopScheme, registerSelectorProtocol } from "./app-protocol.js";
 import { resolveCompatibleServerVersion, resolveDesktopAppVersion } from "./app-version.js";
 import { DESKTOP_DISPLAY_NAME } from "../shared/branding.js";
+import { bundledFontRoot } from "../shared/selector-assets.js";
 import { initializeDesktopEnvironment, type DesktopEnvironment } from "./desktop-environment.js";
 import {
   developmentIsolationError,
@@ -1057,7 +1058,7 @@ if (handleSquirrelStartup()) {
       await runLocalServerGate(localServerManager);
       return;
     }
-    registerSelectorProtocol(join(desktopRoot, "renderer"));
+    registerSelectorProtocol(join(desktopRoot, "renderer"), bundledFontRoot(applicationRoot));
     createWindow(desktopEnvironment, localServerManager);
   }).catch(async (error: unknown) => {
     process.stderr.write(`Desktop startup failed: ${error instanceof Error ? error.message : String(error)}\n`);

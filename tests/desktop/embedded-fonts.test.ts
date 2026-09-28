@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { resolveSelectorAsset } from "../../src/shared/selector-assets.js";
+import { bundledFontRoot, resolveSelectorAsset } from "../../src/shared/selector-assets.js";
 
 const fontPackages = [
   ["noto-sans-sc", "Noto Sans SC Variable", "NotoSansSC-VF.ttf"],
@@ -29,27 +29,39 @@ describe("Desktop embedded fonts", () => {
     }
   });
 
-  it("copies the embedded fonts into both Desktop renderer surfaces", () => {
+  it("keeps one embedded font tree for the runtime and the Selector", () => {
     const copyRendererSource = readFileSync(join(process.cwd(), "scripts/copy-renderer.mjs"), "utf8");
     const prepareRuntimeSource = readFileSync(join(process.cwd(), "scripts/prepare-runtime.mjs"), "utf8");
+    const mainSource = readFileSync(join(process.cwd(), "src/main/main.ts"), "utf8");
 
-    expect(copyRendererSource).toContain('new URL("../assets/fonts/", import.meta.url)');
+    expect(copyRendererSource).not.toContain('new URL("../assets/fonts/", import.meta.url)');
+    expect(copyRendererSource).toContain('rmSync(new URL("../build/renderer/fonts/", import.meta.url)');
     expect(copyRendererSource).toContain('new URL("desktop-fonts.css", target)');
     expect(prepareRuntimeSource).toContain('join(root, "assets", "fonts")');
     expect(prepareRuntimeSource).toContain('join(target, "public", "fonts")');
     expect(prepareRuntimeSource).toContain('join(target, "public", "desktop-fonts.css")');
+    expect(bundledFontRoot("/application")).toBe(join("/application", "dist", "public", "fonts"));
+    expect(mainSource).toContain("bundledFontRoot(applicationRoot)");
   });
 
-  it("serves bundled font assets from the Selector app protocol", () => {
+  it("serves the shared runtime font tree from the Selector app protocol", () => {
+    const fontRoot = bundledFontRoot("/application");
     expect(resolveSelectorAsset("app://desktop/desktop-fonts.css", "/trusted/renderer")).toEqual({
       path: join("/trusted/renderer", "desktop-fonts.css"),
       contentType: "text/css; charset=utf-8"
     });
-    expect(resolveSelectorAsset("app://desktop/fonts/noto-sans-sc/wght.css", "/trusted/renderer")?.contentType).toBe("text/css; charset=utf-8");
-    expect(resolveSelectorAsset("app://desktop/fonts/noto-sans-sc/NotoSansSC-VF.ttf", "/trusted/renderer")?.contentType).toBe("font/ttf");
-    expect(resolveSelectorAsset("app://desktop/fonts/noto-sans-sc/files/noto-sans-sc-4-wght-normal.woff2", "/trusted/renderer")?.contentType).toBe("font/woff2");
-    expect(resolveSelectorAsset("app://desktop/fonts/noto-sans-sc/files/font.js", "/trusted/renderer")).toBeNull();
-    expect(resolveSelectorAsset("app://desktop/fonts/../package.json", "/trusted/renderer")).toBeNull();
+    expect(resolveSelectorAsset("app://desktop/fonts/noto-sans-sc/wght.css", "/trusted/renderer", fontRoot)).toEqual({
+      path: join(fontRoot, "noto-sans-sc", "wght.css"),
+      contentType: "text/css; charset=utf-8"
+    });
+    expect(resolveSelectorAsset("app://desktop/fonts/noto-sans-sc/NotoSansSC-VF.ttf", "/trusted/renderer", fontRoot)?.contentType).toBe("font/ttf");
+    expect(resolveSelectorAsset("app://desktop/fonts/noto-sans-sc/files/noto-sans-sc-4-wght-normal.woff2", "/trusted/renderer", fontRoot)).toEqual({
+      path: join(fontRoot, "noto-sans-sc", "files", "noto-sans-sc-4-wght-normal.woff2"),
+      contentType: "font/woff2"
+    });
+    expect(resolveSelectorAsset("app://desktop/fonts/noto-sans-sc/files/font.js", "/trusted/renderer", fontRoot)).toBeNull();
+    expect(resolveSelectorAsset("app://desktop/fonts/../package.json", "/trusted/renderer", fontRoot)).toBeNull();
+    expect(resolveSelectorAsset("app://desktop/fonts/noto-sans-sc/../../secret.ttf", "/trusted/renderer", fontRoot)).toBeNull();
   });
 
   it("uses the bundled families in Desktop-owned pages and Web overlay settings", () => {

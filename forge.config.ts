@@ -5,6 +5,7 @@ import { MakerZIP } from "@electron-forge/maker-zip";
 import type { ForgeConfig } from "@electron-forge/shared-types";
 import { existsSync, renameSync } from "node:fs";
 import { join } from "node:path";
+import { prunePackagedElectronLocales } from "./scripts/prune-packaged-locales.js";
 import { WindowsNsisMaker } from "./scripts/windows-nsis-maker.js";
 import { DESKTOP_DISPLAY_NAME, desktopBuildIconName } from "./src/shared/branding.js";
 
@@ -113,17 +114,23 @@ const config: ForgeConfig = {
       /^\/.github(?:\/|$)/u,
       /^\/coverage(?:\/|$)/u,
       /^\/assets(?:\/|$)/u,
+      /^\/build\/renderer\/fonts(?:\/|$)/u,
       /^\/runtime-overlay(?:\/|$)/u,
+      /^\/scriverse-runtime-source(?:\/|$)/u,
       /^\/scripts(?:\/|$)/u,
       /^\/src(?:\/|$)/u,
       /^\/tests(?:\/|$)/u,
       /^\/tsconfig(?:\.[^/]+)?\.json$/u,
-      /^\/vitest\.config\.ts$/u
+      /^\/vitest\.config\.ts$/u,
+      /\.map$/u
     ]
   },
   hooks: {
     prePackage: async (_forgeConfig, platform, arch) => {
       assertTargetNativeDependencies(String(platform), String(arch));
+    },
+    packageAfterExtract: async (_forgeConfig, buildPath) => {
+      await prunePackagedElectronLocales(buildPath);
     },
     postPackage: async (_forgeConfig, packageResult) => {
       if (packageResult.platform !== "darwin") return;

@@ -13,9 +13,9 @@ export function registerDesktopScheme(): void {
   }]);
 }
 
-export function registerSelectorProtocol(rendererRoot: string): void {
+export function registerSelectorProtocol(rendererRoot: string, fontRoot: string): void {
   protocol.handle("app", async (request) => {
-    const asset = resolveSelectorAsset(request.url, rendererRoot);
+    const asset = resolveSelectorAsset(request.url, rendererRoot, fontRoot);
     if (!asset) {
       process.stderr.write("Selector protocol denied a non-whitelisted resource\n");
       return new Response("Not found", {

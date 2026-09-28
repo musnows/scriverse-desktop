@@ -1,4 +1,4 @@
-import { cpSync, mkdirSync } from "node:fs";
+import { cpSync, mkdirSync, rmSync } from "node:fs";
 import { desktopBuildIconName } from "../build/shared/branding.js";
 
 const source = new URL("../src/renderer/", import.meta.url);
@@ -14,7 +14,5 @@ if (iconName === "icon-dev") {
 const assetTarget = new URL("../build/assets/", import.meta.url);
 mkdirSync(assetTarget, { recursive: true });
 cpSync(new URL(`../assets/${iconName}-32.png`, import.meta.url), new URL("icon-32.png", assetTarget));
-const rendererFontTarget = new URL("../build/renderer/fonts/", import.meta.url);
-mkdirSync(rendererFontTarget, { recursive: true });
-cpSync(new URL("../assets/fonts/", import.meta.url), rendererFontTarget, { recursive: true });
+rmSync(new URL("../build/renderer/fonts/", import.meta.url), { recursive: true, force: true });
 cpSync(new URL("../assets/desktop-fonts.css", import.meta.url), new URL("desktop-fonts.css", target));

@@ -15,6 +15,7 @@ concurrency:
 jobs:
   make:
     name: Package ${{ matrix.label }}
+    if: ${{ github.event.release.prerelease == false }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     strategy:
@@ -204,7 +205,7 @@ jobs:
   publish:
     name: Attach artifacts to GitHub Release
     needs: make
-    if: ${{ always() && !cancelled() }}
+    if: ${{ always() && !cancelled() && github.event.release.prerelease == false }}
     runs-on: ubuntu-24.04
     env:
       GH_TOKEN: ${{ github.token }}

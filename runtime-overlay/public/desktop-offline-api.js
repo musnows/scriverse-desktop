@@ -2,7 +2,7 @@ import {
   conversationRepositoryFromSyncStore,
   createMemoryAiConversationRepository,
   DesktopOfflineConversations
-} from "./desktop-offline-conversations.js?v=20260929-desktop-offline-conversations-v1";
+} from "./desktop-offline-conversations.js?v=20260929-desktop-offline-history-v2";
 
 export class DesktopOfflineApiError extends Error {
   constructor(code, message) {
@@ -178,6 +178,36 @@ export class DesktopOfflineApi {
     };
   }
 
+  async search(workId, url) {
+    const type = String(url.searchParams.get("type") ?? "");
+    const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit")) || 50));
+    const query = String(url.searchParams.get("q") ?? "");
+    const hits = [];
+    if (!type || type === "agent-history") {
+      hits.push(...await this.conversations.searchHistory(workId, query, limit));
+    }
+    if (type === "chapter" || type === "setting" || !type) {
+      const needle = query.normalize("NFKC").trim().toLocaleLowerCase("zh-CN");
+      const kinds = type === "chapter" || type === "setting" ? [type] : ["chapter", "setting"];
+      for (const kind of kinds) {
+        for (const record of await this.snapshots(workId, kind)) {
+          const title = String(record.title ?? "");
+          const content = String(record.content ?? "");
+          if (!needle || !`${title}\n${content}`.normalize("NFKC").toLocaleLowerCase("zh-CN").includes(needle)) continue;
+          if (!record.id) continue;
+          hits.push({
+            type: kind,
+            id: String(record.id),
+            title: title || "未命名",
+            snippet: (content || title).slice(0, 180),
+            matchKind: "exact"
+          });
+        }
+      }
+    }
+    return hits.slice(0, limit);
+  }
+
   unsupported() {
     throw new DesktopOfflineApiError(
       "DESKTOP_OFFLINE_OPERATION_UNSUPPORTED",
@@ -214,6 +244,8 @@ export class DesktopOfflineApi {
     if (method === "GET" && workRaces) return this.moduleList(decodeURIComponent(workRaces[1]), "race", url);
     const workOrganizations = pathname.match(/^\/api\/works\/([^/]+)\/organizations$/u);
     if (method === "GET" && workOrganizations) return this.moduleList(decodeURIComponent(workOrganizations[1]), "organization", url);
+    const workSearch = pathname.match(/^\/api\/works\/([^/]+)\/search$/u);
+    if (workSearch && method === "GET") return this.search(decodeURIComponent(workSearch[1]), url);
     const workConversations = pathname.match(/^\/api\/works\/([^/]+)\/ai-conversations$/u);
     if (workConversations && method === "GET") return this.conversations.list(decodeURIComponent(workConversations[1]), url);
     if (workConversations && method === "POST") {

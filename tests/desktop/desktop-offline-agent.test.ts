@@ -287,4 +287,49 @@ describe("offline conversations stay on the work", () => {
     expect(reloaded.messages[0].metadata.mentionCharacterIds).toEqual(["character-1"]);
     expect(reloaded).not.toHaveProperty("chapterId");
   });
+
+  it("lists and searches only conversations created in offline mode", async () => {
+    const backing = new Map();
+    const repository = createMemoryAiConversationRepository(backing);
+    const apiFor = () => new DesktopOfflineApi({ store: { listEntities: async () => [] } }, {
+      conversations: new DesktopOfflineConversations(repository)
+    });
+    const local = await apiFor().request("/api/works/work-1/ai-conversations", {
+      method: "POST",
+      body: { title: "离线夜航" }
+    });
+    await apiFor().request(`/api/ai-conversations/${local.id}/messages`, {
+      method: "POST",
+      body: { role: "user", content: "林夏在离线副本里留下一句。" }
+    });
+    await repository.put({
+      id: "server-conversation",
+      workId: "work-1",
+      source: "server",
+      title: "Server 上的林夏",
+      isFavorite: true,
+      messages: [{
+        id: "server-message",
+        conversationId: "server-conversation",
+        role: "user",
+        content: "林夏在服务器历史里出现。",
+        createdAt: "2026-09-29T00:00:00.000Z"
+      }],
+      createdAt: "2026-09-29T00:00:00.000Z",
+      updatedAt: "2026-09-29T00:00:00.000Z"
+    });
+
+    const listed = await apiFor().request("/api/works/work-1/ai-conversations?q=林夏");
+    expect(listed.items.map((item) => item.id)).toEqual([local.id]);
+    await expect(apiFor().request("/api/ai-conversations/server-conversation")).rejects.toMatchObject({
+      code: "AI_CONVERSATION_NOT_FOUND"
+    });
+
+    const searched = await apiFor().request("/api/works/work-1/search?q=林夏&type=agent-history");
+    expect(searched.length).toBeGreaterThan(0);
+    expect(searched.every((item) => item.conversationId === local.id && item.type === "agent-history")).toBe(true);
+    expect(searched.some((item) => item.messageId)).toBe(true);
+    const otherTypes = await apiFor().request("/api/works/work-1/search?q=林夏&type=chapter");
+    expect(otherTypes).toEqual([]);
+  });
 });

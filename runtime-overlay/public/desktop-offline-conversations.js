@@ -1,5 +1,6 @@
 const TASK_TYPES = new Set(["chat", "roleplay"]);
 const MESSAGE_ROLES = new Set(["user", "assistant"]);
+export const DESKTOP_OFFLINE_CONVERSATION_SOURCE = "desktop-offline";
 
 export class DesktopOfflineConversationError extends Error {
   constructor(code, message) {
@@ -153,6 +154,25 @@ function sortConversations(records) {
   });
 }
 
+export function isDesktopOfflineConversation(record) {
+  return record?.source === DESKTOP_OFFLINE_CONVERSATION_SOURCE
+    && record.chapterId === undefined
+    && record.settingId === undefined;
+}
+
+function searchableText(value) {
+  return String(value ?? "").normalize("NFKC").toLocaleLowerCase("zh-CN");
+}
+
+function historySnippet(value, needle) {
+  const compact = displayText(value);
+  if (compact.length <= 180) return compact;
+  const index = searchableText(compact).indexOf(needle);
+  const start = index < 0 ? 0 : Math.max(0, index - 40);
+  const excerpt = compact.slice(start, start + 180).trim();
+  return `${start > 0 ? "…" : ""}${excerpt}${start + 180 < compact.length ? "…" : ""}`;
+}
+
 function assertObject(body) {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     throw new DesktopOfflineConversationError("AI_CONVERSATION_INVALID", "对话请求无效");
@@ -167,9 +187,54 @@ export class DesktopOfflineConversations {
   }
 
   async list(workId, url) {
-    const records = sortConversations(await this.repository.list(desktopOfflineConversationWorkKey(workId)));
+    const records = sortConversations(await this.offlineRecords(workId));
     const paged = pageItems(records, url, 20);
     return { ...paged, items: paged.items.map((record) => summaryOf(record)) };
+  }
+
+  async offlineRecords(workId) {
+    const records = await this.repository.list(desktopOfflineConversationWorkKey(workId));
+    return records.filter(isDesktopOfflineConversation);
+  }
+
+  async searchHistory(workId, query, limit = 50) {
+    const needle = searchableText(query).trim();
+    if (!needle || needle.length > 100) {
+      throw new DesktopOfflineConversationError("SEARCH_QUERY_INVALID", "请输入 1 到 100 个字符的检索词");
+    }
+    const size = Math.min(100, Math.max(1, Number(limit) || 50));
+    const hits = [];
+    for (const record of await this.offlineRecords(workId)) {
+      const title = String(record.title ?? "新对话");
+      if (searchableText(title).includes(needle)) {
+        hits.push({
+          type: "agent-history",
+          id: record.id,
+          title,
+          subtitle: "对话标题与摘要",
+          snippet: historySnippet(title, needle),
+          conversationId: record.id,
+          matchKind: "exact"
+        });
+      }
+      for (const message of record.messages ?? []) {
+        const content = displayText(message.content);
+        if (!searchableText(content).includes(needle)) continue;
+        hits.push({
+          type: "agent-history",
+          id: String(message.id ?? ""),
+          title,
+          subtitle: message.role === "assistant" ? "Agent 回复" : "作者指令",
+          snippet: historySnippet(content, needle),
+          conversationId: record.id,
+          ...(message.id ? { messageId: message.id } : {}),
+          matchKind: "exact"
+        });
+        if (hits.length >= size) return hits.slice(0, size);
+      }
+      if (hits.length >= size) break;
+    }
+    return hits.filter((hit) => hit.id && hit.conversationId).slice(0, size);
   }
 
   async create(workId, body = {}) {
@@ -191,6 +256,7 @@ export class DesktopOfflineConversations {
       roleplayCharacter: null,
       roleplayUserCharacter: null,
       agentTools: Array.isArray(input.agentTools) ? input.agentTools.filter((toolId) => typeof toolId === "string") : null,
+      source: DESKTOP_OFFLINE_CONVERSATION_SOURCE,
       messages: [],
       roleplayMemories: [],
       createdAt: timestamp,
@@ -342,7 +408,7 @@ export class DesktopOfflineConversations {
 
   async require(conversationId) {
     const record = await this.repository.get(String(conversationId ?? ""));
-    if (!record || record.chapterId !== undefined || record.settingId !== undefined) {
+    if (!isDesktopOfflineConversation(record)) {
       throw new DesktopOfflineConversationError("AI_CONVERSATION_NOT_FOUND", "AI 对话不存在");
     }
     return record;

@@ -133,7 +133,7 @@ describe("offline chat tools", () => {
       expect.objectContaining({ trackId: "track-1", timeSort: 10, orderEligible: true })
     ]);
     const index = executeDesktopOfflineChatTool(timed, "story_index", { limit: 10 });
-    expect(index.data.chapters.find((chapter) => chapter.id === "chapter-1")?.confirmedTimelineEvents[0]).toMatchObject({
+    expect(index.data.chapters.find((chapter) => chapter.id === "chapter-1")?.storyOrder.confirmedTimelineEvents[0]).toMatchObject({
       id: "event-1",
       trackId: "track-1",
       timeSort: 10,

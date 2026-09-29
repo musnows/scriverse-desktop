@@ -487,17 +487,17 @@ function storyIndex(corpus, args) {
     volumeId: chapter.volumeId,
     volumeTitle: chapter.volumeTitle,
     volumeStoryOrder: chapter.volumeStoryOrder,
-    storyOrder: chapter.storyOrder,
     chapterType: chapter.chapterType,
     summary: text(chapter.summary, 1_000),
     wordCount: chapter.wordCount,
+    storyOrder: timelineReadable(corpus) ? chapterStoryOrder(chapter, corpus) : chapter.storyOrder,
     ...(timelineReadable(corpus) ? { confirmedTimelineEvents: confirmedTimelineEventsForChapter(corpus, chapter.id) } : {})
   }));
   const latest = [...chapters].slice(-3).map((chapter) => ({
     id: chapter.id,
     title: chapter.title,
     volumeTitle: chapter.volumeTitle,
-    storyOrder: chapter.storyOrder,
+    storyOrder: timelineReadable(corpus) ? chapterStoryOrder(chapter, corpus) : chapter.storyOrder,
     ...(timelineReadable(corpus) ? { confirmedTimelineEvents: confirmedTimelineEventsForChapter(corpus, chapter.id) } : {})
   }));
   return fitResult({

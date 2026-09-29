@@ -1,4 +1,4 @@
-import { createDesktopSyncClient } from "./desktop-sync-client.js?v=20260823-desktop-sync-client-v7";
+import { createDesktopSyncClient } from "./desktop-sync-client.js?v=20260929-desktop-offline-agent-v1";
 import { DESKTOP_BULK_DOWNLOAD_CONCURRENCY, createDesktopBulkDownloadRateLimiter } from "./desktop-request-rate-limiter.js?v=20260823-desktop-bulk-download-v1";
 import { mergeEntitySnapshots } from "./three-way-merge.js?v=20260823-desktop-conflict-merge-v1";
 

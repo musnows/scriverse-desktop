@@ -100,8 +100,12 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain("runtimeModel: desktopProviderRuntimeModel(model)");
     expect(overlayPatch).toContain("/desktop-local-ai/runs/");
     expect(overlayPatch).not.toContain("/desktop-local-ai/prepare");
-    expect(overlayPatch).toContain("remoteSystemPrompt: desktopOfflineLocalAiSystemPrompt(context)");
-    expect(overlayPatch).toContain("messages: desktopOfflineLocalAiMessages(history, instruction)");
+    expect(overlayPatch).toContain("desktopOfflineLocalAiSystemPrompt({ ...context, toolNames: tools.map((tool) => tool.function.name) })");
+    expect(overlayPatch).toContain("...desktopOfflineLocalAiMessages(history, instruction)");
+    expect(overlayPatch).toContain("desktopOfflineUserTurn({");
+    expect(overlayPatch).toContain("runDesktopOfflineAgentLoop({");
+    expect(overlayPatch).toContain("processSteps: completed.processSteps");
+    expect(overlayPatch).toContain('appendMessage("user", userTurn.content, userTurn.citations, null, userTurn.metadata, null, { tab })');
     expect(overlayPatch).toContain('scope.className = "ai-model-option-scope is-local"');
     expect(overlayPatch).toContain('scope.textContent = "本地"');
     expect(overlayPatch).not.toContain("function aiModelLocalIconMarkup()");

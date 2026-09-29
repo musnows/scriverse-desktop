@@ -2,6 +2,18 @@ const DATABASE_VERSION = 1;
 const SCHEMA_VERSION = 2;
 const SYNC_PROTOCOL = 1;
 const EDITABLE_ENTITY_TYPES = new Set(["chapter", "setting"]);
+const READONLY_CORPUS_ENTITY_TYPES = new Set([
+  "character",
+  "race",
+  "organization",
+  "timeline-track",
+  "timeline-event",
+  "relationship",
+  "chapter-outline",
+  "foreshadow",
+  "draft",
+  "agent-corpus"
+]);
 const OUTBOX_STATUSES = new Set(["pending", "syncing", "conflict", "rejected"]);
 const INITIAL_OFFLINE_DOWNLOAD_KEY = "initial-offline-download";
 
@@ -260,6 +272,50 @@ export class DesktopSyncStore {
     });
     await transactionDone(transaction);
     return { workId, cursor: Number(cutoffCursor), entityCount: storedEntities.length };
+  }
+
+  async replaceReadonlyEntities(workId, groups) {
+    if (typeof workId !== "string" || workId.length === 0 || !Array.isArray(groups)) {
+      throw new DesktopSyncStoreError("SYNC_SNAPSHOT_INVALID", "离线工具副本无效");
+    }
+    const storedEntities = [];
+    const entityTypes = [];
+    for (const group of groups) {
+      const entityType = String(group?.entityType ?? "");
+      if (!READONLY_CORPUS_ENTITY_TYPES.has(entityType)) {
+        throw new DesktopSyncStoreError("SYNC_ENTITY_TYPE_UNSUPPORTED", "该类型不能写入离线工具副本");
+      }
+      entityTypes.push(entityType);
+      for (const record of Array.isArray(group.records) ? group.records : []) {
+        if (!record || typeof record !== "object" || Array.isArray(record) || !record.id) continue;
+        const snapshot = await cloneSyncSnapshot(record);
+        storedEntities.push({
+          workId,
+          entityType,
+          entityId: String(record.id),
+          serverVersionNo: Number(record.versionNo ?? 0),
+          baseSnapshot: snapshot,
+          serverSnapshot: snapshot,
+          localSnapshot: snapshot,
+          localRevisionNo: 0,
+          dirty: false,
+          dirtyFlag: 0,
+          deleted: false,
+          locked: true,
+          updatedAt: new Date().toISOString()
+        });
+      }
+    }
+    const database = await this.open();
+    const transaction = database.transaction(["entities"], "readwrite");
+    const entityStore = transaction.objectStore("entities");
+    const existing = await requestValue(entityStore.index("by-work").getAll(workId));
+    for (const entity of existing) {
+      if (entityTypes.includes(entity.entityType)) entityStore.delete([workId, entity.entityType, entity.entityId]);
+    }
+    for (const entity of storedEntities) entityStore.put(entity);
+    await transactionDone(transaction);
+    return { workId, entityCount: storedEntities.length };
   }
 
   async listWorks() {

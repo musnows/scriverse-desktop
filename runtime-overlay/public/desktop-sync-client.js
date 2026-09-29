@@ -1,4 +1,5 @@
 import { DesktopSyncStore } from "./desktop-sync-store.js?v=20260823-desktop-sync-store-v2";
+import { collectDesktopOfflineCorpus } from "./desktop-local-ai-offline.js?v=20260929-desktop-offline-agent-v1";
 
 const SYNC_PROTOCOL = 1;
 const SYNC_POLL_INTERVAL_MS = 30_000;
@@ -163,6 +164,7 @@ export class DesktopSyncClient {
           modulePermissions: work.modulePermissions ?? null
         }
       });
+      await this.refreshOfflineAgentCorpus(work.id, request);
       await this.emitStatus("downloaded", work.id);
       return stored;
     } finally {
@@ -204,6 +206,7 @@ export class DesktopSyncClient {
       if (work.offlineAccessEnabled !== true) throw new DesktopSyncClientError("OFFLINE_ACCESS_DISABLED", "作品已关闭离线访问");
       await this.pullWork(workId);
       await this.pushWork(workId);
+      await this.refreshOfflineAgentCorpus(workId);
       const summary = await this.store.statusSummary(workId);
       const finalStatus = summary.rejected > 0 ? "read-only" : summary.conflicts > 0 ? "conflict" : "ready";
       await this.store.setWorkStatus(workId, finalStatus === "conflict" ? "ready" : finalStatus);
@@ -260,6 +263,15 @@ export class DesktopSyncClient {
         }
         throw error;
       }
+    }
+  }
+
+  async refreshOfflineAgentCorpus(workId, request = (path, options) => this.request(path, options)) {
+    try {
+      const groups = await collectDesktopOfflineCorpus(workId, request);
+      await this.store.replaceReadonlyEntities(workId, groups);
+    } catch (error) {
+      console.error("Failed to refresh offline AI corpus", error);
     }
   }
 

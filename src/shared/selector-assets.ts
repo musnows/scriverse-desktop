@@ -1,4 +1,4 @@
-import { extname, join } from "node:path";
+import { extname, join, relative, sep } from "node:path";
 
 export const SELECTOR_CSP = [
   "default-src 'none'",
@@ -39,7 +39,11 @@ export type SelectorAsset = {
   contentType: string;
 };
 
-export function resolveSelectorAsset(requestUrl: string, rendererRoot: string): SelectorAsset | null {
+export function bundledFontRoot(applicationRoot: string): string {
+  return join(applicationRoot, "dist", "public", "fonts");
+}
+
+export function resolveSelectorAsset(requestUrl: string, rendererRoot: string, fontRoot = join(rendererRoot, "fonts")): SelectorAsset | null {
   let url: URL;
   try {
     url = new URL(requestUrl);
@@ -62,8 +66,17 @@ export function resolveSelectorAsset(requestUrl: string, rendererRoot: string): 
   } catch {
     return null;
   }
-  const contentType = selectorAssets.get(pathname)
-    ?? (pathname.startsWith("/fonts/") ? bundledFontContentTypes.get(extname(pathname).toLocaleLowerCase("en-US")) : undefined);
+  if (pathname.startsWith("/fonts/")) {
+    const contentType = bundledFontContentTypes.get(extname(pathname).toLocaleLowerCase("en-US"));
+    if (!contentType) return null;
+    const segments = pathname.slice("/fonts/".length).split("/").filter(Boolean);
+    if (segments.length === 0 || segments.some((segment) => segment === "." || segment === "..")) return null;
+    const path = join(fontRoot, ...segments);
+    const relativePath = relative(fontRoot, path);
+    if (relativePath === "" || relativePath.startsWith(`..${sep}`) || relativePath === ".." || relativePath.split(sep).includes("..")) return null;
+    return { path, contentType };
+  }
+  const contentType = selectorAssets.get(pathname);
   if (!contentType) return null;
   return { path: join(rendererRoot, ...pathname.split("/").filter(Boolean)), contentType };
 }

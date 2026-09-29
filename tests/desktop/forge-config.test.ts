@@ -53,7 +53,22 @@ describe("Desktop Forge configuration", () => {
       "@electron-forge/maker-rpm"
     ]));
     expect(config.plugins).toHaveLength(2);
-    expect(config.packagerConfig?.ignore?.some((pattern) => pattern.test("/runtime-overlay/web.patch"))).toBe(true);
+    const ignore = config.packagerConfig?.ignore ?? [];
+    const ignored = (file: string) => ignore.some((pattern) => pattern.test(file));
+    expect(ignored("/runtime-overlay/web.patch")).toBe(true);
+    expect(ignored("/scriverse-runtime-source")).toBe(true);
+    expect(ignored("/scriverse-runtime-source/node_modules/typescript/package.json")).toBe(true);
+    expect(ignored("/scriverse-runtime-source/dist/public/app.js")).toBe(true);
+    expect(ignored("/scriverse-runtime-source/demo/cover.png")).toBe(true);
+    expect(ignored("/build/renderer/fonts/noto-sans-sc/NotoSansSC-VF.ttf")).toBe(true);
+    expect(ignored("/dist/public/app.js.map")).toBe(true);
+    expect(ignored("/build/main/main.js.map")).toBe(true);
+    expect(ignored("/node_modules/vditor/dist/index.min.js.map")).toBe(true);
+    expect(ignored("/dist/server-runtime.js")).toBe(false);
+    expect(ignored("/dist/public/fonts/noto-sans-sc/NotoSansSC-VF.ttf")).toBe(false);
+    expect(ignored("/dist/public/app.js")).toBe(false);
+    expect(ignored("/build/main/main.js")).toBe(false);
+    expect(ignored("/node_modules/vditor/dist/index.min.js")).toBe(false);
     expect(config.packagerConfig?.extraResource).toEqual(expect.arrayContaining([expect.stringContaining("assets/app-update.yml")]));
   });
 

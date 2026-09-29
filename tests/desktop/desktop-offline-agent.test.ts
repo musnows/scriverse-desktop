@@ -1,4 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { DesktopOfflineApi } from "../../runtime-overlay/public/desktop-offline-api.js";
+import {
+  createMemoryAiConversationRepository,
+  desktopOfflineConversationWorkKey,
+  DesktopOfflineConversations
+} from "../../runtime-overlay/public/desktop-offline-conversations.js";
 import {
   buildDesktopOfflineAgentBody,
   buildDesktopOfflineAgentCorpus,
@@ -80,12 +86,19 @@ describe("offline chat tools", () => {
       "read_chapters",
       "grep",
       "search_story_entities",
-      "semantic_search_story",
       "read_character_sections",
       "search_drafts",
       "image",
       "calculate_time"
     ]);
+    const searchTool = desktopOfflineChatToolDefinitions(corpus).find((tool) => tool.function.name === "search_story_entities");
+    expect(searchTool?.function.parameters.properties.includePhonetic).toMatchObject({ type: "boolean", default: false });
+    const enabledSemantic = desktopOfflineChatToolDefinitions({
+      ...corpus,
+      agentTools: ["story_index", "semantic_search_story"]
+    }).map((tool) => tool.function.name);
+    expect(enabledSemantic).toContain("semantic_search_story");
+    expect(enabledSemantic).not.toContain("grep");
   });
 
   it("reads chapter order, original text and keyword paragraphs from the offline copy", () => {
@@ -99,7 +112,42 @@ describe("offline chat tools", () => {
 
     const matches = executeDesktopOfflineChatTool(corpus, "grep", { keyword: "林夏" });
     expect(matches.data.matches.length).toBeGreaterThan(0);
-    expect(matches.data.latestOccurrences.byStructure.chapterId).toBe("chapter-2");
+    expect(matches.data.latestOccurrences.byStructure.at(-1).chapterId).toBe("chapter-2");
+  });
+
+  it("reports timeline tracks and degrades semantic search in the server shape", () => {
+    const timed = buildDesktopOfflineAgentCorpus({
+      work: { summary: { id: "work-1", title: "长夜" } },
+      permissions: { prose: "read", timeline: "read" },
+      entities: [
+        { entityType: "volume", snapshot: { id: "volume-1", title: "第一卷", sortOrder: 1 } },
+        { entityType: "chapter", snapshot: { id: "chapter-1", volumeId: "volume-1", title: "启程", chapterType: "正文", sortOrder: 1, content: "林夏推开了门。" } },
+        { entityType: "chapter", snapshot: { id: "chapter-2", volumeId: "volume-1", title: "回声", chapterType: "正文", sortOrder: 2, content: "后来才写到林夏。" } },
+        { entityType: "timeline-event", snapshot: { id: "event-1", name: "出门", status: "confirmed", timeSort: 10, trackId: "track-1", chapterIds: ["chapter-1"], timeLabel: "第一日" } },
+        { entityType: "timeline-event", snapshot: { id: "event-2", name: "回声", status: "confirmed", timeSort: 4, trackId: "track-1", chapterIds: ["chapter-2"], timeLabel: "倒叙" } }
+      ]
+    });
+    const matches = executeDesktopOfflineChatTool(timed, "grep", { keyword: "林夏" });
+    expect(matches.data.latestOccurrences.byStructure.at(-1).chapterId).toBe("chapter-2");
+    expect(matches.data.latestOccurrences.byTimelineTrack).toEqual([
+      expect.objectContaining({ trackId: "track-1", timeSort: 10, orderEligible: true })
+    ]);
+    const index = executeDesktopOfflineChatTool(timed, "story_index", { limit: 10 });
+    expect(index.data.chapters.find((chapter) => chapter.id === "chapter-1")?.confirmedTimelineEvents[0]).toMatchObject({
+      id: "event-1",
+      trackId: "track-1",
+      timeSort: 10,
+      orderEligible: true
+    });
+    const semantic = executeDesktopOfflineChatTool(timed, "semantic_search_story", { query: "海边的人是谁" });
+    expect(semantic.data).toMatchObject({
+      query: "海边的人是谁",
+      status: "degraded",
+      semanticUsed: false,
+      degraded: true,
+      matches: expect.any(Array)
+    });
+    expect(semantic.data.reason).toContain("降级");
   });
 
   it("searches downloaded characters and reports modules missing from the offline copy", () => {
@@ -117,13 +165,25 @@ describe("offline chat tools", () => {
     expect(denied.data.unavailableCategories[0].code).toBe("OFFLINE_CORPUS_MISSING");
   });
 
-  it("degrades semantic search and refuses image bytes that were not downloaded", () => {
-    const semantic = executeDesktopOfflineChatTool(corpus, "semantic_search_story", { query: "海边的人是谁" });
-    expect(semantic.data.degraded).toBe(true);
-    expect(semantic.data.matchType).toBe("keyword");
+  it("does not invent phonetic hits and only reads image bytes that were synced", () => {
+    const phonetic = executeDesktopOfflineChatTool(corpus, "search_story_entities", { query: "linxia", includePhonetic: true, categories: ["character"] });
+    expect(phonetic.data.matches).toEqual([]);
+    expect(phonetic.data.phoneticIndex).toBe("absent");
+    expect(phonetic.data.hint).toContain("没有拼音索引");
 
     const image = executeDesktopOfflineChatTool(corpus, "image", { attachmentId: "img-1" });
     expect(image.error.code).toBe("OFFLINE_IMAGE_BYTES_UNAVAILABLE");
+
+    const withBytes = buildDesktopOfflineAgentCorpus({
+      work: { summary: { id: "work-1", title: "长夜" } },
+      entities: [
+        { entityType: "setting", snapshot: { id: "setting-1", title: "潮汐", content: "attachment://img-1" } },
+        { entityType: "setting-attachment", snapshot: { id: "img-1", originalName: "tide.png", mimeType: "image/png", dataBase64: "aGk=", byteStatus: "ready" } }
+      ]
+    });
+    const seen = executeDesktopOfflineChatTool(withBytes, "image", { attachmentId: "img-1" }, { multimodalEnabled: true });
+    expect(seen.data).toMatchObject({ attachmentId: "img-1", delivery: "native_multimodal", fileName: "tide.png" });
+    expect(seen.nativeImage.dataUrl).toBe("data:image/png;base64,aGk=");
   });
 
   it("calculates date spans without reading the work", () => {
@@ -190,5 +250,41 @@ describe("offline agent loop", () => {
     expect(responses.tools[0].name).toBe("story_index");
     expect(responses.input[0].role).toBe("user");
     expect(responses.stream).toBeUndefined();
+  });
+});
+
+describe("offline conversations stay on the work", () => {
+  it("shares one conversation list across chapter ids and keeps it after switching chapters", async () => {
+    const backing = new Map();
+    const apiFor = () => new DesktopOfflineApi({ store: { listEntities: async () => [] } }, {
+      conversations: new DesktopOfflineConversations(createMemoryAiConversationRepository(backing))
+    });
+    const created = await apiFor().request("/api/works/work-1/ai-conversations", {
+      method: "POST",
+      body: { taskType: "chat" }
+    });
+    expect(created.workId).toBe(desktopOfflineConversationWorkKey("work-1"));
+    expect(created).not.toHaveProperty("chapterId");
+    await apiFor().request(`/api/ai-conversations/${created.id}/messages`, {
+      method: "POST",
+      body: {
+        role: "user",
+        content: "续写 <ai_reference kind=\"character\" id=\"character-1\">林夏</ai_reference>",
+        citations: [{ chapterId: "chapter-1", chapterTitle: "启程", startLine: 1, endLine: 1, text: "林夏推开了门。" }],
+        metadata: { mentionCharacterIds: ["character-1"], processSteps: [], toolCalls: [] }
+      }
+    });
+
+    const firstChapter = await apiFor().request("/api/works/work-1/ai-conversations?chapterId=chapter-1&page=1&limit=20");
+    const secondChapter = await apiFor().request("/api/works/work-1/ai-conversations?chapterId=chapter-2&page=1&limit=20");
+    expect(secondChapter.items.map((item) => item.id)).toEqual(firstChapter.items.map((item) => item.id));
+    expect(secondChapter.items).toHaveLength(1);
+
+    const reloaded = await apiFor().request(`/api/ai-conversations/${created.id}?page=1&limit=100&chapterId=chapter-2`);
+    expect(reloaded.workId).toBe("work-1");
+    expect(reloaded.messages[0].content).toContain("<ai_reference");
+    expect(reloaded.messages[0].citations[0].chapterId).toBe("chapter-1");
+    expect(reloaded.messages[0].metadata.mentionCharacterIds).toEqual(["character-1"]);
+    expect(reloaded).not.toHaveProperty("chapterId");
   });
 });

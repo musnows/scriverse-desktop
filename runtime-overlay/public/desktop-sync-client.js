@@ -1,5 +1,5 @@
 import { DesktopSyncStore } from "./desktop-sync-store.js?v=20260823-desktop-sync-store-v2";
-import { collectDesktopOfflineCorpus } from "./desktop-local-ai-offline.js?v=20260929-desktop-offline-agent-v1";
+import { collectDesktopOfflineCorpus } from "./desktop-local-ai-offline.js?v=20260929-desktop-offline-agent-v2";
 
 const SYNC_PROTOCOL = 1;
 const SYNC_POLL_INTERVAL_MS = 30_000;
@@ -266,9 +266,34 @@ export class DesktopSyncClient {
     }
   }
 
+  async readAttachmentBytes(attachmentId) {
+    let response;
+    try {
+      response = await this.fetch(`/api/attachments/${encodeURIComponent(attachmentId)}/content`, {
+        method: "GET",
+        headers: { Accept: "*/*" },
+        redirect: "error",
+        cache: "no-store"
+      });
+    } catch (error) {
+      throw new DesktopSyncClientError("SYNC_NETWORK_ERROR", "无法下载设定图片", { retryable: true, cause: error });
+    }
+    if (!response.ok) throw new DesktopSyncClientError("SYNC_ATTACHMENT_UNAVAILABLE", "设定图片未能下载", { status: response.status });
+    const mimeType = String(response.headers.get("content-type") ?? "application/octet-stream").split(";")[0];
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (bytes.byteLength > 8_000_000) return { mimeType, base64: null, byteStatus: "too-large" };
+    let binary = "";
+    for (let index = 0; index < bytes.length; index += 0x8000) {
+      binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+    }
+    return { mimeType, base64: btoa(binary), byteStatus: "ready" };
+  }
+
   async refreshOfflineAgentCorpus(workId, request = (path, options) => this.request(path, options)) {
     try {
-      const groups = await collectDesktopOfflineCorpus(workId, request);
+      const groups = await collectDesktopOfflineCorpus(workId, request, {
+        readAttachment: (attachmentId) => this.readAttachmentBytes(attachmentId)
+      });
       await this.store.replaceReadonlyEntities(workId, groups);
     } catch (error) {
       console.error("Failed to refresh offline AI corpus", error);

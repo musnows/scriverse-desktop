@@ -7,6 +7,7 @@ import {
   buildDesktopOfflineAgentCorpus,
   desktopOfflineChatToolDefinitions,
   desktopOfflineUserTurn,
+  executeDesktopOfflineChatTool,
   runDesktopOfflineAgentLoop
 } from "../../runtime-overlay/public/desktop-local-ai-offline.js";
 
@@ -162,6 +163,35 @@ describe("offline agent web chat simulation", () => {
       text: "海面上没有林夏。"
     }]);
     expect(userTurn.metadata.mentionCharacterIds).toEqual(["character-1"]);
+    const semantic = executeDesktopOfflineChatTool(
+      buildDesktopOfflineAgentCorpus({
+        work: { summary: { id: "work-sim", title: "长夜" } },
+        entities: [
+          { entityType: "chapter", snapshot: { id: SECOND_CHAPTER_ID, title: SECOND_CHAPTER_TITLE, chapterType: "正文", content: "海面上没有林夏。" } }
+        ]
+      }),
+      "semantic_search_story",
+      { query: "林夏在哪里" }
+    );
+    expect(semantic.data).toMatchObject({
+      status: "degraded",
+      semanticUsed: false,
+      degraded: true,
+      matches: expect.any(Array)
+    });
+    expect(semantic.data.reason).toContain("降级");
+    const timed = executeDesktopOfflineChatTool(buildDesktopOfflineAgentCorpus({
+      work: { summary: { id: "work-sim", title: "长夜" } },
+      permissions: { prose: "read", timeline: "read" },
+      entities: [
+        { entityType: "volume", snapshot: { id: "volume-1", title: "第一卷", sortOrder: 1 } },
+        { entityType: "chapter", snapshot: { id: "chapter-1", volumeId: "volume-1", title: "启程", chapterType: "正文", sortOrder: 1, content: "林夏出门。" } },
+        { entityType: "chapter", snapshot: { id: SECOND_CHAPTER_ID, volumeId: "volume-1", title: SECOND_CHAPTER_TITLE, chapterType: "正文", sortOrder: 2, content: "海面上没有林夏。" } },
+        { entityType: "timeline-event", snapshot: { id: "event-1", status: "confirmed", timeSort: 8, trackId: "track-1", chapterIds: [SECOND_CHAPTER_ID], timeLabel: "夜" } }
+      ]
+    }), "grep", { keyword: "林夏" });
+    expect(timed.data.latestOccurrences.byStructure.at(-1).chapterId).toBe(SECOND_CHAPTER_ID);
+    expect(timed.data.latestOccurrences.byTimelineTrack[0]).toMatchObject({ trackId: "track-1", timeSort: 8, orderEligible: true });
 
     const corpus = buildDesktopOfflineAgentCorpus({
       work: { workId: "work-sim", summary: { id: "work-sim", title: "长夜", description: "一部小说" } },

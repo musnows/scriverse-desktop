@@ -60,8 +60,8 @@ index 57f37f8..1b06198 100644
  import { createToastStack } from "/toast-stack.js?v=20260909-toast-stack-v2";
 +import { createDesktopWorkspaceController, installDesktopExternalUrlPrompt } from "/desktop-workspace.js?v=20260913-desktop-global-theme-v1";
 +import { installDesktopNetworkGuidance } from "/desktop-network-guidance.js?v=20260922-network-offline-guidance-v1";
-+import { createDesktopOfflineApi } from "/desktop-offline-api.js?v=20260825-desktop-media-cache-v1";
-+import { buildDesktopOfflineAgentCorpus, desktopOfflineAssistantTurn, desktopOfflineChatToolDefinitions, desktopOfflineLocalAiMessages, desktopOfflineLocalAiSystemPrompt, desktopOfflineUserTurn, runDesktopOfflineAgentLoop } from "/desktop-local-ai-offline.js?v=20260929-desktop-offline-agent-v1";
++import { createDesktopOfflineApi } from "/desktop-offline-api.js?v=20260929-desktop-offline-conversations-v1";
++import { buildDesktopOfflineAgentCorpus, desktopOfflineAssistantTurn, desktopOfflineChatToolDefinitions, desktopOfflineLocalAiMessages, desktopOfflineLocalAiSystemPrompt, desktopOfflineUserTurn, runDesktopOfflineAgentLoop } from "/desktop-local-ai-offline.js?v=20260929-desktop-offline-agent-v2";
 +import { mergeDesktopLocalAiModels } from "/desktop-local-ai-catalog.js?v=20260824-desktop-local-provider-prefix-v1";
 +import { desktopProviderCompletedToolCalls } from "/desktop-local-ai-stream.js?v=20260825-desktop-provider-live-tools-v1";
  import { buildGlobalReplaceRefreshPlan, resolveGlobalReplaceChapterCount } from "/global-replace-refresh.js?v=20260812-global-replace-tree-v2";
@@ -461,67 +461,6 @@ index 57f37f8..1b06198 100644
      const provider = document.createElement("small");
      provider.textContent = [String(model.providerName ?? "").trim(), modelThinkingEffortLabel(model)]
        .filter(Boolean)
-@@ -5377,7 +5701,7 @@ function syncAiModelPicker() {
-   if (interactionBusy) setAiModelPickerVisible(false);
- }
- 
--function notifyAiConversationOptionLocked(select, locked = state.aiPromptSent) {
-+function notifyAiConversationOptionLocked(select, locked = !desktopOfflineMode && state.aiPromptSent) {
-   if (!locked) return false;
-   const now = Date.now();
-   const lastToastAt = Number(select.dataset.lockedToastAt ?? 0);
-@@ -5406,7 +5730,7 @@ function blockLockedAiConversationOptionKeydown(event) {
- }
- 
- function syncAiTaskOptions() {
--  const roleplaySelected = $("#ai-task").value === "roleplay";
-+  const roleplaySelected = !desktopOfflineMode && $("#ai-task").value === "roleplay";
-   const relationshipRoleplaySelectable = roleplaySelected
-     && Boolean(state.aiRoleplayCharacter)
-     && (!state.aiPromptSent || Boolean(state.aiRoleplayUserCharacter));
-@@ -5418,9 +5742,12 @@ function syncAiTaskOptions() {
-   $("#ai-roleplay-user-character").classList.toggle("hidden", !relationshipRoleplaySelectable);
-   $("#ai-roleplay-user-character").setAttribute("aria-hidden", String(!relationshipRoleplaySelectable));
-   $("#ai-task").disabled = interactionBusy;
--  $("#ai-task").title = state.aiPromptSent ? aiConversationOptionLockedMessage : "";
-+  $("#ai-task").title = desktopOfflineMode ? "离线时支持问答、续写和润色" : state.aiPromptSent ? aiConversationOptionLockedMessage : "";
-   $("#ai-scope").disabled = interactionBusy || roleplaySelected;
--  $("#ai-scope").title = state.aiPromptSent
-+  if (desktopOfflineMode) $("#ai-scope").disabled = true;
-+  $("#ai-scope").title = desktopOfflineMode
-+    ? "离线时始终使用当前记录与本机副本中的锁定设定"
-+    : state.aiPromptSent
-     ? aiConversationOptionLockedMessage
-     : roleplaySelected ? "角色扮演模式可以查询角色记忆、相识角色、知情设定、故事正文和设定图片" : "";
-   syncAiModelPicker();
-@@ -5651,20 +5978,22 @@ function activeAiModel() {
- }
- 
- function aiModelSupportsImageInput() {
--  return activeAiModel()?.multimodalEnabled === true;
-+  return !desktopOfflineMode && activeAiModel()?.multimodalEnabled === true;
- }
- 
- function syncAiImageAttachmentControl() {
-   const button = $("#ai-attachment-button");
-   if (!button) return;
-   const model = activeAiModel();
--  const enabled = model?.multimodalEnabled === true;
-+  const enabled = !desktopOfflineMode && model?.multimodalEnabled === true;
-   button.disabled = !enabled || aiInteractionBusy();
-   button.title = enabled
-     ? "添加图片附件"
--    : model
--      ? "当前模型不支持图片输入"
--      : "选择多模态模型后可添加图片附件";
-+    : desktopOfflineMode
-+      ? "离线状态当前仅支持文本"
-+      : model
-+        ? "当前模型不支持图片输入"
-+        : "选择多模态模型后可添加图片附件";
- }
- 
- function renderAiImageAttachments() {
 @@ -6319,20 +6648,14 @@ function clearChapterLineSelection() {
  }
  
@@ -968,22 +907,6 @@ index 57f37f8..1b06198 100644
    if (!state.work || !canEditProse()) return toast("当前权限不能删除正文", "error");
    const chaptersBeforeDelete = state.work.volumes.flatMap((volume) => volume.chapters);
    const chapterIndex = chaptersBeforeDelete.findIndex((chapter) => chapter.id === chapterId);
-@@ -10322,6 +10758,7 @@ async function selectChapter(chapterId, { editMode = false } = {}) {
-   if (sameChapter && String(chapterContentReadyId ?? "") === String(chapterId) && state.chapter) {
-     presentChapter(state.chapter, { editMode, contentReady: true });
-     syncChapterTreeSelection();
-+    if (desktopOfflineMode) await openDesktopOfflineLocalAi({ showWorkspace: false });
-     return true;
-   }
-   const directoryEntry = directoryChapterEntry(chapterId);
-@@ -10352,6 +10789,7 @@ async function selectChapter(chapterId, { editMode = false } = {}) {
-     if (String(state.chapter?.id ?? "") === String(chapterId)) toast("正文评论数量读取失败，请稍后重试", "error");
-   });
-   void loadChapterForeshadowReminders();
-+  if (desktopOfflineMode) await openDesktopOfflineLocalAi({ showWorkspace: false });
-   return true;
- }
- 
 @@ -10846,7 +11284,7 @@ async function saveChapter() {
    const dismissSavingToast = persistentToast("正在保存中");
    try {
@@ -1615,13 +1538,12 @@ index 57f37f8..1b06198 100644
 +}
 +
 +async function desktopOfflineLocalAiContext() {
-+  if (!state.work) throw new Error("请先选择作品中的章节或设定");
-+  const key = desktopOfflineLocalAiEntityKey();
-+  if (!key) throw new Error("请先选择作品中的章节或设定");
-+  const settings = await desktopWorkspaceController.store.listEntities(state.work.id, "setting");
++  if (!state.work) throw new Error("请先选择作品");
++  const settings = typeof desktopWorkspaceController?.store?.listEntities === "function"
++    ? await desktopWorkspaceController.store.listEntities(state.work.id, "setting")
++    : [];
 +  if (settingEditorItem?.id) {
 +    return {
-+      key,
 +      workTitle: state.work.title,
 +      entityType: "setting",
 +      entityId: settingEditorItem.id,
@@ -1632,8 +1554,19 @@ index 57f37f8..1b06198 100644
 +        .map((setting) => ({ title: String(setting.snapshot.title ?? "设定"), content: String(setting.snapshot.content ?? "") }))
 +    };
 +  }
++  if (!state.chapter?.id) {
++    return {
++      workTitle: state.work.title,
++      entityType: "work",
++      entityId: state.work.id,
++      title: state.work.title,
++      content: "",
++      lockedSettings: settings
++        .filter((setting) => setting.snapshot?.locked === true)
++        .map((setting) => ({ title: String(setting.snapshot.title ?? "设定"), content: String(setting.snapshot.content ?? "") }))
++    };
++  }
 +  return {
-+    key,
 +    workTitle: state.work.title,
 +    entityType: "chapter",
 +    entityId: state.chapter.id,
@@ -1684,24 +1617,6 @@ index 57f37f8..1b06198 100644
 +}
 +
 +async function initializeDesktopOfflineLocalAi() {
-+  const roleplayOption = $("#ai-task option[value='roleplay']");
-+  if (roleplayOption) roleplayOption.disabled = true;
-+  applyAiConversationTaskType("chat");
-+  const noContextOption = $("#ai-scope option[value='none']");
-+  if (noContextOption) noContextOption.textContent = "当前离线记录";
-+  $("#ai-scope").value = "none";
-+  $("#ai-history-toggle").disabled = true;
-+  $("#ai-new-conversation").disabled = true;
-+  $("#ai-conversation-switcher").disabled = true;
-+  $("#ai-switcher-history").disabled = true;
-+  state.aiConversationId = null;
-+  state.aiConversationModelId = null;
-+  state.aiConversationHasImages = false;
-+  state.aiPromptSent = false;
-+  state.aiCitations = [];
-+  state.aiReferences = [];
-+  state.aiImageAttachments = [];
-+  applyAiChatTabLimit(1);
 +  await loadDesktopOfflineAiModels();
 +  syncAiTaskOptions();
 +  syncAiImageAttachmentControl();
@@ -1759,7 +1674,7 @@ index 57f37f8..1b06198 100644
 +  message.append(actions);
 +}
 +
-+function desktopOfflineAgentChatResponse({ bridge, model, taskType, messages, tools, corpus, round = { requestId: "" } }) {
++function desktopOfflineAgentChatResponse({ bridge, model, taskType, messages, tools, corpus, round = { requestId: "" }, toolContext = {}, onCompleted = null }) {
 +  const encoder = new TextEncoder();
 +  let closed = false;
 +  let activeRoundRequestId = "";
@@ -1775,6 +1690,7 @@ index 57f37f8..1b06198 100644
 +        messages,
 +        tools,
 +        corpus,
++        toolContext,
 +        temperature: Number(model.preset?.temperature) || 0,
 +        maxTokens: Number(model.preset?.max_tokens) || 32_000,
 +        completeRound: (body, onEvent) => {
@@ -1801,8 +1717,9 @@ index 57f37f8..1b06198 100644
 +            emit("tool_call", { ...event.toolCall, round: event.round });
 +          }
 +        }
-+      }).then((completed) => {
++      }).then(async (completed) => {
 +        if (closed) return;
++        if (typeof onCompleted === "function") await onCompleted(completed);
 +        const content = String(completed.content ?? "");
 +        emit("complete", {
 +          model: { id: model.id, displayName: model.displayName },
@@ -1829,6 +1746,61 @@ index 57f37f8..1b06198 100644
 +    }
 +  });
 +  return new Response(stream, { status: 200, headers: { "Content-Type": "text/event-stream; charset=utf-8" } });
++}
++
++async function desktopOfflineWebChatResponse({ requestHolder, model, taskType, instruction, scope, citations, sceneDirection }) {
++  if (!model || model.scope !== "local") throw new Error("请选择已启用的本地 AI 模型");
++  const bridge = desktopLocalAiBridge();
++  if (!bridge?.completeAgentRound || !bridge?.cancelAgentRound) throw new Error("当前工作区没有可用的 AI 供应商");
++  const request = assertAiRequestCurrent(requestHolder.snapshot);
++  const corpus = await loadDesktopOfflineAgentCorpus();
++  hydrateDesktopOfflineAiReferences(corpus);
++  const conversation = request.conversationId
++    ? await api(`/api/ai-conversations/${encodeURIComponent(request.conversationId)}?page=1&limit=100`)
++    : { messages: [], roleplayMemories: [] };
++  const roleplayCharacterId = taskType === "roleplay"
++    ? String(conversation.roleplayCharacter?.id ?? state.aiRoleplayCharacter?.id ?? "")
++    : "";
++  const tools = desktopOfflineChatToolDefinitions(corpus, {
++    roleplayCharacterId,
++    agentTools: Array.isArray(conversation.agentTools) ? conversation.agentTools : corpus.agentTools
++  });
++  const context = await desktopOfflineLocalAiContext();
++  const currentMarkup = taskType === "roleplay" ? composeRoleplayStoredUserContent(sceneDirection, instruction) : instruction;
++  const storedMessages = conversation.messages ?? [];
++  const latestStored = storedMessages.at(-1);
++  const history = (latestStored?.role === "user" ? storedMessages.slice(0, -1) : storedMessages).map((message) => ({
++    role: message.role,
++    content: message.content,
++    modelContent: message.role === "user"
++      ? desktopOfflineUserTurn({ markup: message.content, text: message.content, citations: message.citations ?? [], scope: {} }).modelContent
++      : message.content
++  }));
++  const currentInstruction = desktopOfflineUserTurn({ markup: currentMarkup, text: instruction, citations, scope }).modelContent;
++  const toolContext = {
++    roleplayCharacterId,
++    multimodalEnabled: model.multimodalEnabled === true,
++    roleplayMemories: Array.isArray(conversation.roleplayMemories) ? [...conversation.roleplayMemories] : []
++  };
++  return desktopOfflineAgentChatResponse({
++    bridge,
++    model,
++    taskType,
++    messages: [
++      { role: "system", content: desktopOfflineLocalAiSystemPrompt({ ...context, toolNames: tools.map((tool) => tool.function.name) }) },
++      ...desktopOfflineLocalAiMessages(history, currentInstruction)
++    ],
++    tools,
++    corpus,
++    toolContext,
++    onCompleted: async () => {
++      if (!toolContext.roleplayMemoriesDirty || !request.conversationId) return;
++      await api(`/api/ai-conversations/${encodeURIComponent(request.conversationId)}/local-roleplay-memories`, {
++        method: "PUT",
++        body: { memories: toolContext.roleplayMemories }
++      });
++    }
++  });
 +}
 +
 +async function sendDesktopOfflineAi() {
@@ -1934,21 +1906,21 @@ index 57f37f8..1b06198 100644
  async function sendAi() {
    return sendAiWithOptions();
  }
-@@ -19485,6 +20491,7 @@ function prefixAiRequestError(error, prefix) {
- }
- 
- async function sendAiWithOptions({ ignoreContextWarning = false, retry = null } = {}) {
-+  if (desktopOfflineMode) return sendDesktopOfflineAi();
-   if (!state.work) return toast("请先选择作品", "error");
-   const tab = activeAiChatTab();
-   if (!tab) return toast("Agent 对话页签尚未就绪", "error");
 @@ -19591,7 +20598,9 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
        throw error;
      }
      tab.selectedModelId = modelId;
 +    const desktopProviderModel = selectedDesktopProviderModel(modelId);
      const imageAttachmentIds = aiChatImageAttachmentIds(requestComposerSnapshot.images);
-+    const desktopProviderUserMetadata = imageAttachmentIds.length ? { chatImageAttachmentIds: imageAttachmentIds } : {};
++    const desktopProviderUserMetadata = {
++      ...(imageAttachmentIds.length ? { chatImageAttachmentIds: imageAttachmentIds } : {}),
++      ...(desktopOfflineMode && requestScope.scope.characterIds?.length ? { mentionCharacterIds: requestScope.scope.characterIds } : {}),
++      ...(desktopOfflineMode && requestScope.scope.settingIds?.length ? { mentionSettingIds: requestScope.scope.settingIds } : {}),
++      ...(desktopOfflineMode && requestScope.scope.chapterIds?.length ? { mentionChapterIds: requestScope.scope.chapterIds } : {}),
++      ...(desktopOfflineMode && requestScope.scope.raceIds?.length ? { mentionRaceIds: requestScope.scope.raceIds } : {}),
++      ...(desktopOfflineMode && requestScope.scope.organizationIds?.length ? { mentionOrganizationIds: requestScope.scope.organizationIds } : {}),
++      ...(desktopOfflineMode && requestScope.scope.includeSettingInfo === true ? { mentionContextSettingIds: ["include-setting-info"] } : {})
++    };
      if (imageAttachmentIds.length > 0 && !state.models.find((model) => model.id === modelId)?.multimodalEnabled) {
        const error = new Error("当前选择的模型不是多模态模型，无法发送图片附件");
        if (!requestHolder.optimisticUserMessage) return toast(error.message, "error");
@@ -1956,13 +1928,13 @@ index 57f37f8..1b06198 100644
      setAiChatTabStatus(tab, "streaming");
      if (retry?.message?.isConnected) retry.message.remove();
      if (retry) prepareAiRetryState(tab, modelId);
-+    if (desktopProviderModel && !retry) {
++    if ((desktopProviderModel || desktopOfflineMode) && !retry) {
 +      try {
 +        const request = assertAiRequestCurrent(requestHolder.snapshot);
 +        const persistedUserMessage = await persistAiConversationMessage(
 +          request.conversationId,
 +          "user",
-+          instruction,
++          desktopOfflineMode && selectedTaskType === "roleplay" ? composeRoleplayStoredUserContent(sceneDirection, instruction) : instruction,
 +          citations,
 +          { modelId, ...desktopProviderUserMetadata },
 +          { signal: request.signal }
@@ -2000,7 +1972,16 @@ index 57f37f8..1b06198 100644
        conversationId: requestHolder.snapshot.conversationId,
        ...(ignoreContextWarning ? { ignoreContextWarning: true } : {})
 -    }, retry), createAiIdempotencyKey());
-+    }, retry), createAiIdempotencyKey(), { responseFactory: desktopProviderModel ? () => desktopProviderChatResponse({
++    }, retry), createAiIdempotencyKey(), { responseFactory: desktopOfflineMode ? () => desktopOfflineWebChatResponse({
++      requestHolder,
++      model: desktopProviderModel,
++      taskType: selectedTaskType,
++      instruction,
++      scope,
++      citations,
++      imageAttachmentIds,
++      sceneDirection
++    }) : desktopProviderModel ? () => desktopProviderChatResponse({
 +      requestHolder,
 +      tab,
 +      model: desktopProviderModel,

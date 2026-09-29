@@ -1,3 +1,9 @@
+import {
+  conversationRepositoryFromSyncStore,
+  createMemoryAiConversationRepository,
+  DesktopOfflineConversations
+} from "./desktop-offline-conversations.js?v=20260929-desktop-offline-conversations-v1";
+
 export class DesktopOfflineApiError extends Error {
   constructor(code, message) {
     super(message);
@@ -62,9 +68,28 @@ function textCount(value) {
 }
 
 export class DesktopOfflineApi {
-  constructor(controller) {
+  constructor(controller, { conversations = null } = {}) {
     this.controller = controller;
-    this.store = controller.store;
+    this.store = controller?.store;
+    const repository = conversations
+      ? null
+      : conversationRepositoryFromSyncStore(this.store) ?? createMemoryAiConversationRepository();
+    this.conversations = conversations ?? new DesktopOfflineConversations(repository);
+  }
+
+  async snapshots(workId, entityType) {
+    if (typeof this.store?.listEntities !== "function") return [];
+    try {
+      return sortDirectory(await this.store.listEntities(workId, entityType)).map(snapshotRecord);
+    } catch {
+      return [];
+    }
+  }
+
+  async moduleList(workId, entityType, url) {
+    const records = await this.snapshots(workId, entityType);
+    const paged = url.searchParams.has("page") || url.searchParams.has("limit");
+    return paged ? page(records, url) : records;
   }
 
   async work(workId, { includeVolumes = false } = {}) {
@@ -183,6 +208,43 @@ export class DesktopOfflineApi {
         pathname.endsWith("/context")
       );
     }
+    const workCharacters = pathname.match(/^\/api\/works\/([^/]+)\/characters$/u);
+    if (method === "GET" && workCharacters) return this.moduleList(decodeURIComponent(workCharacters[1]), "character", url);
+    const workRaces = pathname.match(/^\/api\/works\/([^/]+)\/races$/u);
+    if (method === "GET" && workRaces) return this.moduleList(decodeURIComponent(workRaces[1]), "race", url);
+    const workOrganizations = pathname.match(/^\/api\/works\/([^/]+)\/organizations$/u);
+    if (method === "GET" && workOrganizations) return this.moduleList(decodeURIComponent(workOrganizations[1]), "organization", url);
+    const workConversations = pathname.match(/^\/api\/works\/([^/]+)\/ai-conversations$/u);
+    if (workConversations && method === "GET") return this.conversations.list(decodeURIComponent(workConversations[1]), url);
+    if (workConversations && method === "POST") {
+      const workId = decodeURIComponent(workConversations[1]);
+      const settings = (await this.snapshots(workId, "work-ai-settings")).find((item) => item.id === "settings");
+      const body = options.body && typeof options.body === "object" ? { ...options.body } : {};
+      if (!Array.isArray(body.agentTools) && Array.isArray(settings?.agentTools)) body.agentTools = settings.agentTools;
+      return this.conversations.create(workId, body);
+    }
+    const conversationTitle = pathname.match(/^\/api\/ai-conversations\/([^/]+)\/title$/u);
+    if (conversationTitle && method === "GET") return this.conversations.title(decodeURIComponent(conversationTitle[1]));
+    if (conversationTitle && method === "PATCH") return this.conversations.setTitle(decodeURIComponent(conversationTitle[1]), options.body);
+    const conversationFavorite = pathname.match(/^\/api\/ai-conversations\/([^/]+)\/favorite$/u);
+    if (conversationFavorite && method === "PATCH") return this.conversations.setFavorite(decodeURIComponent(conversationFavorite[1]), options.body);
+    const conversationTask = pathname.match(/^\/api\/ai-conversations\/([^/]+)\/task-type$/u);
+    if (conversationTask && method === "PATCH") return this.conversations.setTaskType(decodeURIComponent(conversationTask[1]), options.body);
+    const conversationScope = pathname.match(/^\/api\/ai-conversations\/([^/]+)\/context-scope$/u);
+    if (conversationScope && method === "PATCH") return this.conversations.setContextScope(decodeURIComponent(conversationScope[1]), options.body);
+    const conversationRoleplay = pathname.match(/^\/api\/ai-conversations\/([^/]+)\/roleplay$/u);
+    if (conversationRoleplay && method === "PATCH") {
+      const conversation = await this.conversations.require(decodeURIComponent(conversationRoleplay[1]));
+      const characters = await this.snapshots(conversation.workId, "character");
+      return this.conversations.setRoleplay(conversation.id, options.body, characters);
+    }
+    const conversationMessages = pathname.match(/^\/api\/ai-conversations\/([^/]+)\/messages$/u);
+    if (conversationMessages && method === "POST") return this.conversations.addMessage(decodeURIComponent(conversationMessages[1]), options.body);
+    const conversationMemories = pathname.match(/^\/api\/ai-conversations\/([^/]+)\/local-roleplay-memories$/u);
+    if (conversationMemories && method === "PUT") return this.conversations.saveRoleplayMemories(decodeURIComponent(conversationMemories[1]), options.body?.memories);
+    const conversationItem = pathname.match(/^\/api\/ai-conversations\/([^/]+)$/u);
+    if (conversationItem && method === "GET") return this.conversations.get(decodeURIComponent(conversationItem[1]), url);
+    if (conversationItem && method === "DELETE") return this.conversations.remove(decodeURIComponent(conversationItem[1]));
     if (method === "GET" && /^\/api\/chapters\/[^/]+\/(?:annotation-counts|annotations)$/u.test(pathname)) return [];
     if (method === "GET" && /^\/api\/works\/[^/]+\/chapters\/[^/]+\/foreshadow-reminders$/u.test(pathname)) return [];
     if (method === "GET" && /^\/api\/(?:chapters\/[^/]+\/versions|entity-versions\/[^/]+\/[^/]+)$/u.test(pathname)) return [];

@@ -1,4 +1,4 @@
-const DATABASE_VERSION = 1;
+const DATABASE_VERSION = 2;
 const SCHEMA_VERSION = 2;
 const SYNC_PROTOCOL = 1;
 const EDITABLE_ENTITY_TYPES = new Set(["chapter", "setting"]);
@@ -12,7 +12,9 @@ const READONLY_CORPUS_ENTITY_TYPES = new Set([
   "chapter-outline",
   "foreshadow",
   "draft",
-  "agent-corpus"
+  "agent-corpus",
+  "work-ai-settings",
+  "setting-attachment"
 ]);
 const OUTBOX_STATUSES = new Set(["pending", "syncing", "conflict", "rejected"]);
 const INITIAL_OFFLINE_DOWNLOAD_KEY = "initial-offline-download";
@@ -119,6 +121,10 @@ function openDatabase(indexedDBImpl, name) {
       if (!database.objectStoreNames.contains("conflicts")) {
         const conflicts = database.createObjectStore("conflicts", { keyPath: "mutationId" });
         conflicts.createIndex("by-work", "workId", { unique: false });
+      }
+      if (!database.objectStoreNames.contains("ai-conversations")) {
+        const conversations = database.createObjectStore("ai-conversations", { keyPath: "id" });
+        conversations.createIndex("by-work", "workId", { unique: false });
       }
     });
     request.addEventListener("success", () => resolve(request.result), { once: true });
@@ -334,6 +340,43 @@ export class DesktopSyncStore {
     if (!entity || entity.deleted) return null;
     const snapshot = await cloneSyncSnapshot(entity.dirty ? entity.localSnapshot : entity.serverSnapshot);
     return { ...structuredClone(entity), snapshot };
+  }
+
+  async listAiConversationRecords(workId) {
+    const database = await this.open();
+    const transaction = database.transaction(["ai-conversations"], "readonly");
+    const records = await requestValue(transaction.objectStore("ai-conversations").index("by-work").getAll(workId));
+    await transactionDone(transaction);
+    return records.map((record) => structuredClone(record));
+  }
+
+  async getAiConversationRecord(conversationId) {
+    const database = await this.open();
+    const transaction = database.transaction(["ai-conversations"], "readonly");
+    const record = await requestValue(transaction.objectStore("ai-conversations").get(conversationId));
+    await transactionDone(transaction);
+    return record ? structuredClone(record) : null;
+  }
+
+  async putAiConversationRecord(record) {
+    if (!record || typeof record.id !== "string" || typeof record.workId !== "string" || !record.workId) {
+      throw new DesktopSyncStoreError("SYNC_SNAPSHOT_INVALID", "离线对话记录无效");
+    }
+    if (record.chapterId !== undefined || record.settingId !== undefined) {
+      throw new DesktopSyncStoreError("SYNC_SNAPSHOT_INVALID", "离线对话不能按章节或设定保存");
+    }
+    const database = await this.open();
+    const transaction = database.transaction(["ai-conversations"], "readwrite");
+    transaction.objectStore("ai-conversations").put(structuredClone(record));
+    await transactionDone(transaction);
+    return structuredClone(record);
+  }
+
+  async deleteAiConversationRecord(conversationId) {
+    const database = await this.open();
+    const transaction = database.transaction(["ai-conversations"], "readwrite");
+    transaction.objectStore("ai-conversations").delete(conversationId);
+    await transactionDone(transaction);
   }
 
   async listEntities(workId, entityType) {

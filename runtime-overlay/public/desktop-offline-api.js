@@ -1,3 +1,10 @@
+import {
+  conversationRepositoryFromSyncStore,
+  createMemoryAiConversationRepository,
+  DesktopOfflineConversations
+} from "./desktop-offline-conversations.js?v=20260930-desktop-offline-history-v6";
+import { DesktopOfflineConversationAi } from "./desktop-offline-conversation-ai.js?v=20260930-desktop-offline-context-v3";
+
 export class DesktopOfflineApiError extends Error {
   constructor(code, message) {
     super(message);
@@ -62,9 +69,29 @@ function textCount(value) {
 }
 
 export class DesktopOfflineApi {
-  constructor(controller) {
+  constructor(controller, { conversations = null, aiBridge = globalThis.scriverseDesktopWorkspace?.localAi ?? globalThis.scriverseDesktopLocalAi, estimateTokens, titleSource } = {}) {
     this.controller = controller;
-    this.store = controller.store;
+    this.store = controller?.store;
+    const repository = conversations
+      ? null
+      : conversationRepositoryFromSyncStore(this.store) ?? createMemoryAiConversationRepository();
+    this.conversations = conversations ?? new DesktopOfflineConversations(repository);
+    this.ai = new DesktopOfflineConversationAi({ conversations: this.conversations, bridge: aiBridge, estimateTokens, titleSource });
+  }
+
+  async snapshots(workId, entityType) {
+    if (typeof this.store?.listEntities !== "function") return [];
+    try {
+      return sortDirectory(await this.store.listEntities(workId, entityType)).map(snapshotRecord);
+    } catch {
+      return [];
+    }
+  }
+
+  async moduleList(workId, entityType, url) {
+    const records = await this.snapshots(workId, entityType);
+    const paged = url.searchParams.has("page") || url.searchParams.has("limit");
+    return paged ? page(records, url) : records;
   }
 
   async work(workId, { includeVolumes = false } = {}) {
@@ -153,6 +180,36 @@ export class DesktopOfflineApi {
     };
   }
 
+  async search(workId, url) {
+    const type = String(url.searchParams.get("type") ?? "");
+    const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit")) || 50));
+    const query = String(url.searchParams.get("q") ?? "");
+    const hits = [];
+    if (!type || type === "agent-history") {
+      hits.push(...await this.conversations.searchHistory(workId, query, limit));
+    }
+    if (type === "chapter" || type === "setting" || !type) {
+      const needle = query.normalize("NFKC").trim().toLocaleLowerCase("zh-CN");
+      const kinds = type === "chapter" || type === "setting" ? [type] : ["chapter", "setting"];
+      for (const kind of kinds) {
+        for (const record of await this.snapshots(workId, kind)) {
+          const title = String(record.title ?? "");
+          const content = String(record.content ?? "");
+          if (!needle || !`${title}\n${content}`.normalize("NFKC").toLocaleLowerCase("zh-CN").includes(needle)) continue;
+          if (!record.id) continue;
+          hits.push({
+            type: kind,
+            id: String(record.id),
+            title: title || "未命名",
+            snippet: (content || title).slice(0, 180),
+            matchKind: "exact"
+          });
+        }
+      }
+    }
+    return hits.slice(0, limit);
+  }
+
   unsupported() {
     throw new DesktopOfflineApiError(
       "DESKTOP_OFFLINE_OPERATION_UNSUPPORTED",
@@ -183,6 +240,57 @@ export class DesktopOfflineApi {
         pathname.endsWith("/context")
       );
     }
+    const workCharacters = pathname.match(/^\/api\/works\/([^/]+)\/characters$/u);
+    if (method === "GET" && workCharacters) return this.moduleList(decodeURIComponent(workCharacters[1]), "character", url);
+    const workRaces = pathname.match(/^\/api\/works\/([^/]+)\/races$/u);
+    if (method === "GET" && workRaces) return this.moduleList(decodeURIComponent(workRaces[1]), "race", url);
+    const workOrganizations = pathname.match(/^\/api\/works\/([^/]+)\/organizations$/u);
+    if (method === "GET" && workOrganizations) return this.moduleList(decodeURIComponent(workOrganizations[1]), "organization", url);
+    const workSearch = pathname.match(/^\/api\/works\/([^/]+)\/search$/u);
+    if (workSearch && method === "GET") return this.search(decodeURIComponent(workSearch[1]), url);
+    const workConversations = pathname.match(/^\/api\/works\/([^/]+)\/ai-conversations$/u);
+    if (workConversations && method === "GET") return this.conversations.list(decodeURIComponent(workConversations[1]), url);
+    if (workConversations && method === "POST") {
+      const workId = decodeURIComponent(workConversations[1]);
+      const settings = (await this.snapshots(workId, "work-ai-settings")).find((item) => item.id === "settings");
+      const body = options.body && typeof options.body === "object" ? { ...options.body } : {};
+      if (!Array.isArray(body.agentTools) && Array.isArray(settings?.agentTools)) body.agentTools = settings.agentTools;
+      return this.conversations.create(workId, body);
+    }
+    const conversationTitle = pathname.match(/^\/api\/ai-conversations\/([^/]+)\/title$/u);
+    const conversationFork = pathname.match(/^\/api\/ai-conversations\/([^/]+)\/fork$/u);
+    if (conversationFork && method === "POST") return this.conversations.fork(decodeURIComponent(conversationFork[1]), options.body);
+    const conversationExport = pathname.match(/^\/api\/ai-conversations\/([^/]+)\/export$/u);
+    if (conversationExport && method === "GET") return this.conversations.exportMarkdown(decodeURIComponent(conversationExport[1]));
+    const conversationCompact = pathname.match(/^\/api\/ai-conversations\/([^/]+)\/compact$/u);
+    if (conversationCompact && method === "POST") return this.ai.compact(decodeURIComponent(conversationCompact[1]), options.body);
+    const conversationContext = pathname.match(/^\/api\/ai-conversations\/([^/]+)\/context$/u);
+    if (conversationContext && method === "POST") return this.ai.context(decodeURIComponent(conversationContext[1]), options.body);
+    if (conversationTitle && method === "GET") {
+      const conversationId = decodeURIComponent(conversationTitle[1]);
+      await this.ai.generateTitle(conversationId).catch(() => undefined);
+      return this.conversations.title(conversationId);
+    }
+    if (conversationTitle && method === "PATCH") return this.conversations.setTitle(decodeURIComponent(conversationTitle[1]), options.body);
+    const conversationFavorite = pathname.match(/^\/api\/ai-conversations\/([^/]+)\/favorite$/u);
+    if (conversationFavorite && method === "PATCH") return this.conversations.setFavorite(decodeURIComponent(conversationFavorite[1]), options.body);
+    const conversationTask = pathname.match(/^\/api\/ai-conversations\/([^/]+)\/task-type$/u);
+    if (conversationTask && method === "PATCH") return this.conversations.setTaskType(decodeURIComponent(conversationTask[1]), options.body);
+    const conversationScope = pathname.match(/^\/api\/ai-conversations\/([^/]+)\/context-scope$/u);
+    if (conversationScope && method === "PATCH") return this.conversations.setContextScope(decodeURIComponent(conversationScope[1]), options.body);
+    const conversationRoleplay = pathname.match(/^\/api\/ai-conversations\/([^/]+)\/roleplay$/u);
+    if (conversationRoleplay && method === "PATCH") {
+      const conversation = await this.conversations.require(decodeURIComponent(conversationRoleplay[1]));
+      const characters = await this.snapshots(conversation.workId, "character");
+      return this.conversations.setRoleplay(conversation.id, options.body, characters);
+    }
+    const conversationMessages = pathname.match(/^\/api\/ai-conversations\/([^/]+)\/messages$/u);
+    if (conversationMessages && method === "POST") return this.conversations.addMessage(decodeURIComponent(conversationMessages[1]), options.body);
+    const conversationMemories = pathname.match(/^\/api\/ai-conversations\/([^/]+)\/local-roleplay-memories$/u);
+    if (conversationMemories && method === "PUT") return this.conversations.saveRoleplayMemories(decodeURIComponent(conversationMemories[1]), options.body?.memories);
+    const conversationItem = pathname.match(/^\/api\/ai-conversations\/([^/]+)$/u);
+    if (conversationItem && method === "GET") return this.conversations.get(decodeURIComponent(conversationItem[1]), url);
+    if (conversationItem && method === "DELETE") return this.conversations.remove(decodeURIComponent(conversationItem[1]));
     if (method === "GET" && /^\/api\/chapters\/[^/]+\/(?:annotation-counts|annotations)$/u.test(pathname)) return [];
     if (method === "GET" && /^\/api\/works\/[^/]+\/chapters\/[^/]+\/foreshadow-reminders$/u.test(pathname)) return [];
     if (method === "GET" && /^\/api\/(?:chapters\/[^/]+\/versions|entity-versions\/[^/]+\/[^/]+)$/u.test(pathname)) return [];
@@ -191,6 +299,6 @@ export class DesktopOfflineApi {
   }
 }
 
-export function createDesktopOfflineApi(controller) {
-  return new DesktopOfflineApi(controller);
+export function createDesktopOfflineApi(controller, options) {
+  return new DesktopOfflineApi(controller, options);
 }

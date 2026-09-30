@@ -1,4 +1,5 @@
 import { DesktopSyncStore } from "./desktop-sync-store.js?v=20260823-desktop-sync-store-v2";
+import { collectDesktopOfflineCorpus } from "./desktop-local-ai-offline.js?v=20260930-desktop-offline-agent-v3";
 
 const SYNC_PROTOCOL = 1;
 const SYNC_POLL_INTERVAL_MS = 30_000;
@@ -163,6 +164,7 @@ export class DesktopSyncClient {
           modulePermissions: work.modulePermissions ?? null
         }
       });
+      await this.refreshOfflineAgentCorpus(work.id, request);
       await this.emitStatus("downloaded", work.id);
       return stored;
     } finally {
@@ -204,6 +206,7 @@ export class DesktopSyncClient {
       if (work.offlineAccessEnabled !== true) throw new DesktopSyncClientError("OFFLINE_ACCESS_DISABLED", "作品已关闭离线访问");
       await this.pullWork(workId);
       await this.pushWork(workId);
+      await this.refreshOfflineAgentCorpus(workId);
       const summary = await this.store.statusSummary(workId);
       const finalStatus = summary.rejected > 0 ? "read-only" : summary.conflicts > 0 ? "conflict" : "ready";
       await this.store.setWorkStatus(workId, finalStatus === "conflict" ? "ready" : finalStatus);
@@ -260,6 +263,40 @@ export class DesktopSyncClient {
         }
         throw error;
       }
+    }
+  }
+
+  async readAttachmentBytes(attachmentId) {
+    let response;
+    try {
+      response = await this.fetch(`/api/attachments/${encodeURIComponent(attachmentId)}/content`, {
+        method: "GET",
+        headers: { Accept: "*/*" },
+        redirect: "error",
+        cache: "no-store"
+      });
+    } catch (error) {
+      throw new DesktopSyncClientError("SYNC_NETWORK_ERROR", "无法下载设定图片", { retryable: true, cause: error });
+    }
+    if (!response.ok) throw new DesktopSyncClientError("SYNC_ATTACHMENT_UNAVAILABLE", "设定图片未能下载", { status: response.status });
+    const mimeType = String(response.headers.get("content-type") ?? "application/octet-stream").split(";")[0];
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (bytes.byteLength > 8_000_000) return { mimeType, base64: null, byteStatus: "too-large" };
+    let binary = "";
+    for (let index = 0; index < bytes.length; index += 0x8000) {
+      binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+    }
+    return { mimeType, base64: btoa(binary), byteStatus: "ready" };
+  }
+
+  async refreshOfflineAgentCorpus(workId, request = (path, options) => this.request(path, options)) {
+    try {
+      const groups = await collectDesktopOfflineCorpus(workId, request, {
+        readAttachment: (attachmentId) => this.readAttachmentBytes(attachmentId)
+      });
+      await this.store.replaceReadonlyEntities(workId, groups);
+    } catch (error) {
+      console.error("Failed to refresh offline AI corpus", error);
     }
   }
 

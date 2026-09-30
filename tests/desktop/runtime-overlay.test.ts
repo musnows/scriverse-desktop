@@ -100,8 +100,17 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain("runtimeModel: desktopProviderRuntimeModel(model)");
     expect(overlayPatch).toContain("/desktop-local-ai/runs/");
     expect(overlayPatch).not.toContain("/desktop-local-ai/prepare");
-    expect(overlayPatch).toContain("remoteSystemPrompt: desktopOfflineLocalAiSystemPrompt(context)");
-    expect(overlayPatch).toContain("messages: desktopOfflineLocalAiMessages(history, instruction)");
+    expect(overlayPatch).toContain("desktopOfflineLocalAiSystemPrompt({ ...context, toolNames: tools.map((tool) => tool.function.name) })");
+    expect(overlayPatch).toContain("...desktopOfflineLocalAiMessages(history, currentInstruction, Number.POSITIVE_INFINITY)");
+    expect(overlayPatch).toContain("desktopOfflineWebChatResponse");
+    expect(overlayPatch).not.toContain("if (desktopOfflineMode) return sendDesktopOfflineAi()");
+    expect(overlayPatch).not.toContain('$("#ai-history-toggle").disabled = true');
+    expect(overlayPatch).not.toContain('$("#ai-new-conversation").disabled = true');
+    expect(overlayPatch).not.toContain("openDesktopOfflineLocalAi({ showWorkspace: false })");
+    expect(overlayPatch).toContain("desktopOfflineUserTurn({");
+    expect(overlayPatch).toContain("runDesktopOfflineAgentLoop({");
+    expect(overlayPatch).toContain("processSteps: completed.processSteps");
+    expect(overlayPatch).toContain('appendMessage("user", userTurn.content, userTurn.citations, null, userTurn.metadata, null, { tab })');
     expect(overlayPatch).toContain('scope.className = "ai-model-option-scope is-local"');
     expect(overlayPatch).toContain('scope.textContent = "本地"');
     expect(overlayPatch).not.toContain("function aiModelLocalIconMarkup()");
@@ -137,7 +146,8 @@ describe("Desktop Web runtime overlay", () => {
     const persistenceIndex = overlayPatch.indexOf("const persistedUserMessage = await persistAiConversationMessage");
     const optimisticIdentityIndex = overlayPatch.indexOf("attachMessageIdentity(requestHolder.optimisticUserMessage", persistenceIndex);
     const pendingCleanupIndex = overlayPatch.indexOf("requestHolder.pendingAssistantMessage?.remove()", optimisticIdentityIndex);
-    const responseFactoryIndex = overlayPatch.indexOf("responseFactory: desktopProviderModel", pendingCleanupIndex);
+    const responseFactoryIndex = overlayPatch.indexOf("responseFactory: desktopOfflineMode", pendingCleanupIndex);
+    expect(overlayPatch.indexOf("desktopProviderChatResponse({", responseFactoryIndex)).toBeGreaterThan(responseFactoryIndex);
     expect(persistenceIndex).toBeGreaterThan(-1);
     expect(optimisticIdentityIndex).toBeGreaterThan(persistenceIndex);
     expect(pendingCleanupIndex).toBeGreaterThan(optimisticIdentityIndex);
@@ -237,7 +247,7 @@ describe("Desktop Web runtime overlay", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 
     expect(overlayPatch).toContain('desktop-workspace.js?v=20260913-desktop-global-theme-v1');
-    expect(overlayPatch).toContain('desktop-offline-api.js?v=20260825-desktop-media-cache-v1');
+    expect(overlayPatch).toContain('desktop-offline-api.js?v=20260930-desktop-offline-history-v6');
   });
 
   it("在远端工作区断网时显示页面居中的重新进入引导", () => {

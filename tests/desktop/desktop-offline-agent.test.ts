@@ -201,6 +201,19 @@ describe("offline chat tools", () => {
 });
 
 describe("offline agent loop", () => {
+  it("rejects a model call to a local tool excluded from the conversation", async () => {
+    let round = 0;
+    const result = await runDesktopOfflineAgentLoop({
+      protocol: "openai-chat-completions", modelId: "demo-model", tools: [], corpus,
+      messages: [{ role: "user", content: "不启用正文检索工具" }],
+      completeRound: async () => ({ status: 200, body: JSON.stringify({ choices: [{ message: ++round === 1
+        ? { content: "", tool_calls: [{ id: "denied-call", function: { name: "grep", arguments: '{"keyword":"林夏"}' } }] }
+        : { content: "检索工具未启用。" } }] }) })
+    });
+    expect(result.toolCalls[0]).toMatchObject({ status: "failed", result: { ok: false, error: { code: "TOOL_NOT_AVAILABLE" } } });
+    expect(JSON.stringify(result.toolCalls)).not.toContain("林夏推开了门");
+  });
+
   it("sends tool definitions and keeps thinking plus tool calls for the web stream", async () => {
     const bodies = [];
     const events = [];

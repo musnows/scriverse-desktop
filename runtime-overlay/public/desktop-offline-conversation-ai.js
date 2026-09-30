@@ -1,4 +1,4 @@
-import { buildDesktopOfflineAgentBody, parseDesktopOfflineAgentTurn } from "./desktop-local-ai-offline.js?v=20260930-desktop-offline-agent-v3";
+import { buildDesktopOfflineAgentBody, parseDesktopOfflineAgentTurn } from "./desktop-local-ai-offline.js?v=20260930-desktop-offline-agent-v4";
 
 const MEMORY_FIELDS = ["authorGoals", "confirmedDecisions", "storyFacts", "constraints", "unresolvedQuestions", "importantReferences"];
 

@@ -1465,7 +1465,9 @@ export async function runDesktopOfflineAgentLoop({
       }
       conversation.push({ role: "assistant", content: turn.content, toolCalls: turn.toolCalls });
       for (const toolCall of turn.toolCalls) {
-        const result = executeDesktopOfflineChatTool(corpus, toolCall.name, toolCall.arguments, toolContext);
+        const result = (tools ?? []).some((tool) => tool.function?.name === toolCall.name)
+          ? executeDesktopOfflineChatTool(corpus, toolCall.name, toolCall.arguments, toolContext)
+          : unavailable("TOOL_NOT_AVAILABLE", `Tool '${toolCall.name}' is not enabled for this conversation.`);
         const publicResult = result?.nativeImage ? { ok: result.ok, data: result.data, ...(result.error ? { error: result.error } : {}) } : result;
         const completed = {
           id: toolCall.id,

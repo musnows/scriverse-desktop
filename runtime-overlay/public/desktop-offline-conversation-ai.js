@@ -83,8 +83,12 @@ export class DesktopOfflineConversationAi {
   }
 
   async context(conversationId, input = {}) {
-    const record = await this.conversations.require(conversationId);
+    let record = await this.conversations.require(conversationId);
     const model = await this.resolveModel(input.modelId, record);
+    if (input.autoCompact === true && this.usage(record, model).compactRecommended) {
+      await this.compact(conversationId, { modelId: model.id });
+      record = await this.conversations.require(conversationId);
+    }
     return { messages: structuredClone((record.messages ?? []).slice(messageCount(record))), summary: record.compactedSummary ?? "", usage: this.usage(record, model) };
   }
 

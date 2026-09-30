@@ -26,6 +26,22 @@ async function fixture(complete?: (input: Record<string, unknown>) => Promise<un
 }
 
 describe("offline context compaction", () => {
+  it("automatically compacts local history before generation reaches the context budget", async () => {
+    const { api, conversations, source, calls } = await fixture();
+    const original = await conversations.require(source.id);
+    original.messages = original.messages.map((message) => ({ ...message, content: message.content.repeat(48) }));
+    await conversations.repository.put(original);
+    const preview = await api.ai.context(source.id, { modelId: model.id });
+    expect(preview.usage.compactRecommended).toBe(true);
+    expect(calls).toHaveLength(0);
+    const prepared = await api.ai.context(source.id, { modelId: model.id, autoCompact: true });
+    expect(prepared.summary).toContain("继续创作林夏");
+    expect(prepared.usage.compactedMessageCount).toBeGreaterThan(0);
+    expect(prepared.messages.length).toBeLessThan(12);
+    expect((await conversations.require(source.id)).messages).toEqual(original.messages);
+    expect(calls.length).toBeGreaterThan(0);
+  });
+
   it("uses a local model and retains the complete transcript for export and forks", async () => {
     const { api, conversations, source, calls } = await fixture();
     const original = structuredClone(await conversations.require(source.id));

@@ -2,8 +2,8 @@ import {
   conversationRepositoryFromSyncStore,
   createMemoryAiConversationRepository,
   DesktopOfflineConversations
-} from "./desktop-offline-conversations.js?v=20260930-desktop-offline-history-v5";
-import { DesktopOfflineConversationAi } from "./desktop-offline-conversation-ai.js?v=20260930-desktop-offline-context-v2";
+} from "./desktop-offline-conversations.js?v=20260930-desktop-offline-history-v6";
+import { DesktopOfflineConversationAi } from "./desktop-offline-conversation-ai.js?v=20260930-desktop-offline-context-v3";
 
 export class DesktopOfflineApiError extends Error {
   constructor(code, message) {

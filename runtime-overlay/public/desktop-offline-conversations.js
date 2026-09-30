@@ -323,6 +323,51 @@ export class DesktopOfflineConversations {
     return { deleted: true };
   }
 
+  async fork(conversationId, body) {
+    const input = assertObject(body);
+    const messageId = String(input.messageId ?? "").trim();
+    const requestId = input.requestId === undefined ? "" : String(input.requestId).trim();
+    if (!messageId || messageId.length > 200 || requestId.length > 200 || (input.requestId !== undefined && !requestId)) {
+      throw new DesktopOfflineConversationError("AI_CONVERSATION_INVALID", "分支请求无效");
+    }
+    if (input.title !== undefined && (typeof input.title !== "string" || input.title.length > 200)) {
+      throw new DesktopOfflineConversationError("AI_CONVERSATION_INVALID", "对话名称无效");
+    }
+    const source = await this.require(conversationId);
+    const forkId = requestId ? `fork-${source.id}-${requestId}` : newId();
+    const existing = await this.repository.get(forkId);
+    if (existing) {
+      if (existing.forkSource?.messageId !== messageId) {
+        throw new DesktopOfflineConversationError("IDEMPOTENCY_KEY_REUSED", "该续写请求标识已用于另一条历史消息");
+      }
+      return summaryOf(existing, { includeMessages: true });
+    }
+    const targetIndex = (source.messages ?? []).findIndex((message) => message.id === messageId);
+    if (targetIndex < 0) throw new DesktopOfflineConversationError("AI_CONVERSATION_MESSAGE_NOT_FOUND", "AI 对话消息不存在");
+    const timestamp = nowIso();
+    const inheritedCount = Math.max(0, Number(source.compactedMessageCount) || 0);
+    const compactedMessageCount = targetIndex + 1 >= inheritedCount ? inheritedCount : 0;
+    const hasImages = source.messages.some(messageHasImages);
+    const forked = {
+      ...clone(source),
+      id: forkId,
+      title: (input.title?.trim() || `${source.title} · 分支`).slice(0, 200),
+      isFavorite: false,
+      compactedMessageCount,
+      compactedSummary: compactedMessageCount ? source.compactedSummary ?? "" : "",
+      forkSource: { conversationId: source.id, messageId, requestId },
+      messages: source.messages.slice(0, targetIndex + 1).map((message) => {
+        const inherited = { ...clone(message), id: newId(), conversationId: forkId };
+        if (inherited.role === "user" && !hasImages) delete inherited.metadata?.modelId;
+        return inherited;
+      }),
+      createdAt: timestamp,
+      updatedAt: timestamp
+    };
+    await this.repository.put(forked);
+    return summaryOf(forked, { includeMessages: true });
+  }
+
   async setTaskType(conversationId, body) {
     const input = assertObject(body);
     const taskType = String(input.taskType ?? "");

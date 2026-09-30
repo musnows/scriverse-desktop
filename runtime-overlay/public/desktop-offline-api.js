@@ -2,7 +2,7 @@ import {
   conversationRepositoryFromSyncStore,
   createMemoryAiConversationRepository,
   DesktopOfflineConversations
-} from "./desktop-offline-conversations.js?v=20260929-desktop-offline-history-v2";
+} from "./desktop-offline-conversations.js?v=20260930-desktop-offline-history-v3";
 
 export class DesktopOfflineApiError extends Error {
   constructor(code, message) {
@@ -256,6 +256,8 @@ export class DesktopOfflineApi {
       return this.conversations.create(workId, body);
     }
     const conversationTitle = pathname.match(/^\/api\/ai-conversations\/([^/]+)\/title$/u);
+    const conversationFork = pathname.match(/^\/api\/ai-conversations\/([^/]+)\/fork$/u);
+    if (conversationFork && method === "POST") return this.conversations.fork(decodeURIComponent(conversationFork[1]), options.body);
     if (conversationTitle && method === "GET") return this.conversations.title(decodeURIComponent(conversationTitle[1]));
     if (conversationTitle && method === "PATCH") return this.conversations.setTitle(decodeURIComponent(conversationTitle[1]), options.body);
     const conversationFavorite = pathname.match(/^\/api\/ai-conversations\/([^/]+)\/favorite$/u);

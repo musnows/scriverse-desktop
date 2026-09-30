@@ -80,6 +80,13 @@ describe("offline AI web display records", () => {
 });
 
 describe("offline chat tools", () => {
+  it("excludes remote MCP tools from both advertised and executable tools", () => {
+    const configured = { ...corpus, agentTools: ["story_index", "mcp_remote_read", "remote_custom_tool"] };
+    expect(desktopOfflineChatToolDefinitions(configured).map((tool) => tool.function.name)).toEqual(["story_index"]);
+    expect(executeDesktopOfflineChatTool(configured, "mcp_remote_read", {})).toMatchObject({ ok: false, error: { code: "TOOL_NOT_AVAILABLE" } });
+    expect(executeDesktopOfflineChatTool(configured, "remote_custom_tool", {})).toMatchObject({ ok: false, error: { code: "TOOL_NOT_AVAILABLE" } });
+  });
+
   it("offers the same server chat tool names", () => {
     expect(desktopOfflineChatToolDefinitions(corpus).map((tool) => tool.function.name)).toEqual([
       "story_index",

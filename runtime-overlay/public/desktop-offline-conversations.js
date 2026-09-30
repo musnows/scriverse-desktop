@@ -249,6 +249,8 @@ export class DesktopOfflineConversations {
       id: newId(),
       workId: desktopOfflineConversationWorkKey(workId),
       title,
+      titleManuallySet: title !== "新对话",
+      titleGenerated: false,
       isFavorite: false,
       taskType,
       contextScope: emptyScope(),
@@ -307,6 +309,7 @@ export class DesktopOfflineConversations {
     if (!title || title.length > 200) throw new DesktopOfflineConversationError("AI_CONVERSATION_INVALID", "对话名称无效");
     const record = await this.require(conversationId);
     record.title = title;
+    record.titleManuallySet = true;
     record.updatedAt = nowIso();
     await this.repository.put(record);
     return summaryOf(record);
@@ -375,6 +378,7 @@ export class DesktopOfflineConversations {
       ...clone(source),
       id: forkId,
       title: (input.title?.trim() || `${source.title} · 分支`).slice(0, 200),
+      titleManuallySet: true,
       isFavorite: false,
       compactedMessageCount,
       compactedSummary: compactedMessageCount ? source.compactedSummary ?? "" : "",

@@ -247,7 +247,7 @@ describe("Desktop Web runtime overlay", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 
     expect(overlayPatch).toContain('desktop-workspace.js?v=20260913-desktop-global-theme-v1');
-    expect(overlayPatch).toContain('desktop-offline-api.js?v=20260930-desktop-offline-history-v4');
+    expect(overlayPatch).toContain('desktop-offline-api.js?v=20260930-desktop-offline-history-v5');
   });
 
   it("在远端工作区断网时显示页面居中的重新进入引导", () => {

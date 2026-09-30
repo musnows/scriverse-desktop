@@ -2,8 +2,8 @@ import {
   conversationRepositoryFromSyncStore,
   createMemoryAiConversationRepository,
   DesktopOfflineConversations
-} from "./desktop-offline-conversations.js?v=20260930-desktop-offline-history-v4";
-import { DesktopOfflineConversationAi } from "./desktop-offline-conversation-ai.js?v=20260930-desktop-offline-context-v1";
+} from "./desktop-offline-conversations.js?v=20260930-desktop-offline-history-v5";
+import { DesktopOfflineConversationAi } from "./desktop-offline-conversation-ai.js?v=20260930-desktop-offline-context-v2";
 
 export class DesktopOfflineApiError extends Error {
   constructor(code, message) {
@@ -69,14 +69,14 @@ function textCount(value) {
 }
 
 export class DesktopOfflineApi {
-  constructor(controller, { conversations = null, aiBridge = globalThis.scriverseDesktopWorkspace?.localAi ?? globalThis.scriverseDesktopLocalAi, estimateTokens } = {}) {
+  constructor(controller, { conversations = null, aiBridge = globalThis.scriverseDesktopWorkspace?.localAi ?? globalThis.scriverseDesktopLocalAi, estimateTokens, titleSource } = {}) {
     this.controller = controller;
     this.store = controller?.store;
     const repository = conversations
       ? null
       : conversationRepositoryFromSyncStore(this.store) ?? createMemoryAiConversationRepository();
     this.conversations = conversations ?? new DesktopOfflineConversations(repository);
-    this.ai = new DesktopOfflineConversationAi({ conversations: this.conversations, bridge: aiBridge, estimateTokens });
+    this.ai = new DesktopOfflineConversationAi({ conversations: this.conversations, bridge: aiBridge, estimateTokens, titleSource });
   }
 
   async snapshots(workId, entityType) {
@@ -266,7 +266,11 @@ export class DesktopOfflineApi {
     if (conversationCompact && method === "POST") return this.ai.compact(decodeURIComponent(conversationCompact[1]), options.body);
     const conversationContext = pathname.match(/^\/api\/ai-conversations\/([^/]+)\/context$/u);
     if (conversationContext && method === "POST") return this.ai.context(decodeURIComponent(conversationContext[1]), options.body);
-    if (conversationTitle && method === "GET") return this.conversations.title(decodeURIComponent(conversationTitle[1]));
+    if (conversationTitle && method === "GET") {
+      const conversationId = decodeURIComponent(conversationTitle[1]);
+      await this.ai.generateTitle(conversationId).catch(() => undefined);
+      return this.conversations.title(conversationId);
+    }
     if (conversationTitle && method === "PATCH") return this.conversations.setTitle(decodeURIComponent(conversationTitle[1]), options.body);
     const conversationFavorite = pathname.match(/^\/api\/ai-conversations\/([^/]+)\/favorite$/u);
     if (conversationFavorite && method === "PATCH") return this.conversations.setFavorite(decodeURIComponent(conversationFavorite[1]), options.body);

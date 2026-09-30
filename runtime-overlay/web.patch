@@ -27,7 +27,7 @@ index 85a0c55..4b3fc95 100644
    throw new Error("当前浏览器不支持剪贴板写入");
  }
 diff --git a/public/app.js b/public/app.js
-index 57f37f8..b564835 100644
+index 4e3860a..52d2b02 100644
 --- a/public/app.js
 +++ b/public/app.js
 @@ -40,6 +40,7 @@ import {
@@ -568,7 +568,7 @@ index 57f37f8..b564835 100644
 +async function enterDesktopOfflineMode() {
 +  const controller = await ensureDesktopWorkspace(null);
 +  desktopOfflineMode = true;
-+  desktopOfflineApi = createDesktopOfflineApi(controller, { estimateTokens: estimateAiMessageTokens, titleSource: roleplayUserTurnTitleSource });
++  desktopOfflineApi = createDesktopOfflineApi(controller, { estimateTokens: estimateAiMessageTokens, titleSource: aiConversationTitleSource });
 +  document.body.classList.add("desktop-offline-active");
 +  $("#im-open-button").classList.add("hidden");
 +  applyAuthenticatedUser({ user: { ...controller.user, avatarUrl: null }, csrfToken: null });
@@ -1014,7 +1014,7 @@ index 57f37f8..b564835 100644
    replacePageRoute({ view: "module", workId: state.work.id, module });
  }
 
-@@ -12702,8 +13162,12 @@ async function renderOutlines(foreshadowPage = moduleListPages.foreshadows, boar
+@@ -12703,8 +13163,12 @@ async function renderOutlines(foreshadowPage = moduleListPages.foreshadows, boar
  }
 
  async function renderRelationships(page = moduleListPages.relationships) {
@@ -1029,7 +1029,7 @@ index 57f37f8..b564835 100644
    const filteredRelationships = filterRelationships(relationships, relationshipFilters);
    const pageResult = paginateModuleItems(filteredRelationships, page, "relationships");
    moduleListPages.relationships = pageResult.page;
-@@ -12725,10 +13189,7 @@ async function renderRelationships(page = moduleListPages.relationships) {
+@@ -12726,10 +13190,7 @@ async function renderRelationships(page = moduleListPages.relationships) {
      <div class="character-filter-toolbar-actions">${hasRelationshipFilters ? `<span class="character-filter-result-count" aria-live="polite">筛选后剩余 ${filteredRelationships.length} 条关系</span>` : ""}<button id="clear-relationship-filters" class="ghost-button" type="button" ${hasRelationshipFilters ? "" : "disabled"}>重置筛选</button></div>
    </section>`;
    mountRelationshipFilterToggle();
@@ -1041,7 +1041,7 @@ index 57f37f8..b564835 100644
    const graph = buildRelationshipGraph(state.characters, relationships);
    state.relationshipGraph = graph;
    const relationshipList = filteredRelationships.length ? `<div class="relationship-table-wrapper"><table class="table-list relationship-table"><thead><tr><th>人物</th><th>关系</th><th>关键词</th><th>证据</th><th>置信度</th><th>状态</th><th>操作</th></tr></thead><tbody>${pageResult.items.map((item) => `
-@@ -14014,31 +14475,7 @@ function openTaskDetailDialog(task, trace) {
+@@ -14015,31 +14476,7 @@ function openTaskDetailDialog(task, trace) {
  }
 
  function renderProviderCards(providers, models, protocolOptions) {
@@ -1074,7 +1074,7 @@ index 57f37f8..b564835 100644
  }
 
  async function deletePlatformModel(item) {
-@@ -14249,6 +14686,7 @@ function updateBackgroundTaskCenterVisibility() {
+@@ -14250,6 +14687,7 @@ function updateBackgroundTaskCenterVisibility() {
    if (!button) return;
    const visible = Boolean(state.user);
    button.classList.toggle("hidden", !visible);
@@ -1082,7 +1082,7 @@ index 57f37f8..b564835 100644
    if (!visible) {
      $("#background-task-count")?.classList.add("hidden");
      return;
-@@ -14259,7 +14697,7 @@ function updateBackgroundTaskCenterVisibility() {
+@@ -14260,7 +14698,7 @@ function updateBackgroundTaskCenterVisibility() {
    badge.classList.toggle("hidden", activityCount === 0);
    button.classList.toggle("is-active", activityCount > 0);
    button.setAttribute("aria-label", activityCount > 0 ? `后台任务中心，${activityCount} 项进行中` : "后台任务中心");
@@ -1091,7 +1091,7 @@ index 57f37f8..b564835 100644
  }
 
  function backgroundProductUpdateMarkup() {
-@@ -14715,6 +15153,39 @@ function scrollUsageCalendarsToLatest(root) {
+@@ -14716,6 +15154,39 @@ function scrollUsageCalendarsToLatest(root) {
        calendar.scrollLeft = calendar.scrollWidth;
      });
    });
@@ -1131,7 +1131,7 @@ index 57f37f8..b564835 100644
  }
 
  let tokenUsageDetailsTrigger = null;
-@@ -15489,12 +15960,30 @@ async function loadModels() {
+@@ -15490,12 +15961,30 @@ async function loadModels() {
    const workId = state.work?.id;
    if (!workId) return;
    const generation = workScopedUiGeneration;
@@ -1164,7 +1164,7 @@ index 57f37f8..b564835 100644
  function applyAiModels(models) {
    state.models = models.filter((model) => isSelectableModel(model));
    const select = $("#ai-model");
-@@ -15510,6 +15999,20 @@ function applyAiModels(models) {
+@@ -15511,6 +16000,20 @@ function applyAiModels(models) {
  }
 
  async function ensureAiModelsLoaded() {
@@ -1185,7 +1185,7 @@ index 57f37f8..b564835 100644
    const workId = state.work?.id;
    if (!workId || loadedAiModelsWorkId === workId) return;
    if (aiModelsLoadPromise && aiModelsLoadWorkId === workId) return aiModelsLoadPromise;
-@@ -16266,6 +16769,10 @@ function openWorkSettingsDialog(work) {
+@@ -16268,6 +16771,10 @@ function openWorkSettingsDialog(work) {
      <div><strong id="work-access-title">成员权限</strong><small>选择成员后，可为每个作品模块单独设置无权限、只读或可编辑。</small><div class="work-access-options" aria-label="成员权限配置方式"><span>按成员配置</span><span>按模块授权</span><span>读写分离</span></div></div>
      ${canManageAccess ? '<button id="work-access-manage" class="ghost-button" type="button">配置成员权限</button>' : '<small>仅作品创建者或系统管理员可以调整访问权限。</small>'}
    </section>`;
@@ -1196,7 +1196,7 @@ index 57f37f8..b564835 100644
    const importHistoryField = `<section class="work-access-field" aria-labelledby="import-history-settings-title">
      <div><strong id="import-history-settings-title">正文导入历史</strong><small>查看导入前快照并恢复被覆盖的分卷、章节标题和正文；大纲、伏笔等章节关联资料不在快照中。</small></div>
      <button id="import-history-button" class="ghost-button" type="button" aria-controls="import-history-dialog" aria-haspopup="dialog" ${canOpenImportHistory ? "" : "disabled"}>${importHistoryAction}</button>
-@@ -16294,7 +16801,7 @@ function openWorkSettingsDialog(work) {
+@@ -16296,7 +16803,7 @@ function openWorkSettingsDialog(work) {
      </div>
    </section>`;
    openDialog("作品信息",
@@ -1205,7 +1205,7 @@ index 57f37f8..b564835 100644
      async (form) => {
        await api(`/api/works/${work.id}`, { method: "PATCH", body: {
          title: form.get("title"),
-@@ -16499,6 +17006,7 @@ async function openChapterDialog(volumeId = null) {
+@@ -16501,6 +17008,7 @@ async function openChapterDialog(volumeId = null) {
    openChapterDialog.insertAfterChapterId = null;
    openChapterDialog.insertBeforeChapterId = null;
    if (!state.work) return openWorkDialog();
@@ -1213,7 +1213,7 @@ index 57f37f8..b564835 100644
    if (!canEditProse()) return toast("当前权限只能编辑设定资料，正文为只读", "error");
    if (!state.work.volumes.length) {
      await api(`/api/works/${state.work.id}/volumes`, { method: "POST", body: { title: "正文", kind: "main" } });
-@@ -16534,6 +17042,7 @@ async function openChapterDialog(volumeId = null) {
+@@ -16536,6 +17044,7 @@ async function openChapterDialog(volumeId = null) {
 
  function openVolumeDialog(item) {
    if (!state.work) return openWorkDialog();
@@ -1221,7 +1221,7 @@ index 57f37f8..b564835 100644
    if (!canEditProse()) return toast("当前权限只能编辑设定资料，不能修改分卷", "error");
    const kindOptions = [["main", "正文卷"], ["prequel", "前传"], ["extra", "番外"], ["epilogue", "后记"], ["appendix", "附录"]];
    const nextStoryOrder = Math.max(-1, ...state.work.volumes.map((volume) => Number(volume.storyOrder)).filter(Number.isInteger)) + 1;
-@@ -16735,7 +17244,7 @@ function syncSettingEditorChrome(viewOnly) {
+@@ -16737,7 +17246,7 @@ function syncSettingEditorChrome(viewOnly) {
    $("#setting-editor-version").textContent = item ? `v${item.versionNo}` : "新档案";
    $("#setting-editor-submit").textContent = item ? "保存新版本" : "创建设定";
    $("#setting-editor-submit").classList.toggle("hidden", viewOnly);
@@ -1230,7 +1230,7 @@ index 57f37f8..b564835 100644
    $("#setting-editor-confirm").classList.toggle("hidden", !showManagementActions || item?.status !== "pending");
    $("#setting-editor-deprecate").classList.toggle("hidden", !showManagementActions || item?.status !== "pending");
    $("#setting-editor-history").classList.toggle("hidden", !showManagementActions);
-@@ -16887,7 +17396,9 @@ async function openSettingEditor(item = null, { readOnly = false } = {}) {
+@@ -16889,7 +17398,9 @@ async function openSettingEditor(item = null, { readOnly = false } = {}) {
          replacePageRoute(currentPageRoute());
          return {
            buttonLabel: "保存新版本",
@@ -1241,7 +1241,7 @@ index 57f37f8..b564835 100644
          };
        }
      });
-@@ -16896,6 +17407,7 @@ async function openSettingEditor(item = null, { readOnly = false } = {}) {
+@@ -16898,6 +17409,7 @@ async function openSettingEditor(item = null, { readOnly = false } = {}) {
    settingEditorDirtyTracker.markSaved(settingEditorSnapshot(item?.content ?? ""));
    settingEditorVditor = createVditorEditor($("#setting-editor-markdown"), item?.content ?? "", {
      onInput: (markdown) => syncSettingEditorDirty(markdown),
@@ -1249,7 +1249,7 @@ index 57f37f8..b564835 100644
      readOnly: viewOnly
    });
    (readOnly ? $("#setting-editor-back") : $("#setting-editor-name")).focus();
-@@ -17223,7 +17735,7 @@ async function loadVditorResources() {
+@@ -17225,7 +17737,7 @@ async function loadVditorResources() {
    return vditorResourcesPromise;
  }
 
@@ -1258,7 +1258,7 @@ index 57f37f8..b564835 100644
    if (!window.Vditor) {
      toast("Markdown 编辑器资源加载失败，请刷新页面后重试", "error");
      return null;
-@@ -17241,7 +17753,7 @@ function createVditorEditor(host, value, { onInput = () => {}, uploadAttachment
+@@ -17243,7 +17755,7 @@ function createVditorEditor(host, value, { onInput = () => {}, uploadAttachment
      placeholder,
      preview: { transform: transformVditorPreview },
      cache: { enable: false },
@@ -1267,7 +1267,7 @@ index 57f37f8..b564835 100644
        name: "line-number",
        tip: "显示/隐藏行号",
        tipPosition: "s",
-@@ -17249,12 +17761,12 @@ function createVditorEditor(host, value, { onInput = () => {}, uploadAttachment
+@@ -17251,12 +17763,12 @@ function createVditorEditor(host, value, { onInput = () => {}, uploadAttachment
        icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h3M4 9h3M4 13h3M4 17h3M10 5h10M10 9h10M10 13h10M10 17h10" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.6"/></svg>',
        click: () => toggleVditorLineNumbers(editor)
      }, "edit-mode"],
@@ -1282,7 +1282,7 @@ index 57f37f8..b564835 100644
      input: (markdown) => {
        normalizeVditorAttachmentImages(editor);
        updateVditorWordCount(editor, markdown);
-@@ -18639,13 +19151,15 @@ async function openTaskDialog() {
+@@ -18651,13 +19163,15 @@ async function openTaskDialog() {
    let relationshipCharacters = [];
    let taskModels = [];
    let taskDefaults = [];
@@ -1300,7 +1300,7 @@ index 57f37f8..b564835 100644
      ]);
    } catch (error) {
      toast(`分析任务配置加载失败：${error.message}`, "error");
-@@ -18719,7 +19233,7 @@ async function openTaskDialog() {
+@@ -18731,7 +19245,7 @@ async function openTaskDialog() {
      </div>`;
    };
    const defaultModelByTask = new Map(taskDefaults.map((item) => [item.taskType, item.model.id]));
@@ -1309,7 +1309,7 @@ index 57f37f8..b564835 100644
    const characterOptions = relationshipCharacters.map((character) => [character.id, character.name]);
    const relationshipCharacterPicker = `<div class="form-field relationship-character-field">
      <span id="relationship-character-label">被分析角色（可多选）</span>
-@@ -18743,7 +19257,7 @@ async function openTaskDialog() {
+@@ -18755,7 +19269,7 @@ async function openTaskDialog() {
    const defaultModelId = defaultModelByTask.get(analysisTaskModelPurpose(defaultTaskType)) ?? "";
    const modelField = `<label>任务模型<select name="modelId" required aria-describedby="analysis-task-model-help">
      <option value="" ${availableTaskModels.some((model) => model.id === defaultModelId) ? "" : "selected"} disabled>${availableTaskModels.length ? "请选择模型" : "没有可用模型"}</option>
@@ -1318,7 +1318,7 @@ index 57f37f8..b564835 100644
    </select><small id="analysis-task-model-help">默认值来自“本书 AI 设置”，只修改当前任务，不会改变全书默认模型。</small><p class="analysis-context-warning hidden" data-analysis-context-warning role="alert"></p></label>`;
    const chapterField = taskScopePicker(chapterOptions, "选择需要分析的章节");
    const relationshipFields = `<div class="relationship-analysis-options hidden">
-@@ -19463,6 +19977,627 @@ function openModelDialog(providerId, item = null, provider = null, protocolOptio
+@@ -19475,6 +19989,627 @@ function openModelDialog(providerId, item = null, provider = null, protocolOptio
    syncModelKindFields();
  }
 
@@ -1946,7 +1946,7 @@ index 57f37f8..b564835 100644
  async function sendAi() {
    return sendAiWithOptions();
  }
-@@ -19591,7 +20726,17 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
+@@ -19603,7 +20738,17 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
        throw error;
      }
      tab.selectedModelId = modelId;
@@ -1964,7 +1964,7 @@ index 57f37f8..b564835 100644
      if (imageAttachmentIds.length > 0 && !state.models.find((model) => model.id === modelId)?.multimodalEnabled) {
        const error = new Error("当前选择的模型不是多模态模型，无法发送图片附件");
        if (!requestHolder.optimisticUserMessage) return toast(error.message, "error");
-@@ -19608,6 +20753,44 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
+@@ -19620,6 +20765,44 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
      setAiChatTabStatus(tab, "streaming");
      if (retry?.message?.isConnected) retry.message.remove();
      if (retry) prepareAiRetryState(tab, modelId);
@@ -2009,7 +2009,7 @@ index 57f37f8..b564835 100644
      let assistantContent = "";
      let assistantMessage;
      let assistantMetadata = {};
-@@ -19622,7 +20805,26 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
+@@ -19634,7 +20817,26 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
        ...(imageAttachmentIds.length ? { imageAttachmentIds } : {}),
        conversationId: requestHolder.snapshot.conversationId,
        ...(ignoreContextWarning ? { ignoreContextWarning: true } : {})
@@ -2037,7 +2037,7 @@ index 57f37f8..b564835 100644
      const streamedRequest = assertAiRequestCurrent(requestHolder.snapshot);
      if (streamed.action === "warn") {
        requestHolder.optimisticUserMessage?.remove();
-@@ -19801,7 +21003,7 @@ function renderAiStreamingCharacterProgress(meta, visibleCharacters) {
+@@ -19813,7 +21015,7 @@ function renderAiStreamingCharacterProgress(meta, visibleCharacters) {
    meta.replaceChildren("正在生成 · ", createAiStreamCharacterCount(visible), " 字");
  }
 
@@ -2046,7 +2046,7 @@ index 57f37f8..b564835 100644
    const tab = aiChatTabForRequest(requestHolder.snapshot);
    if (!tab) throw createAiRequestAbortError("Agent 对话页签已关闭");
    const feed = tab.feed;
-@@ -19831,7 +21033,7 @@ async function streamChat(requestHolder, body, idempotencyKey, { endpoint = null
+@@ -19843,7 +21045,7 @@ async function streamChat(requestHolder, body, idempotencyKey, { endpoint = null
      window.clearInterval(streamConnectionTimer);
      streamConnectionTimer = null;
    };
@@ -2055,7 +2055,7 @@ index 57f37f8..b564835 100644
    const streamSpeedController = createStreamTypewriterSpeedController();
    let streamConnectionEstablished = false;
    let messageMounted = message.isConnected;
-@@ -19947,12 +21149,14 @@ async function streamChat(requestHolder, body, idempotencyKey, { endpoint = null
+@@ -19959,12 +21161,14 @@ async function streamChat(requestHolder, body, idempotencyKey, { endpoint = null
    };
    try {
      const request = assertAiRequestCurrent(requestHolder.snapshot);
@@ -2076,7 +2076,7 @@ index 57f37f8..b564835 100644
      assertAiRequestCurrent(requestHolder.snapshot);
      if (!response.ok || !response.body) {
        const payload = await response.json().catch(() => ({ error: { message: `请求失败：${response.status}` } }));
-@@ -20054,6 +21258,11 @@ async function streamChat(requestHolder, body, idempotencyKey, { endpoint = null
+@@ -20066,6 +21270,11 @@ async function streamChat(requestHolder, body, idempotencyKey, { endpoint = null
          streamedText += delta;
          streamedPendingText += delta;
          typewriter.append(delta);
@@ -2088,7 +2088,7 @@ index 57f37f8..b564835 100644
        } else if (eventName === "process_step") {
          mountAssistantMessage();
          const step = { ...payload };
-@@ -20119,6 +21328,7 @@ async function streamChat(requestHolder, body, idempotencyKey, { endpoint = null
+@@ -20131,6 +21340,7 @@ async function streamChat(requestHolder, body, idempotencyKey, { endpoint = null
            ? payload.processDurationMs
            : elapsedProcessTime();
          generatedMetadata = {
@@ -2096,7 +2096,7 @@ index 57f37f8..b564835 100644
            modelDisplayName: payload.model?.displayName,
            outputTokens: payload.outputTokens,
            cacheHitPercent: payload.cacheHitPercent,
-@@ -20939,6 +22149,23 @@ $("#home-button").addEventListener("click", async () => {
+@@ -20951,6 +22161,23 @@ $("#home-button").addEventListener("click", async () => {
  $("#settings-button").addEventListener("click", () => {
    void showSettingsHub();
  });
@@ -2120,7 +2120,7 @@ index 57f37f8..b564835 100644
  $("#global-replace-button").addEventListener("click", openGlobalReplaceDialog);
  $("#account-button").addEventListener("click", () => {
    const expanded = $("#account-menu").classList.toggle("hidden") === false;
-@@ -21483,6 +22710,12 @@ $("#logout-button").addEventListener("click", async () => {
+@@ -21495,6 +22722,12 @@ $("#logout-button").addEventListener("click", async () => {
    try {
      stopS3BackupEventPolling();
      await api("/api/auth/session", { method: "DELETE" });
@@ -2133,7 +2133,7 @@ index 57f37f8..b564835 100644
      state.user = null;
      state.csrfToken = null;
      window.location.reload();
-@@ -23064,6 +24297,11 @@ $("#reader-viewport").addEventListener("scroll", () => {
+@@ -23076,6 +24309,11 @@ $("#reader-viewport").addEventListener("scroll", () => {
  }, { passive: true });
  document.addEventListener("visibilitychange", () => {
    if (document.visibilityState !== "visible") return;
@@ -2145,7 +2145,7 @@ index 57f37f8..b564835 100644
    if (state.user && !systemRestartDetected) scheduleSystemBootCheck(0);
    if (state.user?.role === "admin" && !systemRestartDetected) void refreshS3BackupEvents();
    void refreshSystemHealth();
-@@ -23079,10 +24317,26 @@ window.addEventListener("beforeunload", (event) => {
+@@ -23091,10 +24329,26 @@ window.addEventListener("beforeunload", (event) => {
    }
  });
  window.addEventListener("online", () => {
@@ -2173,7 +2173,7 @@ index 57f37f8..b564835 100644
  window.addEventListener("resize", () => {
    if (aiCitationPopoverTrigger && !$("#ai-citation-popover").classList.contains("hidden")) positionAiCitationPopover(aiCitationPopoverTrigger);
    if ($("#reader-view").classList.contains("hidden") || readingPreferences.mode !== "paged") return;
-@@ -23121,5 +24375,5 @@ initializePage().catch((error) => {
+@@ -23133,5 +24387,5 @@ initializePage().catch((error) => {
    showShelf();
    toast(`系统初始化失败：${error.message}`, "error");
  }).finally(() => {
@@ -2181,7 +2181,7 @@ index 57f37f8..b564835 100644
 +  if (state.user && !desktopOfflineMode) void imWorkspace.activate().catch((error) => toast(`IM 初始化失败：${error.message}`, "error"));
  });
 diff --git a/public/index.html b/public/index.html
-index 534b260..0f87edc 100644
+index 88727ad..4f27565 100644
 --- a/public/index.html
 +++ b/public/index.html
 @@ -11,6 +11,7 @@
@@ -2279,8 +2279,8 @@ index 534b260..0f87edc 100644
 +      </div>
 +    </section>
      <div id="auth-loading" class="auth-loading" role="status" aria-label="正在载入工作台"></div>
--    <script type="module" src="/app.js?v=20260816-extended-thinking-effort-v1&feature=ai-history-rename-v1&feature=ai-tool-call-copy-feedback-v2&feature=ai-send-control-v2&feature=analysis-task-queue-refresh-v1&feature=character-gender-v1&feature=character-filter-state-v1&feature=relationship-canvas-scale-v1&feature=relationship-table-scroll-v1&feature=ai-session-id-copy-v2&feature=galaxy-motion-mode-v3&feature=galaxy-edge-label-threshold-v1&feature=calculate-time-tool-v2&feature=analysis-task-expired-toast-v1&feature=global-replace-volume-v1&feature=chapter-search-replace-v1&feature=chapter-save-toast-v1&feature=character-relationship-delete-v1&feature=character-relationship-group-v1&feature=analysis-task-stability-delay-v1&feature=ai-assistant-workspace-v2&feature=volume-detail-icon-v1&feature=volume-story-order-v1&feature=reader-manual-chapter-navigation-v1&feature=ai-message-reference-badges-v1&feature=ai-roleplay-message-reference-v1&feature=ai-message-actions-v1&feature=assistant-responsive-navigation-v3&feature=annotation-permissions-v1&feature=annotation-line-counts-v1&feature=ai-relationship-roleplay-v1&feature=ai-roleplay-user-character-visibility-v1&feature=ai-roleplay-story-recall-v1&feature=ai-model-picker-v1&feature=ai-fork-model-unlock-v1&feature=context-percent-format-v1&feature=annotation-precise-locate-v1&feature=markdown-word-count-stable-v1&feature=ai-stream-character-count-stable-v2&feature=ai-process-empty-intermediate-v1&feature=ai-feed-scroll-follow-v2&feature=ai-message-retry-v1&feature=ai-stream-idle-timeout-v2&feature=ai-config-delete-v1&feature=ai-provider-protocol-options-v1&feature=ai-provider-thinking-type-v1&feature=ai-chat-image-attachments-v8&feature=ai-message-image-preview-v1&feature=ai-thinking-scroll-v2&feature=ai-image-conversation-model-lock-v1&feature=toast-click-dismiss-v2&feature=system-restart-dialog-delay-v1&feature=character-avatar-v6&feature=character-death-position-v1&feature=admin-ai-conversations-v1&feature=ai-usage-pricing-v1&feature=ai-usage-pricing-badge-v2&feature=ai-usage-pricing-label-v1&feature=ai-usage-token-breakdown-v1&feature=ai-usage-pricing-cache-v2&feature=ai-usage-pricing-manual-refresh-v1&feature=ai-monthly-token-quota-v1&feature=ai-provider-token-quota-v1&feature=ai-token-quota-positive-v6&feature=ai-model-thinking-label-v1&feature=ai-model-picker-focus-v1&feature=ai-provider-model-import-v1&feature=ai-assistant-brain-icon-v1&feature=ai-token-usage-details-v1&feature=ai-token-usage-details-centered-v1&feature=ai-token-usage-raw-input-v1&feature=ai-stream-connection-seconds-v1&feature=phone-client-entry-v1&feature=ai-usage-pricing-cache-v1&feature=ai-model-thinking-label-v3&feature=ai-roleplay-speaker-label-v1&feature=toast-modal-host-v1&feature=api-key-copy-existing-v1&feature=character-favorite-v1&feature=record-favorites-v1&feature=ai-token-usage-estimated-price-v1&feature=entity-detail-favorites-v1&feature=entity-pin-v1&feature=entity-pin-icon-v1&feature=roleplay-favorite-label-v1&feature=ai-roleplay-knowledge-tools-v1&feature=character-persona-summary-v1&feature=ai-roleplay-scene-turn-v2&feature=admin-account-identity-v2&feature=ai-provider-analysis-timeout-v1&feature=task-detail-failure-orange-v1&feature=book-import-progress-v1&feature=presence-multiple-users-v1&feature=ai-context-input-output-v1&feature=editor-blank-lines-preserved-v1&feature=reader-first-frame-v1&feature=vditor-lazy-load-v1&feature=ui-module-preload-v1&feature=reader-initial-prefetch-v1&feature=editor-preview-toggle-v2&feature=vditor-fullscreen-disabled-v1&feature=chapter-auto-indent-v1&feature=chapter-centered-scroll-v1&feature=work-editor-preferences-v1&feature=ai-context-output-usage-v1&feature=ai-context-meter-ring-only-v1&feature=ai-context-cache-hit-v1&feature=ai-roleplay-memory-v4&feature=ai-roleplay-memory-v5&feature=roleplay-memory-header-actions-v1&feature=roleplay-memory-header-toolbar-v1&feature=roleplay-memory-action-icons-v1&feature=roleplay-memory-action-colors-v1&feature=annotation-line-anchor-v1&feature=stable-line-ids-v1&feature=live-annotation-anchors-v1&feature=chapter-comment-filters-v1&feature=ai-write-tools-v3&feature=ai-question-option-supplement-v1&feature=ai-question-selection-highlight-v1&feature=ai-question-continuation-ui-v3&feature=ai-background-stream-v1&feature=ai-question-tool-result-v1&feature=ai-question-tool-summary-v1&feature=ai-question-submit-guidance-v1&feature=ai-question-batch-v1&feature=ai-question-answer-limit-v1&feature=semantic-search-v6&feature=chapter-title-renumber-v1&feature=ai-writing-skills-v3&feature=ai-cancel-preserve-process-v2&feature=remote-mcp-v1&feature=character-alias-chips-v2&feature=character-title-input-v1&feature=character-detail-value-wrap-v2&feature=chapter-batch-editor-refresh-v1&feature=ai-usage-stat-display-v1&feature=ai-usage-year-v1&feature=semantic-search-rag-label-v1&feature=ai-skill-slash-menu-v1&feature=ai-roleplay-scene-bubble-v1&feature=ai-roleplay-scene-collapse-v1&feature=markdown-adjacent-blockquotes-v1&feature=chapter-save-shortcut-v2&feature=ai-message-citation-popover-v1&feature=line-citation-menu-separator-v1&feature=global-im-v106&feature=im-sidebar-compact-v1&feature=ai-fork-progress-toast-v1&feature=im-settings-gear-v1&feature=compact-sidebar-directory-v2&feature=chapter-word-count-consistency-v1&feature=ai-all-message-references-v2&feature=ai-question-render-recovery-v3&feature=setting-category-preservation-v1&feature=toast-stack-v1&feature=toast-stack-label-v2&feature=agent-tool-limits-300-v1&feature=server-dev-logo-v1&feature=chapter-directory-ai-reference-v3&feature=ai-error-origin-v1&feature=ai-stream-render-performance-v2&feature=ai-attachment-disabled-v1&feature=ai-prose-acceptance-removed-v1&feature=ai-inline-message-references-v1&feature=ai-write-plan-status-sync-v1&feature=writing-goal-module-navigation-v2&feature=chapter-line-scroll-bind-v1&feature=invite-registration-v1&feature=ai-send-mode-v2&feature=character-attributes-prune-v1&feature=annotation-note-limit-v1&feature=chapter-directory-performance-v2&feature=chapter-directory-click-priority-v1&feature=chapter-switch-skeleton-v1&feature=mobile-offline-runtime-v6&feature=ai-title-first-turn-v1&feature=ai-optimistic-send-v1&feature=chapter-auto-title-menu-v1&feature=chapter-insert-menu-v1&feature=captcha-retry-same-image-v1&feature=relationship-index-dialog-poll-v1"></script>
-+    <script type="module" src="/app.js?v=20260816-extended-thinking-effort-v1&feature=ai-history-rename-v1&feature=ai-tool-call-copy-feedback-v2&feature=ai-send-control-v2&feature=analysis-task-queue-refresh-v1&feature=character-gender-v1&feature=character-filter-state-v1&feature=relationship-canvas-scale-v1&feature=relationship-table-scroll-v1&feature=ai-session-id-copy-v2&feature=galaxy-motion-mode-v3&feature=galaxy-edge-label-threshold-v1&feature=calculate-time-tool-v2&feature=analysis-task-expired-toast-v1&feature=global-replace-volume-v1&feature=chapter-search-replace-v1&feature=chapter-save-toast-v1&feature=character-relationship-delete-v1&feature=character-relationship-group-v1&feature=analysis-task-stability-delay-v1&feature=ai-assistant-workspace-v2&feature=volume-detail-icon-v1&feature=volume-story-order-v1&feature=reader-manual-chapter-navigation-v1&feature=ai-message-reference-badges-v1&feature=ai-roleplay-message-reference-v1&feature=ai-message-actions-v1&feature=assistant-responsive-navigation-v3&feature=annotation-permissions-v1&feature=annotation-line-counts-v1&feature=ai-relationship-roleplay-v1&feature=ai-roleplay-user-character-visibility-v1&feature=ai-roleplay-story-recall-v1&feature=ai-model-picker-v1&feature=ai-fork-model-unlock-v1&feature=context-percent-format-v1&feature=annotation-precise-locate-v1&feature=markdown-word-count-stable-v1&feature=ai-stream-character-count-stable-v2&feature=ai-process-empty-intermediate-v1&feature=ai-feed-scroll-follow-v2&feature=ai-message-retry-v1&feature=ai-stream-idle-timeout-v2&feature=ai-config-delete-v1&feature=ai-provider-protocol-options-v1&feature=ai-provider-thinking-type-v1&feature=ai-chat-image-attachments-v8&feature=ai-message-image-preview-v1&feature=ai-thinking-scroll-v2&feature=ai-image-conversation-model-lock-v1&feature=toast-click-dismiss-v2&feature=system-restart-dialog-delay-v1&feature=character-avatar-v6&feature=character-death-position-v1&feature=admin-ai-conversations-v1&feature=ai-usage-pricing-v1&feature=ai-usage-pricing-badge-v2&feature=ai-usage-pricing-label-v1&feature=ai-usage-token-breakdown-v1&feature=ai-usage-pricing-cache-v2&feature=ai-usage-pricing-manual-refresh-v1&feature=ai-monthly-token-quota-v1&feature=ai-provider-token-quota-v1&feature=ai-token-quota-positive-v6&feature=ai-model-thinking-label-v1&feature=ai-model-picker-focus-v1&feature=ai-provider-model-import-v1&feature=ai-assistant-brain-icon-v1&feature=ai-token-usage-details-v1&feature=ai-token-usage-details-centered-v1&feature=ai-token-usage-raw-input-v1&feature=ai-stream-connection-seconds-v1&feature=phone-client-entry-v1&feature=ai-usage-pricing-cache-v1&feature=ai-model-thinking-label-v3&feature=ai-roleplay-speaker-label-v1&feature=toast-modal-host-v1&feature=api-key-copy-existing-v1&feature=character-favorite-v1&feature=record-favorites-v1&feature=ai-token-usage-estimated-price-v1&feature=entity-detail-favorites-v1&feature=entity-pin-v1&feature=entity-pin-icon-v1&feature=roleplay-favorite-label-v1&feature=ai-roleplay-knowledge-tools-v1&feature=character-persona-summary-v1&feature=ai-roleplay-scene-turn-v2&feature=admin-account-identity-v2&feature=ai-provider-analysis-timeout-v1&feature=task-detail-failure-orange-v1&feature=book-import-progress-v1&feature=presence-multiple-users-v1&feature=ai-context-input-output-v1&feature=editor-blank-lines-preserved-v1&feature=reader-first-frame-v1&feature=vditor-lazy-load-v1&feature=ui-module-preload-v1&feature=reader-initial-prefetch-v1&feature=editor-preview-toggle-v2&feature=vditor-fullscreen-disabled-v1&feature=chapter-auto-indent-v1&feature=chapter-centered-scroll-v1&feature=work-editor-preferences-v1&feature=ai-context-output-usage-v1&feature=ai-context-meter-ring-only-v1&feature=ai-context-cache-hit-v1&feature=ai-roleplay-memory-v4&feature=ai-roleplay-memory-v5&feature=roleplay-memory-header-actions-v1&feature=roleplay-memory-header-toolbar-v1&feature=roleplay-memory-action-icons-v1&feature=roleplay-memory-action-colors-v1&feature=annotation-line-anchor-v1&feature=stable-line-ids-v1&feature=live-annotation-anchors-v1&feature=chapter-comment-filters-v1&feature=ai-write-tools-v3&feature=ai-question-option-supplement-v1&feature=ai-question-selection-highlight-v1&feature=ai-question-continuation-ui-v3&feature=ai-background-stream-v1&feature=ai-question-tool-result-v1&feature=ai-question-tool-summary-v1&feature=ai-question-submit-guidance-v1&feature=ai-question-batch-v1&feature=ai-question-answer-limit-v1&feature=semantic-search-v6&feature=chapter-title-renumber-v1&feature=ai-writing-skills-v3&feature=ai-cancel-preserve-process-v2&feature=remote-mcp-v1&feature=character-alias-chips-v2&feature=character-title-input-v1&feature=character-detail-value-wrap-v2&feature=chapter-batch-editor-refresh-v1&feature=ai-usage-stat-display-v1&feature=ai-usage-year-v1&feature=semantic-search-rag-label-v1&feature=ai-skill-slash-menu-v1&feature=ai-roleplay-scene-bubble-v1&feature=ai-roleplay-scene-collapse-v1&feature=markdown-adjacent-blockquotes-v1&feature=chapter-save-shortcut-v2&feature=ai-message-citation-popover-v1&feature=line-citation-menu-separator-v1&feature=global-im-v106&feature=im-sidebar-compact-v1&feature=ai-fork-progress-toast-v1&feature=im-settings-gear-v1&feature=compact-sidebar-directory-v2&feature=chapter-word-count-consistency-v1&feature=ai-all-message-references-v2&feature=ai-question-render-recovery-v3&feature=setting-category-preservation-v1&feature=toast-stack-v1&feature=toast-stack-label-v2&feature=agent-tool-limits-300-v1&feature=server-dev-logo-v1&feature=chapter-directory-ai-reference-v3&feature=ai-error-origin-v1&feature=ai-stream-render-performance-v2&feature=ai-attachment-disabled-v1&feature=ai-prose-acceptance-removed-v1&feature=ai-inline-message-references-v1&feature=ai-write-plan-status-sync-v1&feature=writing-goal-module-navigation-v2&feature=chapter-line-scroll-bind-v1&feature=invite-registration-v1&feature=ai-send-mode-v2&feature=character-attributes-prune-v1&feature=annotation-note-limit-v1&feature=chapter-directory-performance-v2&feature=chapter-directory-click-priority-v1&feature=chapter-switch-skeleton-v1&feature=mobile-offline-runtime-v6&feature=ai-title-first-turn-v1&feature=ai-optimistic-send-v1&feature=chapter-auto-title-menu-v1&feature=chapter-insert-menu-v1&feature=captcha-retry-same-image-v1&feature=relationship-index-dialog-poll-v1&feature=desktop-same-workspace-v1&feature=desktop-sync-fetch-brand-v1&feature=desktop-offline-worker-ready-v1&feature=desktop-local-ai-shared-ui-v1&feature=desktop-local-ai-workspace-v1&feature=desktop-local-ai-offline-v1&feature=desktop-rescue-export-v1&feature=desktop-profile-removal-guard-v1&feature=desktop-initial-offline-download-v2&feature=desktop-local-model-badge-only-v1&feature=desktop-sync-status-v1&feature=desktop-provider-stream-v1&feature=desktop-sync-icon-only-v1&feature=desktop-route-ready-cover-v1&feature=desktop-quit-confirmation-v1&feature=desktop-offline-agent-v1"></script>
+-    <script type="module" src="/app.js?v=20260816-extended-thinking-effort-v1&feature=ai-history-rename-v1&feature=ai-tool-call-copy-feedback-v2&feature=ai-send-control-v2&feature=analysis-task-queue-refresh-v1&feature=character-gender-v1&feature=character-filter-state-v1&feature=relationship-canvas-scale-v1&feature=relationship-table-scroll-v1&feature=ai-session-id-copy-v2&feature=galaxy-motion-mode-v3&feature=galaxy-edge-label-threshold-v1&feature=calculate-time-tool-v2&feature=analysis-task-expired-toast-v1&feature=global-replace-volume-v1&feature=chapter-search-replace-v1&feature=chapter-save-toast-v1&feature=character-relationship-delete-v1&feature=character-relationship-group-v1&feature=analysis-task-stability-delay-v1&feature=ai-assistant-workspace-v2&feature=volume-detail-icon-v1&feature=volume-story-order-v1&feature=reader-manual-chapter-navigation-v1&feature=ai-message-reference-badges-v1&feature=ai-roleplay-message-reference-v1&feature=ai-message-actions-v1&feature=assistant-responsive-navigation-v3&feature=annotation-permissions-v1&feature=annotation-line-counts-v1&feature=ai-relationship-roleplay-v1&feature=ai-roleplay-user-character-visibility-v1&feature=ai-roleplay-story-recall-v1&feature=ai-model-picker-v1&feature=ai-fork-model-unlock-v1&feature=context-percent-format-v1&feature=annotation-precise-locate-v1&feature=markdown-word-count-stable-v1&feature=ai-stream-character-count-stable-v2&feature=ai-process-empty-intermediate-v1&feature=ai-feed-scroll-follow-v2&feature=ai-message-retry-v1&feature=ai-stream-idle-timeout-v2&feature=ai-config-delete-v1&feature=ai-provider-protocol-options-v1&feature=ai-provider-thinking-type-v1&feature=ai-chat-image-attachments-v8&feature=ai-message-image-preview-v1&feature=ai-thinking-scroll-v2&feature=ai-image-conversation-model-lock-v1&feature=toast-click-dismiss-v2&feature=system-restart-dialog-delay-v1&feature=character-avatar-v6&feature=character-death-position-v1&feature=admin-ai-conversations-v1&feature=ai-usage-pricing-v1&feature=ai-usage-pricing-badge-v2&feature=ai-usage-pricing-label-v1&feature=ai-usage-token-breakdown-v1&feature=ai-usage-pricing-cache-v2&feature=ai-usage-pricing-manual-refresh-v1&feature=ai-monthly-token-quota-v1&feature=ai-provider-token-quota-v1&feature=ai-token-quota-positive-v6&feature=ai-model-thinking-label-v1&feature=ai-model-picker-focus-v1&feature=ai-provider-model-import-v1&feature=ai-assistant-brain-icon-v1&feature=ai-token-usage-details-v1&feature=ai-token-usage-details-centered-v1&feature=ai-token-usage-raw-input-v1&feature=ai-stream-connection-seconds-v1&feature=phone-client-entry-v1&feature=ai-usage-pricing-cache-v1&feature=ai-model-thinking-label-v3&feature=ai-roleplay-speaker-label-v1&feature=toast-modal-host-v1&feature=api-key-copy-existing-v1&feature=character-favorite-v1&feature=record-favorites-v1&feature=ai-token-usage-estimated-price-v1&feature=entity-detail-favorites-v1&feature=entity-pin-v1&feature=entity-pin-icon-v1&feature=roleplay-favorite-label-v1&feature=ai-roleplay-knowledge-tools-v1&feature=character-persona-summary-v1&feature=ai-roleplay-scene-turn-v2&feature=admin-account-identity-v2&feature=ai-provider-analysis-timeout-v1&feature=task-detail-failure-orange-v1&feature=book-import-progress-v1&feature=presence-multiple-users-v1&feature=ai-context-input-output-v1&feature=editor-blank-lines-preserved-v1&feature=reader-first-frame-v1&feature=vditor-lazy-load-v1&feature=ui-module-preload-v1&feature=reader-initial-prefetch-v1&feature=editor-preview-toggle-v2&feature=vditor-fullscreen-disabled-v1&feature=chapter-auto-indent-v1&feature=chapter-centered-scroll-v1&feature=work-editor-preferences-v1&feature=ai-context-output-usage-v1&feature=ai-context-meter-ring-only-v1&feature=ai-context-cache-hit-v1&feature=ai-roleplay-memory-v4&feature=ai-roleplay-memory-v5&feature=roleplay-memory-header-actions-v1&feature=roleplay-memory-header-toolbar-v1&feature=roleplay-memory-action-icons-v1&feature=roleplay-memory-action-colors-v1&feature=annotation-line-anchor-v1&feature=stable-line-ids-v1&feature=live-annotation-anchors-v1&feature=chapter-comment-filters-v1&feature=ai-write-tools-v3&feature=ai-question-option-supplement-v1&feature=ai-question-selection-highlight-v1&feature=ai-question-continuation-ui-v3&feature=ai-background-stream-v1&feature=ai-question-tool-result-v1&feature=ai-question-tool-summary-v1&feature=ai-question-submit-guidance-v1&feature=ai-question-batch-v1&feature=ai-question-answer-limit-v1&feature=semantic-search-v6&feature=chapter-title-renumber-v1&feature=ai-writing-skills-v3&feature=ai-cancel-preserve-process-v2&feature=remote-mcp-v1&feature=character-alias-chips-v2&feature=character-title-input-v1&feature=character-detail-value-wrap-v2&feature=chapter-batch-editor-refresh-v1&feature=ai-usage-stat-display-v1&feature=ai-usage-year-v1&feature=semantic-search-rag-label-v1&feature=ai-skill-slash-menu-v1&feature=ai-roleplay-scene-bubble-v1&feature=ai-roleplay-scene-collapse-v1&feature=markdown-adjacent-blockquotes-v1&feature=chapter-save-shortcut-v2&feature=ai-message-citation-popover-v1&feature=line-citation-menu-separator-v1&feature=global-im-v106&feature=im-sidebar-compact-v1&feature=ai-fork-progress-toast-v1&feature=im-settings-gear-v1&feature=compact-sidebar-directory-v2&feature=chapter-word-count-consistency-v1&feature=ai-all-message-references-v2&feature=ai-question-render-recovery-v3&feature=setting-category-preservation-v1&feature=toast-stack-v1&feature=toast-stack-label-v2&feature=agent-tool-limits-300-v1&feature=server-dev-logo-v1&feature=chapter-directory-ai-reference-v3&feature=ai-error-origin-v1&feature=ai-stream-render-performance-v2&feature=ai-attachment-disabled-v1&feature=ai-prose-acceptance-removed-v1&feature=ai-inline-message-references-v1&feature=ai-write-plan-status-sync-v1&feature=writing-goal-module-navigation-v2&feature=chapter-line-scroll-bind-v1&feature=invite-registration-v1&feature=ai-send-mode-v2&feature=character-attributes-prune-v1&feature=annotation-note-limit-v1&feature=chapter-directory-performance-v2&feature=chapter-directory-click-priority-v1&feature=chapter-switch-skeleton-v1&feature=mobile-offline-runtime-v6&feature=ai-title-first-turn-v1&feature=ai-title-xml-v1&feature=ai-optimistic-send-v1&feature=chapter-auto-title-menu-v1&feature=chapter-insert-menu-v1&feature=captcha-retry-same-image-v1&feature=relationship-index-dialog-poll-v1&feature=draft-editor-transition-v2&feature=vditor-submit-sync-v1"></script>
++    <script type="module" src="/app.js?v=20260816-extended-thinking-effort-v1&feature=ai-history-rename-v1&feature=ai-tool-call-copy-feedback-v2&feature=ai-send-control-v2&feature=analysis-task-queue-refresh-v1&feature=character-gender-v1&feature=character-filter-state-v1&feature=relationship-canvas-scale-v1&feature=relationship-table-scroll-v1&feature=ai-session-id-copy-v2&feature=galaxy-motion-mode-v3&feature=galaxy-edge-label-threshold-v1&feature=calculate-time-tool-v2&feature=analysis-task-expired-toast-v1&feature=global-replace-volume-v1&feature=chapter-search-replace-v1&feature=chapter-save-toast-v1&feature=character-relationship-delete-v1&feature=character-relationship-group-v1&feature=analysis-task-stability-delay-v1&feature=ai-assistant-workspace-v2&feature=volume-detail-icon-v1&feature=volume-story-order-v1&feature=reader-manual-chapter-navigation-v1&feature=ai-message-reference-badges-v1&feature=ai-roleplay-message-reference-v1&feature=ai-message-actions-v1&feature=assistant-responsive-navigation-v3&feature=annotation-permissions-v1&feature=annotation-line-counts-v1&feature=ai-relationship-roleplay-v1&feature=ai-roleplay-user-character-visibility-v1&feature=ai-roleplay-story-recall-v1&feature=ai-model-picker-v1&feature=ai-fork-model-unlock-v1&feature=context-percent-format-v1&feature=annotation-precise-locate-v1&feature=markdown-word-count-stable-v1&feature=ai-stream-character-count-stable-v2&feature=ai-process-empty-intermediate-v1&feature=ai-feed-scroll-follow-v2&feature=ai-message-retry-v1&feature=ai-stream-idle-timeout-v2&feature=ai-config-delete-v1&feature=ai-provider-protocol-options-v1&feature=ai-provider-thinking-type-v1&feature=ai-chat-image-attachments-v8&feature=ai-message-image-preview-v1&feature=ai-thinking-scroll-v2&feature=ai-image-conversation-model-lock-v1&feature=toast-click-dismiss-v2&feature=system-restart-dialog-delay-v1&feature=character-avatar-v6&feature=character-death-position-v1&feature=admin-ai-conversations-v1&feature=ai-usage-pricing-v1&feature=ai-usage-pricing-badge-v2&feature=ai-usage-pricing-label-v1&feature=ai-usage-token-breakdown-v1&feature=ai-usage-pricing-cache-v2&feature=ai-usage-pricing-manual-refresh-v1&feature=ai-monthly-token-quota-v1&feature=ai-provider-token-quota-v1&feature=ai-token-quota-positive-v6&feature=ai-model-thinking-label-v1&feature=ai-model-picker-focus-v1&feature=ai-provider-model-import-v1&feature=ai-assistant-brain-icon-v1&feature=ai-token-usage-details-v1&feature=ai-token-usage-details-centered-v1&feature=ai-token-usage-raw-input-v1&feature=ai-stream-connection-seconds-v1&feature=phone-client-entry-v1&feature=ai-usage-pricing-cache-v1&feature=ai-model-thinking-label-v3&feature=ai-roleplay-speaker-label-v1&feature=toast-modal-host-v1&feature=api-key-copy-existing-v1&feature=character-favorite-v1&feature=record-favorites-v1&feature=ai-token-usage-estimated-price-v1&feature=entity-detail-favorites-v1&feature=entity-pin-v1&feature=entity-pin-icon-v1&feature=roleplay-favorite-label-v1&feature=ai-roleplay-knowledge-tools-v1&feature=character-persona-summary-v1&feature=ai-roleplay-scene-turn-v2&feature=admin-account-identity-v2&feature=ai-provider-analysis-timeout-v1&feature=task-detail-failure-orange-v1&feature=book-import-progress-v1&feature=presence-multiple-users-v1&feature=ai-context-input-output-v1&feature=editor-blank-lines-preserved-v1&feature=reader-first-frame-v1&feature=vditor-lazy-load-v1&feature=ui-module-preload-v1&feature=reader-initial-prefetch-v1&feature=editor-preview-toggle-v2&feature=vditor-fullscreen-disabled-v1&feature=chapter-auto-indent-v1&feature=chapter-centered-scroll-v1&feature=work-editor-preferences-v1&feature=ai-context-output-usage-v1&feature=ai-context-meter-ring-only-v1&feature=ai-context-cache-hit-v1&feature=ai-roleplay-memory-v4&feature=ai-roleplay-memory-v5&feature=roleplay-memory-header-actions-v1&feature=roleplay-memory-header-toolbar-v1&feature=roleplay-memory-action-icons-v1&feature=roleplay-memory-action-colors-v1&feature=annotation-line-anchor-v1&feature=stable-line-ids-v1&feature=live-annotation-anchors-v1&feature=chapter-comment-filters-v1&feature=ai-write-tools-v3&feature=ai-question-option-supplement-v1&feature=ai-question-selection-highlight-v1&feature=ai-question-continuation-ui-v3&feature=ai-background-stream-v1&feature=ai-question-tool-result-v1&feature=ai-question-tool-summary-v1&feature=ai-question-submit-guidance-v1&feature=ai-question-batch-v1&feature=ai-question-answer-limit-v1&feature=semantic-search-v6&feature=chapter-title-renumber-v1&feature=ai-writing-skills-v3&feature=ai-cancel-preserve-process-v2&feature=remote-mcp-v1&feature=character-alias-chips-v2&feature=character-title-input-v1&feature=character-detail-value-wrap-v2&feature=chapter-batch-editor-refresh-v1&feature=ai-usage-stat-display-v1&feature=ai-usage-year-v1&feature=semantic-search-rag-label-v1&feature=ai-skill-slash-menu-v1&feature=ai-roleplay-scene-bubble-v1&feature=ai-roleplay-scene-collapse-v1&feature=markdown-adjacent-blockquotes-v1&feature=chapter-save-shortcut-v2&feature=ai-message-citation-popover-v1&feature=line-citation-menu-separator-v1&feature=global-im-v106&feature=im-sidebar-compact-v1&feature=ai-fork-progress-toast-v1&feature=im-settings-gear-v1&feature=compact-sidebar-directory-v2&feature=chapter-word-count-consistency-v1&feature=ai-all-message-references-v2&feature=ai-question-render-recovery-v3&feature=setting-category-preservation-v1&feature=toast-stack-v1&feature=toast-stack-label-v2&feature=agent-tool-limits-300-v1&feature=server-dev-logo-v1&feature=chapter-directory-ai-reference-v3&feature=ai-error-origin-v1&feature=ai-stream-render-performance-v2&feature=ai-attachment-disabled-v1&feature=ai-prose-acceptance-removed-v1&feature=ai-inline-message-references-v1&feature=ai-write-plan-status-sync-v1&feature=writing-goal-module-navigation-v2&feature=chapter-line-scroll-bind-v1&feature=invite-registration-v1&feature=ai-send-mode-v2&feature=character-attributes-prune-v1&feature=annotation-note-limit-v1&feature=chapter-directory-performance-v2&feature=chapter-directory-click-priority-v1&feature=chapter-switch-skeleton-v1&feature=mobile-offline-runtime-v6&feature=ai-title-first-turn-v1&feature=ai-title-xml-v1&feature=ai-optimistic-send-v1&feature=chapter-auto-title-menu-v1&feature=chapter-insert-menu-v1&feature=captcha-retry-same-image-v1&feature=relationship-index-dialog-poll-v1&feature=draft-editor-transition-v2&feature=vditor-submit-sync-v1&feature=desktop-same-workspace-v1&feature=desktop-sync-fetch-brand-v1&feature=desktop-offline-worker-ready-v1&feature=desktop-local-ai-shared-ui-v1&feature=desktop-local-ai-workspace-v1&feature=desktop-local-ai-offline-v1&feature=desktop-rescue-export-v1&feature=desktop-profile-removal-guard-v1&feature=desktop-initial-offline-download-v2&feature=desktop-local-model-badge-only-v1&feature=desktop-sync-status-v1&feature=desktop-provider-stream-v1&feature=desktop-sync-icon-only-v1&feature=desktop-route-ready-cover-v1&feature=desktop-quit-confirmation-v1&feature=desktop-offline-agent-v1"></script>
    </body>
  </html>
 diff --git a/public/styles.css b/public/styles.css

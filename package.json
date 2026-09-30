@@ -1,6 +1,6 @@
 {
   "name": "@musnows/scriverse-desktop",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "description": "Scriverse desktop client",
   "license": "AGPL-3.0-only",
   "author": "musnows",
@@ -22,7 +22,7 @@
   "type": "module",
   "private": true,
   "main": "build/main/main.js",
-  "scriverseServerVersion": "1.1.5",
+  "scriverseServerVersion": "1.1.6",
   "engines": {
     "node": ">=22.5.0"
   },
@@ -50,10 +50,10 @@
     "express": "^5.1.0",
     "jszip": "^3.10.1",
     "mammoth": "^1.10.0",
-    "multer": "^2.0.2",
+    "multer": "^2.4.0",
     "pinyin-pro": "^3.28.2",
-    "sharp": "^0.35.3",
-    "undici": "^7.29.0",
+    "sharp": "^0.35.4",
+    "undici": "^7.29.1",
     "vditor": "^3.11.2",
     "yazl": "^3.3.1",
     "zod": "^4.1.12"

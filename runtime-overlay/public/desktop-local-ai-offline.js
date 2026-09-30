@@ -50,10 +50,10 @@ export function desktopOfflineLocalAiSystemPrompt(context) {
   ].join("\n");
 }
 
-export function desktopOfflineLocalAiMessages(history, instruction) {
+export function desktopOfflineLocalAiMessages(history, instruction, maximumHistory = 39) {
   const normalizedHistory = (Array.isArray(history) ? history : [])
     .filter((message) => message && (message.role === "user" || message.role === "assistant"))
-    .slice(-39)
+    .slice(Number.isFinite(maximumHistory) ? -maximumHistory : 0)
     .flatMap((message) => {
       const content = typeof message.modelContent === "string" && message.modelContent.length > 0
         ? message.modelContent

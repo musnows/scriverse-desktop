@@ -1,5 +1,5 @@
 import { DesktopSyncStore } from "./desktop-sync-store.js?v=20260823-desktop-sync-store-v2";
-import { collectDesktopOfflineCorpus } from "./desktop-local-ai-offline.js?v=20260929-desktop-offline-agent-v2";
+import { collectDesktopOfflineCorpus } from "./desktop-local-ai-offline.js?v=20260930-desktop-offline-agent-v3";
 
 const SYNC_PROTOCOL = 1;
 const SYNC_POLL_INTERVAL_MS = 30_000;

@@ -101,7 +101,7 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain("/desktop-local-ai/runs/");
     expect(overlayPatch).not.toContain("/desktop-local-ai/prepare");
     expect(overlayPatch).toContain("desktopOfflineLocalAiSystemPrompt({ ...context, toolNames: tools.map((tool) => tool.function.name) })");
-    expect(overlayPatch).toContain("...desktopOfflineLocalAiMessages(history, currentInstruction)");
+    expect(overlayPatch).toContain("...desktopOfflineLocalAiMessages(history, currentInstruction, Number.POSITIVE_INFINITY)");
     expect(overlayPatch).toContain("desktopOfflineWebChatResponse");
     expect(overlayPatch).not.toContain("if (desktopOfflineMode) return sendDesktopOfflineAi()");
     expect(overlayPatch).not.toContain('$("#ai-history-toggle").disabled = true');
@@ -247,7 +247,7 @@ describe("Desktop Web runtime overlay", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 
     expect(overlayPatch).toContain('desktop-workspace.js?v=20260913-desktop-global-theme-v1');
-    expect(overlayPatch).toContain('desktop-offline-api.js?v=20260930-desktop-offline-history-v3');
+    expect(overlayPatch).toContain('desktop-offline-api.js?v=20260930-desktop-offline-history-v4');
   });
 
   it("在远端工作区断网时显示页面居中的重新进入引导", () => {

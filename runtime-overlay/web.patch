@@ -27,7 +27,7 @@ index 85a0c55..4b3fc95 100644
    throw new Error("当前浏览器不支持剪贴板写入");
  }
 diff --git a/public/app.js b/public/app.js
-index 57f37f8..1736e53 100644
+index 57f37f8..7121072 100644
 --- a/public/app.js
 +++ b/public/app.js
 @@ -40,6 +40,7 @@ import {
@@ -60,8 +60,8 @@ index 57f37f8..1736e53 100644
  import { createToastStack } from "/toast-stack.js?v=20260909-toast-stack-v2";
 +import { createDesktopWorkspaceController, installDesktopExternalUrlPrompt } from "/desktop-workspace.js?v=20260913-desktop-global-theme-v1";
 +import { installDesktopNetworkGuidance } from "/desktop-network-guidance.js?v=20260922-network-offline-guidance-v1";
-+import { createDesktopOfflineApi } from "/desktop-offline-api.js?v=20260930-desktop-offline-history-v3";
-+import { buildDesktopOfflineAgentCorpus, desktopOfflineAssistantTurn, desktopOfflineChatToolDefinitions, desktopOfflineLocalAiMessages, desktopOfflineLocalAiSystemPrompt, desktopOfflineUserTurn, runDesktopOfflineAgentLoop } from "/desktop-local-ai-offline.js?v=20260929-desktop-offline-agent-v2";
++import { createDesktopOfflineApi } from "/desktop-offline-api.js?v=20260930-desktop-offline-history-v4";
++import { buildDesktopOfflineAgentCorpus, desktopOfflineAssistantTurn, desktopOfflineChatToolDefinitions, desktopOfflineLocalAiMessages, desktopOfflineLocalAiSystemPrompt, desktopOfflineUserTurn, runDesktopOfflineAgentLoop } from "/desktop-local-ai-offline.js?v=20260930-desktop-offline-agent-v3";
 +import { mergeDesktopLocalAiModels } from "/desktop-local-ai-catalog.js?v=20260824-desktop-local-provider-prefix-v1";
 +import { desktopProviderCompletedToolCalls } from "/desktop-local-ai-stream.js?v=20260825-desktop-provider-live-tools-v1";
  import { buildGlobalReplaceRefreshPlan, resolveGlobalReplaceChapterCount } from "/global-replace-refresh.js?v=20260812-global-replace-tree-v2";
@@ -540,7 +540,7 @@ index 57f37f8..1736e53 100644
 +async function enterDesktopOfflineMode() {
 +  const controller = await ensureDesktopWorkspace(null);
 +  desktopOfflineMode = true;
-+  desktopOfflineApi = createDesktopOfflineApi(controller);
++  desktopOfflineApi = createDesktopOfflineApi(controller, { estimateTokens: estimateAiMessageTokens });
 +  document.body.classList.add("desktop-offline-active");
 +  $("#im-open-button").classList.add("hidden");
 +  applyAuthenticatedUser({ user: { ...controller.user, avatarUrl: null }, csrfToken: null });
@@ -1290,7 +1290,7 @@ index 57f37f8..1736e53 100644
    </select><small id="analysis-task-model-help">默认值来自“本书 AI 设置”，只修改当前任务，不会改变全书默认模型。</small><p class="analysis-context-warning hidden" data-analysis-context-warning role="alert"></p></label>`;
    const chapterField = taskScopePicker(chapterOptions, "选择需要分析的章节");
    const relationshipFields = `<div class="relationship-analysis-options hidden">
-@@ -19463,6 +19972,626 @@ function openModelDialog(providerId, item = null, provider = null, protocolOptio
+@@ -19463,6 +19972,627 @@ function openModelDialog(providerId, item = null, provider = null, protocolOptio
    syncModelKindFields();
  }
 
@@ -1767,7 +1767,7 @@ index 57f37f8..1736e53 100644
 +  const corpus = await loadDesktopOfflineAgentCorpus();
 +  hydrateDesktopOfflineAiReferences(corpus);
 +  const conversation = request.conversationId
-+    ? await api(`/api/ai-conversations/${encodeURIComponent(request.conversationId)}?page=1&limit=100`)
++    ? { ...(await api(`/api/ai-conversations/${encodeURIComponent(request.conversationId)}?page=1&limit=100`)), ...(await api(`/api/ai-conversations/${encodeURIComponent(request.conversationId)}/context`, { method: "POST", body: { modelId: model.id } })) }
 +    : { messages: [], roleplayMemories: [] };
 +  const roleplayCharacterId = taskType === "roleplay"
 +    ? String(conversation.roleplayCharacter?.id ?? state.aiRoleplayCharacter?.id ?? "")
@@ -1788,6 +1788,7 @@ index 57f37f8..1736e53 100644
 +      : message.content
 +  }));
 +  const currentInstruction = desktopOfflineUserTurn({ markup: currentMarkup, text: instruction, citations, scope }).modelContent;
++  if (conversation.usage) setAiChatTabContextUsage(aiChatTabManager.get(request.tabId), conversation.usage);
 +  const toolContext = {
 +    roleplayCharacterId,
 +    multimodalEnabled: model.multimodalEnabled === true,
@@ -1798,8 +1799,8 @@ index 57f37f8..1736e53 100644
 +    model,
 +    taskType,
 +    messages: [
-+      { role: "system", content: desktopOfflineLocalAiSystemPrompt({ ...context, toolNames: tools.map((tool) => tool.function.name) }) },
-+      ...desktopOfflineLocalAiMessages(history, currentInstruction)
++      { role: "system", content: [desktopOfflineLocalAiSystemPrompt({ ...context, toolNames: tools.map((tool) => tool.function.name) }), conversation.summary ? `较早对话的长期记忆：\n${conversation.summary}` : ""].filter(Boolean).join("\n\n") },
++      ...desktopOfflineLocalAiMessages(history, currentInstruction, Number.POSITIVE_INFINITY)
 +    ],
 +    tools,
 +    corpus,
@@ -1917,7 +1918,7 @@ index 57f37f8..1736e53 100644
  async function sendAi() {
    return sendAiWithOptions();
  }
-@@ -19591,7 +20720,17 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
+@@ -19591,7 +20721,17 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
        throw error;
      }
      tab.selectedModelId = modelId;
@@ -1935,7 +1936,7 @@ index 57f37f8..1736e53 100644
      if (imageAttachmentIds.length > 0 && !state.models.find((model) => model.id === modelId)?.multimodalEnabled) {
        const error = new Error("当前选择的模型不是多模态模型，无法发送图片附件");
        if (!requestHolder.optimisticUserMessage) return toast(error.message, "error");
-@@ -19608,6 +20747,42 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
+@@ -19608,6 +20748,42 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
      setAiChatTabStatus(tab, "streaming");
      if (retry?.message?.isConnected) retry.message.remove();
      if (retry) prepareAiRetryState(tab, modelId);
@@ -1978,7 +1979,7 @@ index 57f37f8..1736e53 100644
      let assistantContent = "";
      let assistantMessage;
      let assistantMetadata = {};
-@@ -19622,7 +20797,26 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
+@@ -19622,7 +20798,26 @@ async function sendAiWithOptions({ ignoreContextWarning = false, retry = null }
        ...(imageAttachmentIds.length ? { imageAttachmentIds } : {}),
        conversationId: requestHolder.snapshot.conversationId,
        ...(ignoreContextWarning ? { ignoreContextWarning: true } : {})
@@ -2006,7 +2007,7 @@ index 57f37f8..1736e53 100644
      const streamedRequest = assertAiRequestCurrent(requestHolder.snapshot);
      if (streamed.action === "warn") {
        requestHolder.optimisticUserMessage?.remove();
-@@ -19801,7 +20995,7 @@ function renderAiStreamingCharacterProgress(meta, visibleCharacters) {
+@@ -19801,7 +20996,7 @@ function renderAiStreamingCharacterProgress(meta, visibleCharacters) {
    meta.replaceChildren("正在生成 · ", createAiStreamCharacterCount(visible), " 字");
  }
 
@@ -2015,7 +2016,7 @@ index 57f37f8..1736e53 100644
    const tab = aiChatTabForRequest(requestHolder.snapshot);
    if (!tab) throw createAiRequestAbortError("Agent 对话页签已关闭");
    const feed = tab.feed;
-@@ -19831,7 +21025,7 @@ async function streamChat(requestHolder, body, idempotencyKey, { endpoint = null
+@@ -19831,7 +21026,7 @@ async function streamChat(requestHolder, body, idempotencyKey, { endpoint = null
      window.clearInterval(streamConnectionTimer);
      streamConnectionTimer = null;
    };
@@ -2024,7 +2025,7 @@ index 57f37f8..1736e53 100644
    const streamSpeedController = createStreamTypewriterSpeedController();
    let streamConnectionEstablished = false;
    let messageMounted = message.isConnected;
-@@ -19947,12 +21141,14 @@ async function streamChat(requestHolder, body, idempotencyKey, { endpoint = null
+@@ -19947,12 +21142,14 @@ async function streamChat(requestHolder, body, idempotencyKey, { endpoint = null
    };
    try {
      const request = assertAiRequestCurrent(requestHolder.snapshot);
@@ -2045,7 +2046,7 @@ index 57f37f8..1736e53 100644
      assertAiRequestCurrent(requestHolder.snapshot);
      if (!response.ok || !response.body) {
        const payload = await response.json().catch(() => ({ error: { message: `请求失败：${response.status}` } }));
-@@ -20054,6 +21250,11 @@ async function streamChat(requestHolder, body, idempotencyKey, { endpoint = null
+@@ -20054,6 +21251,11 @@ async function streamChat(requestHolder, body, idempotencyKey, { endpoint = null
          streamedText += delta;
          streamedPendingText += delta;
          typewriter.append(delta);
@@ -2057,7 +2058,7 @@ index 57f37f8..1736e53 100644
        } else if (eventName === "process_step") {
          mountAssistantMessage();
          const step = { ...payload };
-@@ -20119,6 +21320,7 @@ async function streamChat(requestHolder, body, idempotencyKey, { endpoint = null
+@@ -20119,6 +21321,7 @@ async function streamChat(requestHolder, body, idempotencyKey, { endpoint = null
            ? payload.processDurationMs
            : elapsedProcessTime();
          generatedMetadata = {
@@ -2065,7 +2066,7 @@ index 57f37f8..1736e53 100644
            modelDisplayName: payload.model?.displayName,
            outputTokens: payload.outputTokens,
            cacheHitPercent: payload.cacheHitPercent,
-@@ -20939,6 +22141,23 @@ $("#home-button").addEventListener("click", async () => {
+@@ -20939,6 +22142,23 @@ $("#home-button").addEventListener("click", async () => {
  $("#settings-button").addEventListener("click", () => {
    void showSettingsHub();
  });
@@ -2089,7 +2090,7 @@ index 57f37f8..1736e53 100644
  $("#global-replace-button").addEventListener("click", openGlobalReplaceDialog);
  $("#account-button").addEventListener("click", () => {
    const expanded = $("#account-menu").classList.toggle("hidden") === false;
-@@ -21483,6 +22702,12 @@ $("#logout-button").addEventListener("click", async () => {
+@@ -21483,6 +22703,12 @@ $("#logout-button").addEventListener("click", async () => {
    try {
      stopS3BackupEventPolling();
      await api("/api/auth/session", { method: "DELETE" });
@@ -2102,7 +2103,7 @@ index 57f37f8..1736e53 100644
      state.user = null;
      state.csrfToken = null;
      window.location.reload();
-@@ -23064,6 +24289,11 @@ $("#reader-viewport").addEventListener("scroll", () => {
+@@ -23064,6 +24290,11 @@ $("#reader-viewport").addEventListener("scroll", () => {
  }, { passive: true });
  document.addEventListener("visibilitychange", () => {
    if (document.visibilityState !== "visible") return;
@@ -2114,7 +2115,7 @@ index 57f37f8..1736e53 100644
    if (state.user && !systemRestartDetected) scheduleSystemBootCheck(0);
    if (state.user?.role === "admin" && !systemRestartDetected) void refreshS3BackupEvents();
    void refreshSystemHealth();
-@@ -23079,10 +24309,26 @@ window.addEventListener("beforeunload", (event) => {
+@@ -23079,10 +24310,26 @@ window.addEventListener("beforeunload", (event) => {
    }
  });
  window.addEventListener("online", () => {
@@ -2142,7 +2143,7 @@ index 57f37f8..1736e53 100644
  window.addEventListener("resize", () => {
    if (aiCitationPopoverTrigger && !$("#ai-citation-popover").classList.contains("hidden")) positionAiCitationPopover(aiCitationPopoverTrigger);
    if ($("#reader-view").classList.contains("hidden") || readingPreferences.mode !== "paged") return;
-@@ -23121,5 +24367,5 @@ initializePage().catch((error) => {
+@@ -23121,5 +24368,5 @@ initializePage().catch((error) => {
    showShelf();
    toast(`系统初始化失败：${error.message}`, "error");
  }).finally(() => {

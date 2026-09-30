@@ -112,8 +112,8 @@ function summaryOf(record, { includeMessages = false, messages = null, messagesP
     isFavorite: record.isFavorite === true,
     messageCount: storedMessages.length,
     preview: displayText(lastMessage?.content ?? "").slice(0, 280),
-    compactedMessageCount: 0,
-    hasCompactedSummary: false,
+    compactedMessageCount: Math.max(0, Number(record.compactedMessageCount) || 0),
+    hasCompactedSummary: Boolean(record.compactedSummary),
     contextWarningPending: false,
     taskType: record.taskType ?? "chat",
     ...(lockedModelId ? { modelId: lockedModelId } : {}),
@@ -459,7 +459,7 @@ export class DesktopOfflineConversations {
       ...(typeof input.requestId === "string" ? { requestId: input.requestId } : {}),
       createdAt: timestamp
     };
-    record.messages = [...(record.messages ?? []), message].slice(-400);
+    record.messages = [...(record.messages ?? []), message];
     if (record.title === "新对话" && role === "user") record.title = conversationTitleFromMessage(content);
     record.updatedAt = timestamp;
     await this.repository.put(record);

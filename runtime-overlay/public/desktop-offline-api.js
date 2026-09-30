@@ -2,7 +2,8 @@ import {
   conversationRepositoryFromSyncStore,
   createMemoryAiConversationRepository,
   DesktopOfflineConversations
-} from "./desktop-offline-conversations.js?v=20260930-desktop-offline-history-v3";
+} from "./desktop-offline-conversations.js?v=20260930-desktop-offline-history-v4";
+import { DesktopOfflineConversationAi } from "./desktop-offline-conversation-ai.js?v=20260930-desktop-offline-context-v1";
 
 export class DesktopOfflineApiError extends Error {
   constructor(code, message) {
@@ -68,13 +69,14 @@ function textCount(value) {
 }
 
 export class DesktopOfflineApi {
-  constructor(controller, { conversations = null } = {}) {
+  constructor(controller, { conversations = null, aiBridge = globalThis.scriverseDesktopWorkspace?.localAi ?? globalThis.scriverseDesktopLocalAi, estimateTokens } = {}) {
     this.controller = controller;
     this.store = controller?.store;
     const repository = conversations
       ? null
       : conversationRepositoryFromSyncStore(this.store) ?? createMemoryAiConversationRepository();
     this.conversations = conversations ?? new DesktopOfflineConversations(repository);
+    this.ai = new DesktopOfflineConversationAi({ conversations: this.conversations, bridge: aiBridge, estimateTokens });
   }
 
   async snapshots(workId, entityType) {
@@ -260,6 +262,10 @@ export class DesktopOfflineApi {
     if (conversationFork && method === "POST") return this.conversations.fork(decodeURIComponent(conversationFork[1]), options.body);
     const conversationExport = pathname.match(/^\/api\/ai-conversations\/([^/]+)\/export$/u);
     if (conversationExport && method === "GET") return this.conversations.exportMarkdown(decodeURIComponent(conversationExport[1]));
+    const conversationCompact = pathname.match(/^\/api\/ai-conversations\/([^/]+)\/compact$/u);
+    if (conversationCompact && method === "POST") return this.ai.compact(decodeURIComponent(conversationCompact[1]), options.body);
+    const conversationContext = pathname.match(/^\/api\/ai-conversations\/([^/]+)\/context$/u);
+    if (conversationContext && method === "POST") return this.ai.context(decodeURIComponent(conversationContext[1]), options.body);
     if (conversationTitle && method === "GET") return this.conversations.title(decodeURIComponent(conversationTitle[1]));
     if (conversationTitle && method === "PATCH") return this.conversations.setTitle(decodeURIComponent(conversationTitle[1]), options.body);
     const conversationFavorite = pathname.match(/^\/api\/ai-conversations\/([^/]+)\/favorite$/u);
@@ -289,6 +295,6 @@ export class DesktopOfflineApi {
   }
 }
 
-export function createDesktopOfflineApi(controller) {
-  return new DesktopOfflineApi(controller);
+export function createDesktopOfflineApi(controller, options) {
+  return new DesktopOfflineApi(controller, options);
 }

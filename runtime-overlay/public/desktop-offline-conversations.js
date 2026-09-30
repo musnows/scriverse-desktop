@@ -317,6 +317,29 @@ export class DesktopOfflineConversations {
     return { id: record.id, title: record.title, updatedAt: record.updatedAt };
   }
 
+  async exportMarkdown(conversationId) {
+    const record = await this.require(conversationId);
+    const inline = (value) => String(value ?? "").replace(/[\r\n]+/gu, " ").replace(/([\\`*_{}\[\]<>#+.!|])/gu, "\\$1");
+    const timestamp = (value) => {
+      const parsed = new Date(value);
+      return Number.isNaN(parsed.getTime()) ? "未知时间" : parsed.toISOString();
+    };
+    const messages = record.messages ?? [];
+    const sections = [
+      `# ${inline(record.title)}`,
+      "",
+      `- 创建时间：${timestamp(record.createdAt)}`,
+      `- 更新时间：${timestamp(record.updatedAt)}`,
+      `- 消息数：${messages.length}`
+    ];
+    if (!messages.length) sections.push("", "_暂无消息。_");
+    for (const message of messages) {
+      const speaker = message.role === "user" ? record.roleplayUserCharacter?.name ?? "作者" : record.roleplayCharacter?.name ?? "助手";
+      sections.push("", "---", "", `## ${inline(speaker)} · ${timestamp(message.createdAt)}`, "", String(message.content ?? ""));
+    }
+    return `${sections.join("\n")}\n`;
+  }
+
   async remove(conversationId) {
     await this.require(conversationId);
     await this.repository.delete(conversationId);

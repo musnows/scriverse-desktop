@@ -93,8 +93,10 @@ describe("Desktop Web runtime overlay", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 
     expect(overlayPatch).toContain("loadDesktopLocalAiCatalog()");
-    expect(overlayPatch).toContain('import { mergeDesktopLocalAiModels } from "/desktop-local-ai-catalog.js');
+    expect(overlayPatch).toContain('import { isDesktopWorkspaceSelectableModel, mergeDesktopLocalAiModels } from "/desktop-local-ai-catalog.js');
     expect(overlayPatch).toContain("applyAiModels(mergeDesktopLocalAiModels(models, localCatalog.models))");
+    expect(overlayPatch).toContain("isDesktopWorkspaceSelectableModel(model, isSelectableModel)");
+    expect(overlayPatch).toContain("mergeDesktopLocalAiModels(taskModels, localCatalog.models).filter((model) => isDesktopWorkspaceSelectableModel(model, isSelectableModel))");
     expect(overlayPatch).toContain("[relationshipCharacters, taskModels, taskDefaults, localCatalog] = await Promise.all");
     expect(overlayPatch).toContain("mergeDesktopLocalAiModels(taskModels, localCatalog.models)");
     expect(overlayPatch).toContain("desktopAiModelOptionLabel(model)");

@@ -1,6 +1,45 @@
 import { describe, expect, it } from "vitest";
-import { mergeDesktopLocalAiModels } from "../../runtime-overlay/public/desktop-local-ai-catalog.js";
+import { isDesktopWorkspaceSelectableModel, mergeDesktopLocalAiModels } from "../../runtime-overlay/public/desktop-local-ai-catalog.js";
 import { modelOptionLabel } from "../../src/renderer/local-ai/model-config.js";
+
+function serverSelectable(model) {
+  return Boolean(model?.enabled)
+    && model?.providerStatus === "enabled"
+    && model?.providerConnectionStatus === "success"
+    && (model?.modelKind ?? "chat") === "chat";
+}
+
+describe("Desktop 本地 AI 在线可选", () => {
+  it("在线时保留已启用但尚未探测成功的本地对话模型", () => {
+    const localModel = {
+      id: "local-chat",
+      scope: "local",
+      modelKind: "chat",
+      enabled: true,
+      providerStatus: "enabled",
+      providerConnectionStatus: "unchecked"
+    };
+    const serverModel = {
+      id: "server-chat",
+      scope: "platform",
+      enabled: true,
+      providerStatus: "enabled",
+      providerConnectionStatus: "unchecked"
+    };
+    expect(isDesktopWorkspaceSelectableModel(localModel, serverSelectable)).toBe(true);
+    expect(isDesktopWorkspaceSelectableModel({ ...localModel, providerConnectionStatus: "error" }, serverSelectable)).toBe(true);
+    expect(isDesktopWorkspaceSelectableModel(serverModel, serverSelectable)).toBe(false);
+    expect(isDesktopWorkspaceSelectableModel({ ...serverModel, providerConnectionStatus: "success" }, serverSelectable)).toBe(true);
+  });
+
+  it("停用的本地模型、停用供应商和专用模型仍然不可选", () => {
+    const base = { scope: "local", modelKind: "chat", enabled: true, providerStatus: "enabled", providerConnectionStatus: "success" };
+    expect(isDesktopWorkspaceSelectableModel({ ...base, enabled: false }, serverSelectable)).toBe(false);
+    expect(isDesktopWorkspaceSelectableModel({ ...base, providerStatus: "disabled" }, serverSelectable)).toBe(false);
+    expect(isDesktopWorkspaceSelectableModel({ ...base, modelKind: "embedding" }, serverSelectable)).toBe(false);
+    expect(isDesktopWorkspaceSelectableModel({ ...base, modelKind: "rerank" }, serverSelectable)).toBe(false);
+  });
+});
 
 describe("Desktop 本地 AI 目录隔离", () => {
   it("本地和云端工作区都追加本地模型并固定 local 供应商前缀", () => {

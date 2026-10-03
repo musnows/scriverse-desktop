@@ -7,6 +7,7 @@ const html = readFileSync(join(root, "src/renderer/selector/index.html"), "utf8"
 const css = readFileSync(join(root, "src/renderer/selector/selector.css"), "utf8");
 const script = readFileSync(join(root, "src/renderer/selector/selector.js"), "utf8");
 const preload = readFileSync(join(root, "src/preload/selector-preload.cts"), "utf8");
+const selectorIpc = readFileSync(join(root, "src/main/selector-ipc.ts"), "utf8");
 
 describe("Desktop Selector UI", () => {
   it("提供工作区列表、Server 表单和明确删除确认", () => {
@@ -85,6 +86,7 @@ describe("Desktop Selector UI", () => {
   it("使用 DOM textContent 渲染 profile 并覆盖窄屏", () => {
     expect(script).toContain("node.textContent = text");
     expect(script).not.toContain("innerHTML");
+    expect(css).toContain(".header-actions > * {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;");
     expect(css).toContain("@media (max-width: 430px)");
     expect(css).toContain(".app-header { align-items: stretch; flex-direction: column; }");
     expect(css).toContain(".brand strong, .brand small { white-space: nowrap; }");
@@ -100,6 +102,22 @@ describe("Desktop Selector UI", () => {
     expect(preload).toContain("selector:profiles:list");
     expect(preload).toContain("selector:profiles:status");
     expect(preload).toContain("selector:profiles:probe");
+    expect(preload).toContain("selector:profiles:open-offline");
+    expect(preload).toContain("openOffline:");
+    expect(script).toContain('dataset.action = "open-offline"');
+    expect(script).toContain("离线进入");
+    expect(script).toContain("在线进入");
+    expect(script).toContain("bridge.profiles.openOffline(profile.id)");
+    expect(selectorIpc).toContain('"selector:profiles:open-offline"');
+    expect(selectorIpc).toContain("openRemoteOffline(profile)");
+    expect(selectorIpc).toContain("REMOTE_OFFLINE_UNSUPPORTED");
+    const offlineHandlerStart = selectorIpc.indexOf('handle("selector:profiles:open-offline"');
+    const offlineHandler = selectorIpc.slice(offlineHandlerStart, selectorIpc.indexOf('handle("selector:profiles:probe"', offlineHandlerStart));
+    expect(offlineHandler).toContain("assertRemoteCanOpenOffline(profile)");
+    expect(offlineHandler).not.toContain("probeRemote");
+    expect(script).toContain("使用本机已同步的数据进入，不发起在线会话");
+    expect(script).toContain('已离线打开“${profile.name}”');
+    expect(css).toContain(".card-actions { align-self: end; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }");
     expect(preload).toContain("selector:local:get-status");
     expect(preload).toContain("selector:local:setup");
     expect(preload).toContain("selector:local:login");

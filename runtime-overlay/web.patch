@@ -62,7 +62,7 @@ index 4e3860a..52d2b02 100644
 +import { installDesktopNetworkGuidance } from "/desktop-network-guidance.js?v=20260922-network-offline-guidance-v1";
 +import { createDesktopOfflineApi } from "/desktop-offline-api.js?v=20260930-desktop-offline-history-v6";
 +import { buildDesktopOfflineAgentCorpus, desktopOfflineAssistantTurn, desktopOfflineChatToolDefinitions, desktopOfflineLocalAiMessages, desktopOfflineLocalAiSystemPrompt, desktopOfflineUserTurn, runDesktopOfflineAgentLoop } from "/desktop-local-ai-offline.js?v=20260930-desktop-offline-agent-v4";
-+import { mergeDesktopLocalAiModels } from "/desktop-local-ai-catalog.js?v=20260824-desktop-local-provider-prefix-v1";
++import { isDesktopWorkspaceSelectableModel, mergeDesktopLocalAiModels } from "/desktop-local-ai-catalog.js?v=20261003-desktop-local-online-selectable-v1";
 +import { desktopProviderCompletedToolCalls } from "/desktop-local-ai-stream.js?v=20260825-desktop-provider-live-tools-v1";
  import { buildGlobalReplaceRefreshPlan, resolveGlobalReplaceChapterCount } from "/global-replace-refresh.js?v=20260812-global-replace-tree-v2";
  import {
@@ -1162,7 +1162,8 @@ index 4e3860a..52d2b02 100644
 +}
 +
  function applyAiModels(models) {
-   state.models = models.filter((model) => isSelectableModel(model));
+-  state.models = models.filter((model) => isSelectableModel(model));
++  state.models = models.filter((model) => isDesktopWorkspaceSelectableModel(model, isSelectableModel));
    const select = $("#ai-model");
 @@ -15511,6 +16000,20 @@ function applyAiModels(models) {
  }
@@ -1305,7 +1306,7 @@ index 4e3860a..52d2b02 100644
    };
    const defaultModelByTask = new Map(taskDefaults.map((item) => [item.taskType, item.model.id]));
 -  const availableTaskModels = taskModels.filter((model) => isSelectableModel(model));
-+  const availableTaskModels = mergeDesktopLocalAiModels(taskModels, localCatalog.models).filter((model) => isSelectableModel(model));
++  const availableTaskModels = mergeDesktopLocalAiModels(taskModels, localCatalog.models).filter((model) => isDesktopWorkspaceSelectableModel(model, isSelectableModel));
    const characterOptions = relationshipCharacters.map((character) => [character.id, character.name]);
    const relationshipCharacterPicker = `<div class="form-field relationship-character-field">
      <span id="relationship-character-label">被分析角色（可多选）</span>

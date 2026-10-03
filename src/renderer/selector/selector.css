@@ -57,6 +57,15 @@ button:focus-visible, input:focus-visible, a:focus-visible {
 
 .app-header { min-height: 44px; justify-content: space-between; gap: 10px; }
 .header-actions { justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+/* 系统设置是 button，本地 AI 配置是 a。去掉按钮默认外观并统一行高，文字基线才会重合。 */
+.header-actions > * {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  appearance: none;
+  line-height: 1;
+}
 .header-actions a { text-decoration: none; }
 
 .brand {

@@ -86,6 +86,7 @@ describe("Desktop Selector UI", () => {
   it("使用 DOM textContent 渲染 profile 并覆盖窄屏", () => {
     expect(script).toContain("node.textContent = text");
     expect(script).not.toContain("innerHTML");
+    expect(css).toContain(".header-actions > * {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;");
     expect(css).toContain("@media (max-width: 430px)");
     expect(css).toContain(".app-header { align-items: stretch; flex-direction: column; }");
     expect(css).toContain(".brand strong, .brand small { white-space: nowrap; }");

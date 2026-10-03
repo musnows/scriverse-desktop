@@ -77,6 +77,55 @@ describe("Desktop 远端登录编排", () => {
     expect(client.captcha).not.toHaveBeenCalled();
   });
 
+  it("已有本机登录和离线副本时可以强制离线进入，不检查在线会话", async () => {
+    const token = `scrvd_${"f".repeat(43)}`;
+    const store = {
+      load: vi.fn().mockReturnValue({ token, expiresAt: "2000-01-01T00:00:00.000Z", user }),
+      clear: vi.fn()
+    };
+    const client = { session: vi.fn(), captcha: vi.fn(), registrationPolicy: vi.fn() };
+    const sessions = { authorize: vi.fn(), clear: vi.fn() };
+    const openWorkspace = vi.fn().mockResolvedValue(undefined);
+    const coordinator = new RemoteAuthCoordinator(
+      "22222222-2222-4222-8222-222222222222",
+      "0.8.7",
+      store as unknown as RemoteAuthStore,
+      client as unknown as RemoteAuthClient,
+      sessions as unknown as RemoteSessionRegistry,
+      openWorkspace,
+      () => true
+    );
+    await expect(coordinator.openOffline(profile)).resolves.toEqual({ status: "opened", mode: "offline" });
+    expect(openWorkspace).toHaveBeenCalledWith(profile, "offline");
+    expect(sessions.authorize).toHaveBeenCalledWith(profile, token);
+    expect(client.session).not.toHaveBeenCalled();
+    expect(client.captcha).not.toHaveBeenCalled();
+    expect(store.clear).not.toHaveBeenCalled();
+    expect(coordinator.connectionMode(profile)).toBe("offline");
+  });
+
+  it("没有本机登录或离线副本时拒绝强制离线进入", async () => {
+    const store = { load: vi.fn().mockReturnValue(null), clear: vi.fn() };
+    const openWorkspace = vi.fn();
+    const coordinator = new RemoteAuthCoordinator(
+      "22222222-2222-4222-8222-222222222222",
+      "0.8.7",
+      store as unknown as RemoteAuthStore,
+      { session: vi.fn() } as unknown as RemoteAuthClient,
+      { authorize: vi.fn() } as unknown as RemoteSessionRegistry,
+      openWorkspace,
+      () => false
+    );
+    await expect(coordinator.openOffline(profile)).rejects.toMatchObject({ code: "REMOTE_OFFLINE_LOGIN_REQUIRED" });
+    store.load.mockReturnValue({
+      token: `scrvd_${"a".repeat(43)}`,
+      expiresAt: "2099-09-23T00:00:00.000Z",
+      user
+    });
+    await expect(coordinator.openOffline(profile)).rejects.toMatchObject({ code: "REMOTE_OFFLINE_UNAVAILABLE" });
+    expect(openWorkspace).not.toHaveBeenCalled();
+  });
+
   it("没有令牌时返回验证码，登录成功后只向 Main 交付用户", async () => {
     const token = `scrvd_${"b".repeat(43)}`;
     const challenge = { captchaId: "captcha", imageDataUrl: `data:image/svg+xml;base64,${Buffer.from("<svg></svg>").toString("base64")}` };

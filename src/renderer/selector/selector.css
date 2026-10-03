@@ -193,7 +193,7 @@ button:disabled { cursor: wait; opacity: .56; transform: none !important; }
 .card-details div { min-width: 0; padding: 9px 10px; border-radius: 6px; background: var(--surface-soft); }
 .card-details dt { color: var(--muted); font-size: 9px; }
 .card-details dd { margin: 4px 0 0; overflow-wrap: anywhere; font-size: 11px; font-weight: 620; }
-.card-actions { align-self: end; justify-content: flex-end; gap: 8px; }
+.card-actions { align-self: end; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
 .card-actions .primary-button, .card-actions .ghost-button { min-height: 36px; padding: 7px 12px; font-size: 11px; }
 .card-actions .edit-button { margin-left: auto; }
 

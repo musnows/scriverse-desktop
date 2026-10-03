@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld("scriverseDesktop", Object.freeze({
     update: (input: unknown) => ipcRenderer.invoke("selector:profiles:update", input),
     remove: (input: unknown) => ipcRenderer.invoke("selector:profiles:remove", input),
     open: (id: unknown) => ipcRenderer.invoke("selector:profiles:open", id),
+    openOffline: (id: unknown) => ipcRenderer.invoke("selector:profiles:open-offline", id),
     probe: (id: unknown) => ipcRenderer.invoke("selector:profiles:probe", id)
   }),
   local: Object.freeze({

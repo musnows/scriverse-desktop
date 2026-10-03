@@ -52,6 +52,7 @@ const channels = [
   "selector:profiles:update",
   "selector:profiles:remove",
   "selector:profiles:open",
+  "selector:profiles:open-offline",
   "selector:profiles:probe",
   "selector:local:get-status",
   "selector:local:setup",
@@ -110,6 +111,18 @@ function assertSelectorSender(event: IpcMainInvokeEvent, selectorWindow: Browser
   }
 }
 
+function assertRemoteCanOpenOffline(profile: RemoteWorkspaceProfile): void {
+  const compatibility = profile.capabilities?.compatibility;
+  if (compatibility === "online-only" || compatibility === "legacy-online-only") {
+    const error = new Error("该 Server 仅支持在线使用，不能离线进入") as Error & { code: string };
+    error.code = "REMOTE_OFFLINE_UNSUPPORTED";
+    throw error;
+  }
+  if (compatibility === "desktop-upgrade-required" || compatibility === "shell-incompatible") {
+    assertRemoteCanOpen(profile.capabilities!);
+  }
+}
+
 function assertRemoteCanOpen(capabilities: RemoteCapabilitySnapshot): void {
   if (capabilities.compatibility === "compatible" || capabilities.compatibility === "online-only") return;
   const error = new Error(
@@ -159,6 +172,7 @@ export function registerSelectorIpc(selectorWindow: BrowserWindow, profileStore:
   setupLocal: (input: { username: string; password: string }) => Promise<unknown>;
   loginLocal: (input: { username: string; password: string }) => Promise<unknown>;
   openRemote: (profile: RemoteWorkspaceProfile) => Promise<RemoteProfileOpenResult>;
+  openRemoteOffline: (profile: RemoteWorkspaceProfile) => Promise<RemoteProfileOpenResult>;
   refreshRemoteChallenge: (profile: RemoteWorkspaceProfile) => Promise<RemoteLoginChallenge>;
   loginRemote: (profile: RemoteWorkspaceProfile, input: RemoteLoginInput) => Promise<RemoteAuthUser>;
   registerRemote: (profile: RemoteWorkspaceProfile, input: RemoteRegisterInput) => Promise<RemoteAuthUser>;
@@ -232,6 +246,14 @@ export function registerSelectorIpc(selectorWindow: BrowserWindow, profileStore:
     }
     const result = await options.openRemote(checkedProfile);
     return { ...result, profile: result.status === "opened" ? profileStore.markUsed(id) : checkedProfile };
+  });
+  handle("selector:profiles:open-offline", selectorWindow, async (_event, input) => {
+    const id = parseProfileId(input);
+    const profile = profileStore.get(id);
+    if (profile.kind !== "remote") throw new Error("远端工作区 profile 不存在");
+    assertRemoteCanOpenOffline(profile);
+    const result = await options.openRemoteOffline(profile);
+    return { ...result, profile: result.status === "opened" ? profileStore.markUsed(id) : profile };
   });
   handle("selector:profiles:probe", selectorWindow, async (_event, input) => {
     const profile = profileStore.get(parseProfileId(input));

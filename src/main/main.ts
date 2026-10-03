@@ -998,6 +998,7 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
       return result.user;
     },
     openRemote: (profile) => remoteAuth.open(profile),
+    openRemoteOffline: (profile) => remoteAuth.openOffline(profile),
     refreshRemoteChallenge: (profile) => remoteAuth.refreshChallenge(profile),
     loginRemote: (profile, input) => remoteAuth.login(profile, input),
     registerRemote: (profile, input) => remoteAuth.register(profile, input),

@@ -1,6 +1,7 @@
 import { MakerBase, type MakerOptions } from "@electron-forge/maker-base";
 import type { ForgePlatform } from "@electron-forge/shared-types";
 import { buildForge, type Configuration } from "app-builder-lib";
+import { createRequire } from "node:module";
 import { join } from "node:path";
 
 import { DESKTOP_DISPLAY_NAME, desktopBuildIconName } from "../src/shared/branding.js";
@@ -8,6 +9,30 @@ import { windowsNsisUpdateChannel } from "../src/shared/update-policy.js";
 
 const WINDOWS_EXECUTABLE_NAME = "Scriverse Desktop";
 const WINDOWS_UPDATE_URL = "https://github.com/musnows/scriverse-desktop/releases/latest/download";
+const FOUR_PART_VERSION = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/u;
+const require = createRequire(import.meta.url);
+
+type SemverLike = {
+  valid: (version: unknown, options?: unknown) => string | null;
+  clean: (version: unknown, options?: unknown) => string | null;
+};
+
+export function installFourPartVersionSupport(semverModule: SemverLike): () => void {
+  const originalValid = semverModule.valid;
+  const originalClean = semverModule.clean;
+  semverModule.valid = (version, options) => {
+    if (typeof version === "string" && FOUR_PART_VERSION.test(version)) return version;
+    return originalValid(version, options);
+  };
+  semverModule.clean = (version, options) => {
+    if (typeof version === "string" && FOUR_PART_VERSION.test(version)) return version;
+    return originalClean(version, options);
+  };
+  return () => {
+    semverModule.valid = originalValid;
+    semverModule.clean = originalClean;
+  };
+}
 
 export type WindowsNsisMakerConfig = {
   certificateFile?: string | null;
@@ -71,15 +96,20 @@ export class WindowsNsisMaker extends MakerBase<WindowsNsisMakerConfig> {
   }
 
   async make(options: MakerOptions): Promise<string[]> {
-    return buildForge({ dir: options.dir }, {
-      win: [`nsis:${options.targetArch}`],
-      projectDir: process.cwd(),
-      config: windowsNsisBuilderConfiguration({
-        targetArch: options.targetArch,
-        makeDir: options.makeDir,
-        certificateFile: this.config.certificateFile,
-        certificatePassword: this.config.certificatePassword
-      })
-    });
+    const restoreVersionSupport = installFourPartVersionSupport(require("app-builder-lib/node_modules/semver") as SemverLike);
+    try {
+      return await buildForge({ dir: options.dir }, {
+        win: [`nsis:${options.targetArch}`],
+        projectDir: process.cwd(),
+        config: windowsNsisBuilderConfiguration({
+          targetArch: options.targetArch,
+          makeDir: options.makeDir,
+          certificateFile: this.config.certificateFile,
+          certificatePassword: this.config.certificatePassword
+        })
+      });
+    } finally {
+      restoreVersionSupport();
+    }
   }
 }

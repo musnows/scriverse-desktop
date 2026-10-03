@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { desktopUpdateFeedUrl, updateInstallDetail, windowsNsisUpdateChannel } from "../../src/shared/update-policy.js";
+import { desktopUpdateFeedUrl, supportsNsisAutoUpdater, updateInstallDetail, windowsNsisUpdateChannel } from "../../src/shared/update-policy.js";
 import { parseSquirrelCommand } from "../../src/shared/squirrel-command.js";
 
 describe("Desktop 更新策略", () => {
@@ -34,6 +34,15 @@ describe("Desktop 更新策略", () => {
     const updater = readFileSync(join(process.cwd(), "src/main/desktop-updater.ts"), "utf8");
     expect(updater).toContain("https://github.com/musnows/scriverse-desktop/releases/latest");
     expect(updater).not.toContain("github.com/musnows/Scriverse/releases/latest");
+  });
+
+  it("四段 Desktop 版本可以进入更新地址，但不能构造 electron-updater", () => {
+    expect(desktopUpdateFeedUrl("darwin", "1.1.6.1", "arm64"))
+      .toBe("https://update.electronjs.org/musnows/scriverse-desktop/darwin-arm64/v1.1.6.1");
+    expect(supportsNsisAutoUpdater("1.1.6")).toBe(true);
+    expect(supportsNsisAutoUpdater("1.1.6.1")).toBe(false);
+    expect(readFileSync(join(process.cwd(), "src/main/desktop-updater.ts"), "utf8"))
+      .not.toContain("const nsisAutoUpdater = electronUpdater.autoUpdater");
   });
 
   it("为 Windows NSIS 安装器选择架构隔离的更新通道", () => {

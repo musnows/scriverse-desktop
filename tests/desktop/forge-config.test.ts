@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
-import config from "../../forge.config.js";
+import config, { createWindowsMakers } from "../../forge.config.js";
 import { installFourPartVersionSupport, windowsNsisBuilderConfiguration } from "../../scripts/windows-nsis-maker.js";
+import { isFourPartDesktopVersion } from "../../src/shared/update-policy.js";
 
 describe("Desktop Forge configuration", () => {
   afterEach(() => {
@@ -17,10 +19,10 @@ describe("Desktop Forge configuration", () => {
   ] as const)("selects matching native and installer icons for GITHUB_ACTIONS=%s", async (githubActions, iconName) => {
     vi.stubEnv("GITHUB_ACTIONS", githubActions);
     vi.resetModules();
-    const { default: configured } = await import("../../forge.config.js");
+    const { default: configured, createWindowsMakers: createConfiguredWindowsMakers } = await import("../../forge.config.js");
     const extension = process.platform === "darwin" ? ".icns" : process.platform === "win32" ? ".ico" : "-512.png";
     expect(configured.packagerConfig?.icon).toBe(`assets/${iconName}${extension}`);
-    const squirrel = configured.makers?.find((maker) => "name" in maker && maker.name === "@electron-forge/maker-squirrel");
+    const squirrel = createConfiguredWindowsMakers("1.1.6").find((maker) => "name" in maker && maker.name === "@electron-forge/maker-squirrel");
     if (iconName === "icon-dev") {
       expect(squirrel).toMatchObject({ config: { setupIcon: expect.stringContaining("icon-dev.ico") } });
     } else {
@@ -48,11 +50,13 @@ describe("Desktop Forge configuration", () => {
     expect(config.makers?.map((maker) => "name" in maker ? maker.name : "")).toEqual(expect.arrayContaining([
       "dmg",
       "zip",
-      "@electron-forge/maker-squirrel",
       "nsis",
       "@electron-forge/maker-deb",
       "@electron-forge/maker-rpm"
     ]));
+    const packageVersion = (JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")) as { version: string }).version;
+    expect(config.makers?.some((maker) => "name" in maker && maker.name === "@electron-forge/maker-squirrel"))
+      .toBe(!isFourPartDesktopVersion(packageVersion));
     expect(config.plugins).toHaveLength(2);
     const ignore = config.packagerConfig?.ignore ?? [];
     const ignored = (file: string) => ignore.some((pattern) => pattern.test(file));
@@ -130,6 +134,16 @@ describe("Desktop Forge configuration", () => {
       certificateFile: "/certificate/desktop.pfx",
       signingHashAlgorithms: ["sha256"]
     });
+  });
+
+  it("四段 Desktop 版本只生成 NSIS，三段版本仍同时生成 Squirrel", () => {
+    expect(createWindowsMakers("1.1.6").map((maker) => "name" in maker ? maker.name : "")).toEqual([
+      "@electron-forge/maker-squirrel",
+      "nsis"
+    ]);
+    expect(createWindowsMakers("1.1.6.1").map((maker) => "name" in maker ? maker.name : "")).toEqual(["nsis"]);
+    expect(isFourPartDesktopVersion("1.1.6")).toBe(false);
+    expect(isFourPartDesktopVersion("1.1.6.1")).toBe(true);
   });
 
   it("让 electron-builder 接受四段 Desktop 版本", () => {

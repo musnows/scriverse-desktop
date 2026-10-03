@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createRequire } from "node:module";
 import { join } from "node:path";
 import config from "../../forge.config.js";
-import { windowsNsisBuilderConfiguration } from "../../scripts/windows-nsis-maker.js";
+import { installFourPartVersionSupport, windowsNsisBuilderConfiguration } from "../../scripts/windows-nsis-maker.js";
 
 describe("Desktop Forge configuration", () => {
   afterEach(() => {
@@ -129,5 +130,22 @@ describe("Desktop Forge configuration", () => {
       certificateFile: "/certificate/desktop.pfx",
       signingHashAlgorithms: ["sha256"]
     });
+  });
+
+  it("让 electron-builder 接受四段 Desktop 版本", () => {
+    const semver = createRequire(import.meta.url)("app-builder-lib/node_modules/semver") as {
+      valid: (version: string, loose?: boolean) => string | null;
+      clean: (version: string, loose?: boolean) => string | null;
+    };
+    const restore = installFourPartVersionSupport(semver);
+    try {
+      expect(semver.valid("1.1.6.1", true)).toBe("1.1.6.1");
+      expect(semver.clean("1.1.6.1", true)).toBe("1.1.6.1");
+      expect(semver.valid("1.1.6", true)).toBe("1.1.6");
+      expect(semver.valid("not-a-version", true)).toBeNull();
+    } finally {
+      restore();
+    }
+    expect(semver.valid("1.1.6.1", true)).toBeNull();
   });
 });

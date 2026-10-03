@@ -2,13 +2,15 @@ import { app, autoUpdater as squirrelAutoUpdater, dialog, powerMonitor, shell, t
 import electronUpdater from "electron-updater";
 import { DESKTOP_DISPLAY_NAME } from "../shared/branding.js";
 import type { WorkspaceLeaveState } from "../shared/workspace-contract.js";
-import { desktopUpdateFeedUrl, updateInstallDetail, windowsNsisUpdateChannel } from "../shared/update-policy.js";
+import { desktopUpdateFeedUrl, supportsNsisAutoUpdater, updateInstallDetail, windowsNsisUpdateChannel } from "../shared/update-policy.js";
 import { isSquirrelWindowsInstallation } from "./windows-installation.js";
 
 const RELEASES_URL = "https://github.com/musnows/scriverse-desktop/releases/latest";
 const WINDOWS_UPDATE_URL = "https://github.com/musnows/scriverse-desktop/releases/latest/download";
 const UPDATE_INTERVAL_MS = 10 * 60_000;
-const nsisAutoUpdater = electronUpdater.autoUpdater;
+function nsisAutoUpdater(): typeof electronUpdater.autoUpdater {
+  return electronUpdater.autoUpdater;
+}
 
 export class DesktopUpdater {
   private checking = false;
@@ -31,17 +33,23 @@ export class DesktopUpdater {
     this.initialized = true;
     const feedUrl = desktopUpdateFeedUrl(process.platform, this.options.version, process.arch);
     if (!app.isPackaged || !feedUrl) return;
-    this.useNsisUpdater = process.platform === "win32" && !isSquirrelWindowsInstallation();
+    const nsisInstall = process.platform === "win32" && !isSquirrelWindowsInstallation();
+    this.useNsisUpdater = nsisInstall && supportsNsisAutoUpdater(app.getVersion());
+    if (nsisInstall && !this.useNsisUpdater) {
+      process.stderr.write(`Desktop NSIS updater skipped because app version is not semver: ${app.getVersion()}\n`);
+      return;
+    }
     if (this.useNsisUpdater) {
-      nsisAutoUpdater.autoInstallOnAppQuit = false;
-      nsisAutoUpdater.channel = windowsNsisUpdateChannel(process.arch);
-      nsisAutoUpdater.allowDowngrade = false;
-      nsisAutoUpdater.setFeedURL({ provider: "generic", url: WINDOWS_UPDATE_URL });
-      nsisAutoUpdater.on("checking-for-update", this.handleCheckingForUpdate);
-      nsisAutoUpdater.on("update-available", this.handleUpdateAvailable);
-      nsisAutoUpdater.on("update-not-available", this.handleUpdateNotAvailable);
-      nsisAutoUpdater.on("error", this.handleUpdateError);
-      nsisAutoUpdater.on("update-downloaded", (event) => {
+      const updater = nsisAutoUpdater();
+      updater.autoInstallOnAppQuit = false;
+      updater.channel = windowsNsisUpdateChannel(process.arch);
+      updater.allowDowngrade = false;
+      updater.setFeedURL({ provider: "generic", url: WINDOWS_UPDATE_URL });
+      updater.on("checking-for-update", this.handleCheckingForUpdate);
+      updater.on("update-available", this.handleUpdateAvailable);
+      updater.on("update-not-available", this.handleUpdateNotAvailable);
+      updater.on("error", this.handleUpdateError);
+      updater.on("update-downloaded", (event) => {
         this.handleUpdateDownloaded(event.version);
       });
     } else {
@@ -116,7 +124,7 @@ export class DesktopUpdater {
     this.checking = true;
     try {
       if (this.useNsisUpdater) {
-        void nsisAutoUpdater.checkForUpdates().catch(() => undefined);
+        void nsisAutoUpdater().checkForUpdates().catch(() => undefined);
       } else {
         squirrelAutoUpdater.checkForUpdates();
       }
@@ -180,7 +188,7 @@ export class DesktopUpdater {
     if (!await this.options.prepareInstall(discardUnsaved)) return;
     this.dispose();
     if (this.useNsisUpdater) {
-      nsisAutoUpdater.quitAndInstall();
+      nsisAutoUpdater().quitAndInstall();
     } else {
       squirrelAutoUpdater.quitAndInstall();
     }

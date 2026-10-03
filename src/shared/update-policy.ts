@@ -8,9 +8,15 @@ export function windowsNsisUpdateChannel(arch: string): string {
   return `latest-${arch}`;
 }
 
+const NSIS_UPDATER_VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/u;
+
+export function supportsNsisAutoUpdater(version: string): boolean {
+  return NSIS_UPDATER_VERSION.test(version);
+}
+
 export function desktopUpdateFeedUrl(platform: NodeJS.Platform, version: string, arch: string): string | null {
   if (platform !== "darwin" && platform !== "win32") return null;
-  if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(version)) throw new Error("Desktop update version is invalid");
+  if (!/^\d+\.\d+\.\d+(?:\.\d+)?(?:-[0-9A-Za-z.-]+)?$/u.test(version)) throw new Error("Desktop update version is invalid");
   if (arch !== "x64" && arch !== "arm64" && !(platform === "win32" && arch === "ia32")) {
     throw new Error("Desktop update architecture is invalid");
   }

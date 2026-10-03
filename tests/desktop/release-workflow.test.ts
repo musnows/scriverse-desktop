@@ -106,6 +106,9 @@ describe("Desktop 发布链路", () => {
     expect(release).not.toContain("stapler validate");
     expect(release).toContain('app_path="out/scriverse-desktop-darwin-${{ matrix.arch }}/叙界.app"');
     expect(release).toContain('$installers.Count -lt 2');
+    expect(release).toContain("Missing Windows NSIS installer");
+    expect(developPackage).toContain("Missing Windows NSIS installer");
+    expect(artifactVerifier).toContain("fourPartDesktopVersion");
     expect(release).not.toMatch(/BEGIN (?:RSA )?PRIVATE KEY/u);
   });
 

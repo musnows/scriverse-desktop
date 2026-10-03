@@ -3,11 +3,12 @@ import { FusesPlugin } from "@electron-forge/plugin-fuses";
 import { MakerDMG } from "@electron-forge/maker-dmg";
 import { MakerZIP } from "@electron-forge/maker-zip";
 import type { ForgeConfig } from "@electron-forge/shared-types";
-import { existsSync, renameSync } from "node:fs";
+import { existsSync, readFileSync, renameSync } from "node:fs";
 import { join } from "node:path";
 import { prunePackagedElectronLocales } from "./scripts/prune-packaged-locales.js";
 import { WindowsNsisMaker } from "./scripts/windows-nsis-maker.js";
 import { DESKTOP_DISPLAY_NAME, desktopBuildIconName } from "./src/shared/branding.js";
+import { isFourPartDesktopVersion } from "./src/shared/update-policy.js";
 
 const desktopMainEntry = "build/main/main.js";
 const desktopAssets = "assets";
@@ -48,6 +49,38 @@ const packageIcon = process.platform === "darwin"
   : process.platform === "win32"
     ? `${desktopAssets}/${iconName}.ico`
     : `${desktopAssets}/${iconName}-512.png`;
+
+function currentPackageVersion(): string {
+  const manifest = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")) as { version?: unknown };
+  if (typeof manifest.version !== "string" || manifest.version.length === 0) {
+    throw new Error("Desktop package version is missing");
+  }
+  return manifest.version;
+}
+
+export function createWindowsMakers(version: string): NonNullable<ForgeConfig["makers"]> {
+  const nsis = new WindowsNsisMaker({
+    certificateFile: windowsCertificateFile,
+    certificatePassword: windowsCertificatePassword
+  });
+  if (isFourPartDesktopVersion(version)) return [nsis];
+  return [
+    {
+      name: "@electron-forge/maker-squirrel",
+      platforms: ["win32"],
+      config: {
+        name: "ScriverseDesktop",
+        ...(iconName === "icon-dev" ? { setupIcon: join(process.cwd(), desktopAssets, `${iconName}.ico`) } : {}),
+        ...(windowsCertificateFile && windowsCertificatePassword ? {
+          certificateFile: windowsCertificateFile,
+          certificatePassword: windowsCertificatePassword
+        } : {})
+      }
+    },
+    nsis
+  ];
+}
+
 const linuxMakerOptions = {
   name: "scriverse-desktop",
   productName: DESKTOP_DISPLAY_NAME,
@@ -156,22 +189,7 @@ const config: ForgeConfig = {
   makers: [
     new LocalizedMacDmgMaker({ name: "scriverse-desktop" }),
     new LocalizedMacZipMaker({}, ["darwin", "linux"]),
-    {
-      name: "@electron-forge/maker-squirrel",
-      platforms: ["win32"],
-      config: {
-        name: "ScriverseDesktop",
-        ...(iconName === "icon-dev" ? { setupIcon: join(process.cwd(), desktopAssets, `${iconName}.ico`) } : {}),
-        ...(windowsCertificateFile && windowsCertificatePassword ? {
-          certificateFile: windowsCertificateFile,
-          certificatePassword: windowsCertificatePassword
-        } : {})
-      }
-    },
-    new WindowsNsisMaker({
-      certificateFile: windowsCertificateFile,
-      certificatePassword: windowsCertificatePassword
-    }),
+    ...createWindowsMakers(currentPackageVersion()),
     {
       name: "@electron-forge/maker-deb",
       platforms: ["linux"],

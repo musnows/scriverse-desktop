@@ -57,6 +57,15 @@ button:focus-visible, input:focus-visible, a:focus-visible {
 
 .app-header { min-height: 44px; justify-content: space-between; gap: 10px; }
 .header-actions { justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+/* 系统设置是 button，本地 AI 配置是 a。去掉按钮默认外观并统一行高，文字基线才会重合。 */
+.header-actions > * {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  appearance: none;
+  line-height: 1;
+}
 .header-actions a { text-decoration: none; }
 
 .brand {
@@ -193,7 +202,7 @@ button:disabled { cursor: wait; opacity: .56; transform: none !important; }
 .card-details div { min-width: 0; padding: 9px 10px; border-radius: 6px; background: var(--surface-soft); }
 .card-details dt { color: var(--muted); font-size: 9px; }
 .card-details dd { margin: 4px 0 0; overflow-wrap: anywhere; font-size: 11px; font-weight: 620; }
-.card-actions { align-self: end; justify-content: flex-end; gap: 8px; }
+.card-actions { align-self: end; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
 .card-actions .primary-button, .card-actions .ghost-button { min-height: 36px; padding: 7px 12px; font-size: 11px; }
 .card-actions .edit-button { margin-left: auto; }
 

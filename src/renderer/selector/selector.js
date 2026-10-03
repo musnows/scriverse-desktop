@@ -320,9 +320,22 @@ function renderProfile(profile) {
     probeButton.dataset.action = "probe";
     probeButton.dataset.profileId = profile.id;
     probeButton.setAttribute("aria-label", `检测 Server ${profile.name}`);
-    actions.append(removeButton, probeButton, editButton);
+    const offlineButton = element("button", "ghost-button", "离线进入");
+    offlineButton.type = "button";
+    offlineButton.dataset.action = "open-offline";
+    offlineButton.dataset.profileId = profile.id;
+    offlineButton.setAttribute("aria-label", `离线进入：${profile.name}`);
+    const offlineUnsupported = profile.capabilities?.compatibility === "online-only"
+      || profile.capabilities?.compatibility === "legacy-online-only";
+    if (offlineUnsupported) {
+      offlineButton.disabled = true;
+      offlineButton.title = "该 Server 仅支持在线使用";
+    } else {
+      offlineButton.title = "使用本机已同步的数据进入，不发起在线会话";
+    }
+    actions.append(removeButton, probeButton, editButton, offlineButton);
   }
-  const openButton = element("button", "primary-button", profile.kind === "local" ? "进入本地工作区" : "选择 Server");
+  const openButton = element("button", "primary-button", profile.kind === "local" ? "进入本地工作区" : "在线进入");
   openButton.type = "button";
   openButton.dataset.action = "open";
   openButton.dataset.profileId = profile.id;
@@ -782,6 +795,19 @@ workspaceList.addEventListener("click", async (event) => {
       const checked = unwrap(await bridge.profiles.probe(profile.id));
       showToast(checked.capabilities?.compatibility === "compatible" ? "Server 可正常连接" : "Server 检测完成，请查看状态");
       await loadProfiles();
+    } catch (error) {
+      showToast(error.message, true);
+    } finally {
+      setBusy(button, false);
+    }
+    return;
+  }
+  if (button.dataset.action === "open-offline") {
+    setBusy(button, true);
+    try {
+      unwrap(await bridge.profiles.openOffline(profile.id));
+      await loadProfiles();
+      showToast(`已离线打开“${profile.name}”`);
     } catch (error) {
       showToast(error.message, true);
     } finally {

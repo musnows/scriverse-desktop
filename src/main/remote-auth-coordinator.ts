@@ -90,6 +90,25 @@ export class RemoteAuthCoordinator {
     return { status: "login-required", challenge, policy };
   }
 
+  async openOffline(profile: RemoteWorkspaceProfile): Promise<RemoteProfileOpenResult> {
+    const credential = this.readCredential(profile);
+    if (!credential) {
+      const error = new Error("请先在线登录一次，才能使用本机离线副本进入") as Error & { code: string };
+      error.code = "REMOTE_OFFLINE_LOGIN_REQUIRED";
+      throw error;
+    }
+    if (!this.canOpenOffline(profile, credential.user)) {
+      const error = new Error("本机还没有这个账户的离线副本。请先在线进入并下载作品") as Error & { code: string };
+      error.code = "REMOTE_OFFLINE_UNAVAILABLE";
+      throw error;
+    }
+    this.activeUsers.set(profile.id, credential.user);
+    this.activeModes.set(profile.id, "offline");
+    this.sessions.authorize(profile, credential.token);
+    await this.openWorkspace(profile, "offline");
+    return { status: "opened", mode: "offline" };
+  }
+
   refreshChallenge(profile: RemoteWorkspaceProfile): Promise<RemoteLoginChallenge> {
     return this.client.captcha(profile);
   }

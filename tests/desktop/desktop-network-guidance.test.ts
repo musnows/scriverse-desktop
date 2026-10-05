@@ -29,13 +29,13 @@ describe("Desktop 断网引导文案", () => {
     expect(desktopNetworkGuidanceView("offline", { online: true, monitoring: false }, false).visible).toBe(false);
   });
 
-  it("只有离线模式在 health 成功时显示提示，关闭后要等再次失败再成功才重现", () => {
+  it("连续确认后的恢复提示在关闭后不再因同一次结果重现", () => {
     expect(desktopNetworkGuidanceView("offline", disconnected, false)).toEqual({ visible: false, dismissedWhileOnline: false });
     const visible = desktopNetworkGuidanceView("offline", restored, false);
     expect(visible.visible).toBe(true);
     expect(visible.copy?.title).toBe("网络连接已恢复");
     expect(desktopNetworkGuidanceView("offline", restored, true)).toEqual({ visible: false, dismissedWhileOnline: true });
-    expect(desktopNetworkGuidanceView("offline", disconnected, true)).toEqual({ visible: false, dismissedWhileOnline: false });
-    expect(desktopNetworkGuidanceView("offline", restored, false).visible).toBe(true);
+    expect(desktopNetworkGuidanceView("offline", disconnected, true)).toEqual({ visible: false, dismissedWhileOnline: true });
+    expect(desktopNetworkGuidanceView("offline", restored, true).visible).toBe(false);
   });
 });

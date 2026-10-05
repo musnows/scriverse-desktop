@@ -19,7 +19,7 @@ function networkStatus(status) {
 export function desktopNetworkGuidanceView(mode, status, dismissedWhileOnline = false) {
   if (mode !== "offline") return { visible: false, dismissedWhileOnline: false };
   const online = networkStatus(status);
-  if (online !== true) return { visible: false, dismissedWhileOnline: false };
+  if (online !== true) return { visible: false, dismissedWhileOnline };
   if (dismissedWhileOnline) return { visible: false, dismissedWhileOnline: true };
   return {
     visible: true,

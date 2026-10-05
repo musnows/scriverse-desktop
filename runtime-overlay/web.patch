@@ -59,7 +59,7 @@ index 4e3860a..52d2b02 100644
  import { resolveToastRegionHost } from "/toast-layer.js?v=20260822-toast-modal-host-v1";
  import { createToastStack } from "/toast-stack.js?v=20260909-toast-stack-v2";
 +import { createDesktopWorkspaceController, installDesktopExternalUrlPrompt } from "/desktop-workspace.js?v=20260913-desktop-global-theme-v1";
-+import { installDesktopNetworkGuidance } from "/desktop-network-guidance.js?v=20260922-network-offline-guidance-v1";
++import { installDesktopNetworkGuidance } from "/desktop-network-guidance.js?v=20261005-desktop-offline-network-restore-v1";
 +import { createDesktopOfflineApi } from "/desktop-offline-api.js?v=20260930-desktop-offline-history-v6";
 +import { buildDesktopOfflineAgentCorpus, desktopOfflineAssistantTurn, desktopOfflineChatToolDefinitions, desktopOfflineLocalAiMessages, desktopOfflineLocalAiSystemPrompt, desktopOfflineUserTurn, runDesktopOfflineAgentLoop } from "/desktop-local-ai-offline.js?v=20260930-desktop-offline-agent-v4";
 +import { isDesktopWorkspaceSelectableModel, mergeDesktopLocalAiModels } from "/desktop-local-ai-catalog.js?v=20261003-desktop-local-online-selectable-v1";
@@ -577,6 +577,13 @@ index 4e3860a..52d2b02 100644
 +    control.title = "恢复连接后可使用此功能";
 +  }
 +  updateSystemHealth({ status: "offline" });
++  if (isDesktopRemoteWorkspaceRuntime()) {
++    disposeDesktopNetworkGuidance ??= installDesktopNetworkGuidance({
++      bridge: globalThis.scriverseDesktopWorkspace?.shell ?? null,
++      mode: "offline",
++      requestSwitch: switchDesktopWorkspace
++    });
++  }
 +  return true;
 +}
 +
@@ -617,12 +624,6 @@ index 4e3860a..52d2b02 100644
 +  if (isDesktopWorkspaceRuntime()) {
 +    $("#desktop-switch-button").classList.remove("hidden");
 +    void applyDesktopWorkspaceIdentity();
-+    if (isDesktopRemoteWorkspaceRuntime()) {
-+      disposeDesktopNetworkGuidance ??= installDesktopNetworkGuidance({
-+        bridge: globalThis.scriverseDesktopWorkspace?.shell ?? null,
-+        requestSwitch: switchDesktopWorkspace
-+      });
-+    }
 +    void ensureDesktopWorkspace(session.user).catch(() => undefined);
 +  }
    scheduleSystemBootCheck();
@@ -2276,7 +2277,7 @@ index 88727ad..4f27565 100644
 +        <span class="eyebrow">网络状态</span>
 +        <h2 id="desktop-network-guidance-title">网络连接已断开</h2>
 +        <p id="desktop-network-guidance-description">请返回工作区列表，然后重新进入当前工作区。</p>
-+        <div class="desktop-network-guidance-actions"><button id="desktop-network-guidance-switch" class="primary-button" type="button">返回工作区列表</button></div>
++        <div class="desktop-network-guidance-actions"><button id="desktop-network-guidance-dismiss" class="ghost-button" type="button">关闭</button><button id="desktop-network-guidance-switch" class="primary-button" type="button">返回工作区选择页</button></div>
 +      </div>
 +    </section>
      <div id="auth-loading" class="auth-loading" role="status" aria-label="正在载入工作台"></div>
@@ -2339,11 +2340,11 @@ index ab75be8..e3bf3bc 100644
 +.desktop-network-guidance-card { display: grid; width: min(460px, 100%); gap: 10px; padding: 22px; border: 1px solid color-mix(in srgb, var(--accent) 48%, var(--line)); border-radius: 8px; background: var(--panel); color: var(--ink); box-shadow: var(--shadow); }
 +.desktop-network-guidance-card h2 { margin: 0; font-size: 20px; letter-spacing: -.02em; }
 +.desktop-network-guidance-card p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.7; }
-+.desktop-network-guidance-actions { display: flex; justify-content: flex-end; margin-top: 4px; }
++.desktop-network-guidance-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 +@media (max-width: 760px) {
 +  .desktop-network-guidance-toast { padding: 16px; }
 +  .desktop-network-guidance-card { padding: 18px; }
-+  .desktop-network-guidance-actions { justify-content: stretch; }
++  .desktop-network-guidance-actions { flex-direction: column; align-items: stretch; }
 +  .desktop-network-guidance-actions button { width: 100%; }
 +}
 +.desktop-conflict-dialog { width: min(1280px, 96vw); }

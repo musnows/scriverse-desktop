@@ -62,12 +62,17 @@ describe("Desktop 远端工作区窗口", () => {
     expect(windowSource).not.toContain('window.webContents.on("render-process-gone"');
   });
 
-  it("在线远端工作区通过主进程网络状态检测引导重新进入离线模式", () => {
+  it("只在离线远端工作区监测网络恢复，在线模式不发送这条提示", () => {
     const mainSource = readFileSync(join(root, "src/main/main.ts"), "utf8");
+    const monitorStart = mainSource.indexOf("networkConnectivityMonitor = new NetworkConnectivityMonitor");
+    const monitorBlock = mainSource.slice(mainSource.lastIndexOf("if (", monitorStart), mainSource.indexOf("networkConnectivityMonitor.start();", monitorStart));
 
     expect(mainSource).toContain("net.isOnline()");
     expect(mainSource).toContain("NetworkConnectivityMonitor");
-    expect(mainSource).toContain('connectionMode === "online"');
+    expect(monitorBlock).toContain('connectionMode === "offline"');
+    expect(monitorBlock).not.toContain('connectionMode === "online"');
+    expect(mainSource).toContain('getNetworkStatus: () => ({ online: net.isOnline(), monitoring: connectionMode === "offline" })');
+    expect(mainSource).toContain('if (connectionMode !== "offline" || !activeWindow || activeWindow.isDestroyed() || activeWorkspaceKind !== "remote") return;');
     expect(mainSource).toContain('window.webContents.send("workspace:shell:network-status", { online, monitoring: true })');
     expect(mainSource).toContain("onRemoteServerNetworkStatus");
     expect(mainSource).toContain("remoteServerUnreachableFailureThreshold: desktopSettings.remoteServerUnreachableFailureThreshold");

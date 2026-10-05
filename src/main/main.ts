@@ -663,7 +663,7 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
     onExternalUrlRequest: (requestWindow, target) => externalUrlNavigation.request(requestWindow, target),
     onRemoteServerNetworkStatus: (online) => {
       const activeWindow = workspaceWindow;
-      if (connectionMode !== "online" || !activeWindow || activeWindow.isDestroyed() || activeWorkspaceKind !== "remote") return;
+      if (connectionMode !== "offline" || !activeWindow || activeWindow.isDestroyed() || activeWorkspaceKind !== "remote") return;
       activeWindow.webContents.send("workspace:shell:network-status", { online, monitoring: true });
     },
     onRendererRecoveryFailed: handleRendererRecoveryFailed,
@@ -681,7 +681,7 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
         activeProfileId: () => activeRemoteProfileId,
         getCachedUser: () => remoteAuthCoordinator!.cachedUser(profile),
         getConnectionMode: () => remoteAuthCoordinator!.connectionMode(profile),
-        getNetworkStatus: () => ({ online: net.isOnline(), monitoring: connectionMode === "online" }),
+        getNetworkStatus: () => ({ online: net.isOnline(), monitoring: connectionMode === "offline" }),
         getLocalAiCatalog: () => localAiRequestCoordinator!.catalog(),
         completeLocalAi: (_userId, input, onEvent) => localAiRequestCoordinator!.complete(input, onEvent),
         cancelLocalAi: (_userId, requestId) => localAiRequestCoordinator!.cancel(requestId),
@@ -702,7 +702,7 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
         openExternalUrl: (input) => externalUrlNavigation.respond(window, input),
         writeClipboardText: (text) => clipboard.writeText(text)
       });
-      if (connectionMode === "online") {
+      if (connectionMode === "offline") {
         networkConnectivityMonitor = new NetworkConnectivityMonitor({
           readOnline: () => net.isOnline(),
           onStatusChange: (online) => {

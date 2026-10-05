@@ -9,9 +9,14 @@ export function windowsNsisUpdateChannel(arch: string): string {
 }
 
 const NSIS_UPDATER_VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/u;
+const FOUR_PART_DESKTOP_VERSION = /^\d+\.\d+\.\d+\.\d+$/u;
 
 export function supportsNsisAutoUpdater(version: string): boolean {
   return NSIS_UPDATER_VERSION.test(version);
+}
+
+export function isFourPartDesktopVersion(version: string): boolean {
+  return FOUR_PART_DESKTOP_VERSION.test(version);
 }
 
 export function desktopUpdateFeedUrl(platform: NodeJS.Platform, version: string, arch: string): string | null {

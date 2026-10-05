@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { desktopUpdateFeedUrl, supportsNsisAutoUpdater, updateInstallDetail, windowsNsisUpdateChannel } from "../../src/shared/update-policy.js";
+import { desktopUpdateFeedUrl, isFourPartDesktopVersion, supportsNsisAutoUpdater, updateInstallDetail, windowsNsisUpdateChannel } from "../../src/shared/update-policy.js";
 import { parseSquirrelCommand } from "../../src/shared/squirrel-command.js";
 
 describe("Desktop 更新策略", () => {
@@ -41,6 +41,8 @@ describe("Desktop 更新策略", () => {
       .toBe("https://update.electronjs.org/musnows/scriverse-desktop/darwin-arm64/v1.1.6.1");
     expect(supportsNsisAutoUpdater("1.1.6")).toBe(true);
     expect(supportsNsisAutoUpdater("1.1.6.1")).toBe(false);
+    expect(isFourPartDesktopVersion("1.1.6")).toBe(false);
+    expect(isFourPartDesktopVersion("1.1.6.1")).toBe(true);
     expect(readFileSync(join(process.cwd(), "src/main/desktop-updater.ts"), "utf8"))
       .not.toContain("const nsisAutoUpdater = electronUpdater.autoUpdater");
   });

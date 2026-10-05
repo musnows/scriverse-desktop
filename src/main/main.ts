@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, dialog, net, shell, utilityProcess, type RenderProcessGoneDetails, type Session, type UtilityProcess } from "electron";
+import { app, BrowserWindow, clipboard, dialog, shell, utilityProcess, type RenderProcessGoneDetails, type Session, type UtilityProcess } from "electron";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -91,6 +91,8 @@ let backgroundTray: BackgroundTray | null = null;
 let desktopProcessLogging: DesktopProcessLogging | null = null;
 let remoteMediaCache: RemoteMediaCache | null = null;
 let networkConnectivityMonitor: NetworkConnectivityMonitor | null = null;
+let remoteServerProbe: RemoteServerProbe | null = null;
+let desktopAppVersion = "";
 let quitAfterLocalShutdown = false;
 let desktopQuitConfirmed = false;
 let nativeQuitConfirmationInFlight: Promise<void> | null = null;
@@ -331,6 +333,17 @@ function showSelectorFromWorkspace(window: BrowserWindow): void {
 function disposeNetworkConnectivityMonitor(): void {
   networkConnectivityMonitor?.dispose();
   networkConnectivityMonitor = null;
+}
+
+async function probeRemoteWorkspaceHealth(profile: RemoteWorkspaceProfile): Promise<boolean> {
+  // 离线恢复提示只认当前 Server 的 /api/health，不使用操作系统在线状态。
+  if (!remoteServerProbe || desktopAppVersion.length === 0) return false;
+  try {
+    await remoteServerProbe.probe(profile.origin, desktopAppVersion);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function updateBackgroundTrayStatus(): void {
@@ -661,11 +674,6 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
     remoteUserId: cachedUser.userId,
     ...(mainWindow && !mainWindow.isDestroyed() ? { placement: captureWindowPlacement(mainWindow) } : {}),
     onExternalUrlRequest: (requestWindow, target) => externalUrlNavigation.request(requestWindow, target),
-    onRemoteServerNetworkStatus: (online) => {
-      const activeWindow = workspaceWindow;
-      if (connectionMode !== "offline" || !activeWindow || activeWindow.isDestroyed() || activeWorkspaceKind !== "remote") return;
-      activeWindow.webContents.send("workspace:shell:network-status", { online, monitoring: true });
-    },
     onRendererRecoveryFailed: handleRendererRecoveryFailed,
     onCreated: (window) => {
       workspaceWindow = window;
@@ -681,7 +689,10 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
         activeProfileId: () => activeRemoteProfileId,
         getCachedUser: () => remoteAuthCoordinator!.cachedUser(profile),
         getConnectionMode: () => remoteAuthCoordinator!.connectionMode(profile),
-        getNetworkStatus: () => ({ online: net.isOnline(), monitoring: connectionMode === "offline" }),
+        getNetworkStatus: () => ({
+          online: connectionMode === "offline" && networkConnectivityMonitor?.currentOnline() === true,
+          monitoring: connectionMode === "offline"
+        }),
         getLocalAiCatalog: () => localAiRequestCoordinator!.catalog(),
         completeLocalAi: (_userId, input, onEvent) => localAiRequestCoordinator!.complete(input, onEvent),
         cancelLocalAi: (_userId, requestId) => localAiRequestCoordinator!.cancel(requestId),
@@ -704,7 +715,7 @@ function openRemoteWorkspace(profile: RemoteWorkspaceProfile, connectionMode: "o
       });
       if (connectionMode === "offline") {
         networkConnectivityMonitor = new NetworkConnectivityMonitor({
-          readOnline: () => net.isOnline(),
+          probe: () => probeRemoteWorkspaceHealth(profile),
           onStatusChange: (online) => {
             if (workspaceWindow !== window || activeWorkspaceKind !== "remote" || window.isDestroyed()) return;
             window.webContents.send("workspace:shell:network-status", { online, monitoring: true });
@@ -888,6 +899,8 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
   );
   remoteAuthCoordinator = remoteAuth;
   const remoteProbe = new RemoteServerProbe();
+  remoteServerProbe = remoteProbe;
+  desktopAppVersion = desktopVersion;
   const openLogsDirectory = async (): Promise<boolean> => {
     const error = await shell.openPath(environment.paths.logs);
     if (error !== "") {

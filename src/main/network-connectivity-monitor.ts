@@ -1,7 +1,7 @@
 export const NETWORK_CONNECTIVITY_CHECK_INTERVAL_MS = 15_000;
 
 type NetworkConnectivityMonitorOptions = {
-  readOnline: () => boolean;
+  probe: () => Promise<boolean>;
   onStatusChange: (online: boolean) => void;
   intervalMs?: number;
 };
@@ -9,6 +9,8 @@ type NetworkConnectivityMonitorOptions = {
 export class NetworkConnectivityMonitor {
   private timer: ReturnType<typeof setInterval> | null = null;
   private lastOnline: boolean | null = null;
+  private inFlight = false;
+  private disposed = false;
   private readonly intervalMs: number;
 
   constructor(private readonly options: NetworkConnectivityMonitorOptions) {
@@ -17,26 +19,38 @@ export class NetworkConnectivityMonitor {
       : NETWORK_CONNECTIVITY_CHECK_INTERVAL_MS;
   }
 
-  getOnline(): boolean {
-    return this.options.readOnline() === true;
+  currentOnline(): boolean {
+    return this.lastOnline === true;
   }
 
   start(): void {
-    if (this.timer) return;
-    this.check();
-    this.timer = setInterval(() => this.check(), this.intervalMs);
+    if (this.timer || this.disposed) return;
+    void this.check();
+    this.timer = setInterval(() => {
+      void this.check();
+    }, this.intervalMs);
     this.timer.unref?.();
   }
 
-  check(): boolean {
-    const online = this.getOnline();
-    if (this.lastOnline === online) return online;
+  async check(): Promise<boolean> {
+    if (this.disposed || this.inFlight) return this.lastOnline === true;
+    this.inFlight = true;
+    let online = false;
+    try {
+      online = await this.options.probe() === true;
+    } catch {
+      online = false;
+    } finally {
+      this.inFlight = false;
+    }
+    if (this.disposed || this.lastOnline === online) return this.lastOnline === true;
     this.lastOnline = online;
     this.options.onStatusChange(online);
     return online;
   }
 
   dispose(): void {
+    this.disposed = true;
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
   }

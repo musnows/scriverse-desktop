@@ -38,6 +38,17 @@ describe("Desktop Server health 探测", () => {
     expect(fetchImpl.mock.calls[0]?.[1]?.headers).not.toHaveProperty("Cookie");
   });
 
+  it("四段 Desktop 版本高于 Server 公布的 0.0.1 下限时保持兼容", async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
+      data: { ...modernHealth.data, minimumDesktopVersion: "0.0.1", serverVersion: "1.1.6", version: "1.1.6" }
+    }), { status: 200 }));
+    await expect(new RemoteServerProbe(fetchImpl).probe("https://server.example", "1.6.1.1")).resolves.toMatchObject({
+      serverVersion: "1.1.6",
+      minimumDesktopVersion: "0.0.1",
+      compatibility: "compatible"
+    });
+  });
+
   it("把缺少 Desktop 字段的旧 Server 标为 legacy online only", async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
       data: { status: "ok", version: "0.7.9" }

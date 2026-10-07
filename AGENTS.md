@@ -122,7 +122,8 @@ npm run verify:package
 
 ### Desktop 与 Server 版本号约定
 
-- Desktop 使用四段版本号。前三段是本次构建对齐的 Scriverse Server 版本，第四段只表示 Desktop 自身的修复修订。当前 `1.1.7.1` 对齐已发布的 Server `1.1.7`。同一 Server 版本上的后续 Desktop 修复只增加第四段；该 Server 的第一份 Desktop 使用第四段 `1`。
+- Desktop 使用四段版本号。前三段是本次构建对齐的 Scriverse Server 版本，第四段只表示 Desktop 自身的修复修订。Server 保持三段版本号，不得使用四段版本。已发布的 Desktop `1.1.7.1` 对齐已发布的 Server `1.1.7`；该版本已经发布，不得改标、重新发布或回溯为 `1.1.7.0`。
+- 今后对齐某个 Server 版本的第一版 Desktop，第四段从 `0` 起。例如 Server `1.1.8` 对应 Desktop `1.1.8.0`。同一 Server 版本上的后续 Desktop 修复只增加第四段，例如 `1.1.8.1`、`1.1.8.2`。
 - `package.json` 的 `version` 必须是四段 Desktop 版本。`scriverseServerVersion` 必须是其中前三段，并且对应已经正式发布的 Scriverse Server Git tag 与 GitHub Release。禁止发布三段 Desktop 版本，也禁止使用不同的 Server 版本、`develop` 或未发布 commit 作为运行时来源。
 
 ### `main` PR 的 Server Release 能力对齐门禁

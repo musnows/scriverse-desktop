@@ -241,6 +241,7 @@ describe("offline agent web chat simulation", () => {
       const client = new LocalAiClient();
       const loopBodies: LoopBody[] = [];
       const events: ToolCallEvent[] = [];
+      const contentDeltasDuringRound: string[][] = [];
       const result = await runDesktopOfflineAgentLoop({
         protocol: "openai-chat-completions",
         modelId: SIM_MODEL_ID,
@@ -251,7 +252,8 @@ describe("offline agent web chat simulation", () => {
         onEvent: (event: ToolCallEvent) => events.push(event),
         completeRound: async (body: LoopBody, onEvent: (event: LocalAiStreamEvent) => void): Promise<LocalAiAgentRoundResult> => {
           loopBodies.push(structuredClone(body));
-          return client.completeAgentRound(credential, {
+          const before = events.length;
+          const response = await client.completeAgentRound(credential, {
             requestId: `desktop-offline-sim-${loopBodies.length}`,
             modelId: credential.model.id,
             taskType: "chat",
@@ -259,6 +261,8 @@ describe("offline agent web chat simulation", () => {
             body: body as Record<string, unknown>,
             timeoutMs: 30_000
           }, undefined, onEvent);
+          contentDeltasDuringRound.push(events.slice(before).flatMap((event) => event.type === "content-delta" && event.delta ? [event.delta] : []));
+          return response;
         }
       });
 
@@ -280,6 +284,8 @@ describe("offline agent web chat simulation", () => {
       expect(JSON.stringify(toolEvent?.toolCall?.result ?? {})).toContain(SECOND_CHAPTER_ID);
       expect(JSON.stringify(toolEvent?.toolCall?.result ?? {})).toContain(SECOND_CHAPTER_TITLE);
       expect(result.content).toContain("回声");
+      expect(contentDeltasDuringRound[1]?.join("")).toContain("回声");
+      expect(events.filter((event) => event.type === "content-delta").map((event) => event.delta).join("")).toBe(contentDeltasDuringRound.flat().join(""));
       expect(result.processSteps.map((step: { type: string }) => step.type)).toEqual(expect.arrayContaining(["thinking", "tool"]));
     } finally {
       await closeServer(server);

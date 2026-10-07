@@ -253,6 +253,58 @@ describe("offline agent loop", () => {
     expect(events.map((event) => event.type)).toEqual(["reasoning-delta", "tool-call", "content-delta"]);
   });
 
+  it("forwards content chunks while the provider round is still open and does not replay them", async () => {
+    const events: Array<{ type: string; delta?: string; duringRound?: boolean; step?: { type?: string; content?: string } }> = [];
+    let roundOpen = false;
+    const result = await runDesktopOfflineAgentLoop({
+      protocol: "openai-chat-completions",
+      modelId: "demo-model",
+      tools: desktopOfflineChatToolDefinitions(corpus),
+      corpus,
+      now: () => "2026-09-29T00:00:00.000Z",
+      messages: [{ role: "user", content: "林夏最后出现在哪一章？" }],
+      onEvent: (event) => events.push({ ...event, duringRound: roundOpen }),
+      completeRound: async (_body, onEvent) => {
+        roundOpen = true;
+        if (events.some((event) => event.type === "tool-call")) {
+          onEvent({ type: "content-delta", delta: "林夏最后出现在" });
+          await Promise.resolve();
+          onEvent({ type: "content-delta", delta: "《回声》。" });
+          roundOpen = false;
+          return { status: 200, body: JSON.stringify({ choices: [{ message: { content: "林夏最后出现在《回声》。" } }] }) };
+        }
+        onEvent({ type: "content-delta", delta: "先看目录。" });
+        await Promise.resolve();
+        roundOpen = false;
+        return {
+          status: 200,
+          body: JSON.stringify({
+            choices: [{
+              message: {
+                content: "先看目录。",
+                tool_calls: [{ id: "call-1", type: "function", function: { name: "grep", arguments: "{\"keyword\":\"林夏\"}" } }]
+              }
+            }]
+          })
+        };
+      }
+    });
+
+    expect(result.content).toBe("林夏最后出现在《回声》。");
+    const contentDeltas = events.filter((event) => event.type === "content-delta");
+    expect(contentDeltas.map((event) => event.delta)).toEqual(["先看目录。", "林夏最后出现在", "《回声》。"]);
+    expect(contentDeltas.every((event) => event.duringRound === true)).toBe(true);
+    expect(events.map((event) => event.type)).toEqual([
+      "content-delta",
+      "process-step",
+      "tool-call",
+      "content-delta",
+      "content-delta"
+    ]);
+    const intermediate = events.find((event) => event.type === "process-step");
+    expect(intermediate?.step).toMatchObject({ type: "intermediate", content: "先看目录。" });
+  });
+
   it("parses provider tool calls back into the web tool event shape", () => {
     const turn = parseDesktopOfflineAgentTurn("openai-chat-completions", {
       choices: [{ message: { content: "", tool_calls: [{ id: "call-1", function: { name: "grep", arguments: "{\"keyword\":\"海\"}" } }] } }]

@@ -38,6 +38,7 @@ import {
 } from "../shared/remote-auth-contract.js";
 import type { RemoteCapabilitySnapshot, RemoteWorkspaceProfile } from "../shared/contracts.js";
 import { normalizeProfileOrigin } from "../shared/profile-url.js";
+import { desktopUpgradeRequirementMessage } from "../shared/protocol-range.js";
 import type { RemoteSyncStatusSummary } from "./remote-sync-status-store.js";
 import type { DesktopSettingsSummary } from "../shared/desktop-settings-contract.js";
 
@@ -111,35 +112,6 @@ function assertSelectorSender(event: IpcMainInvokeEvent, selectorWindow: Browser
   }
 }
 
-function assertRemoteCanOpenOffline(profile: RemoteWorkspaceProfile): void {
-  const compatibility = profile.capabilities?.compatibility;
-  if (compatibility === "online-only" || compatibility === "legacy-online-only") {
-    const error = new Error("该 Server 仅支持在线使用，不能离线进入") as Error & { code: string };
-    error.code = "REMOTE_OFFLINE_UNSUPPORTED";
-    throw error;
-  }
-  if (compatibility === "desktop-upgrade-required" || compatibility === "shell-incompatible") {
-    assertRemoteCanOpen(profile.capabilities!);
-  }
-}
-
-function assertRemoteCanOpen(capabilities: RemoteCapabilitySnapshot): void {
-  if (capabilities.compatibility === "compatible" || capabilities.compatibility === "online-only") return;
-  const error = new Error(
-    capabilities.compatibility === "legacy-online-only"
-      ? "该 Server 版本过旧，请升级后再使用 Desktop"
-      : capabilities.compatibility === "desktop-upgrade-required"
-        ? `当前 Desktop 版本过低，Server 要求至少 ${capabilities.minimumDesktopVersion ?? "更高版本"}`
-        : "该 Server 版本与当前 Desktop 不兼容"
-  ) as Error & { code: string };
-  error.code = capabilities.compatibility === "legacy-online-only"
-    ? "REMOTE_SERVER_DESKTOP_AUTH_REQUIRED"
-    : capabilities.compatibility === "desktop-upgrade-required"
-      ? "REMOTE_DESKTOP_UPGRADE_REQUIRED"
-      : "REMOTE_SHELL_PROTOCOL_INCOMPATIBLE";
-  throw error;
-}
-
 function isRemoteConnectivityError(error: unknown): boolean {
   return error instanceof Error
     && "code" in error
@@ -193,6 +165,35 @@ export function registerSelectorIpc(selectorWindow: BrowserWindow, profileStore:
   confirmQuit: () => void;
   openExternalUrl: (input: unknown) => Promise<null>;
 }): () => void {
+  function assertRemoteCanOpen(capabilities: RemoteCapabilitySnapshot): void {
+    if (capabilities.compatibility === "compatible" || capabilities.compatibility === "online-only") return;
+    const error = new Error(
+      capabilities.compatibility === "legacy-online-only"
+        ? "该 Server 版本过旧，请升级后再使用 Desktop"
+        : capabilities.compatibility === "desktop-upgrade-required"
+          ? desktopUpgradeRequirementMessage(options.desktopVersion, capabilities.minimumDesktopVersion)
+          : "该 Server 版本与当前 Desktop 不兼容"
+    ) as Error & { code: string };
+    error.code = capabilities.compatibility === "legacy-online-only"
+      ? "REMOTE_SERVER_DESKTOP_AUTH_REQUIRED"
+      : capabilities.compatibility === "desktop-upgrade-required"
+        ? "REMOTE_DESKTOP_UPGRADE_REQUIRED"
+        : "REMOTE_SHELL_PROTOCOL_INCOMPATIBLE";
+    throw error;
+  }
+
+  function assertRemoteCanOpenOffline(profile: RemoteWorkspaceProfile): void {
+    const compatibility = profile.capabilities?.compatibility;
+    if (compatibility === "online-only" || compatibility === "legacy-online-only") {
+      const error = new Error("该 Server 仅支持在线使用，不能离线进入") as Error & { code: string };
+      error.code = "REMOTE_OFFLINE_UNSUPPORTED";
+      throw error;
+    }
+    if (compatibility === "desktop-upgrade-required" || compatibility === "shell-incompatible") {
+      assertRemoteCanOpen(profile.capabilities!);
+    }
+  }
+
   handle("selector:profiles:list", selectorWindow, () => sortProfilesForSelector(profileStore.list()));
   handle("selector:profiles:status", selectorWindow, (_event, input) => {
     const profile = profileStore.get(parseProfileId(input));

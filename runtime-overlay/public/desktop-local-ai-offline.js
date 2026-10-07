@@ -1437,7 +1437,9 @@ export async function runDesktopOfflineAgentLoop({
         reasoning += event.delta;
         onEvent({ type: "reasoning-delta", round, delta: event.delta });
       } else if (event?.type === "content-delta" && typeof event.delta === "string" && event.delta) {
+        // 与在线流一致：token 到达时立刻交给对话界面。等整轮结束后再回放会把全文一次插入，滚动高度会停在旧布局上。
         contentDeltas.push(event.delta);
+        onEvent({ type: "content-delta", delta: event.delta });
       }
     });
     if (!response || Number(response.status) >= 400) {
@@ -1500,11 +1502,7 @@ export async function runDesktopOfflineAgentLoop({
       continue;
     }
     content = roundText;
-    if (contentDeltas.length) {
-      for (const delta of contentDeltas) onEvent({ type: "content-delta", delta });
-    } else if (content) {
-      onEvent({ type: "content-delta", delta: content });
-    }
+    if (!contentDeltas.length && content) onEvent({ type: "content-delta", delta: content });
     break;
   }
   if (!content) throw new Error("AI 供应商未返回内容");

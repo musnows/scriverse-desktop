@@ -50,6 +50,8 @@ describe("Desktop Web runtime overlay", () => {
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-local-ai-offline.js"))).toBe(true);
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-local-ai-catalog.js"))).toBe(true);
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-local-ai-stream.js"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-ai-feed-scroll.js"))).toBe(true);
+    expect(prepareSource).toContain("desktop-ai-feed-scroll.js");
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/latest-async-queue.js"))).toBe(true);
   });
 
@@ -158,6 +160,10 @@ describe("Desktop Web runtime overlay", () => {
     expect(pendingCleanupIndex).toBeGreaterThan(optimisticIdentityIndex);
     expect(responseFactoryIndex).toBeGreaterThan(pendingCleanupIndex);
     expect(overlayPatch).toContain("feature=desktop-provider-stream-v1");
+    expect(overlayPatch).toContain("feature=desktop-offline-chat-stream-v1");
+    expect(overlayPatch).toContain("pinScrollContainerAndFollow");
+    expect(overlayPatch).toContain("isProgrammaticScroll(feed)");
+    expect(overlayPatch).toContain("overflow-anchor: none");
     expect(overlayPatch).not.toContain("createDesktopLocalAiPendingMessage");
     expect(addedLines).not.toContain("本地模型");
     expect(addedLines).not.toContain("本地助手");

@@ -7,17 +7,20 @@ type ParsedVersion = {
   major: number;
   minor: number;
   patch: number;
+  revision: number;
   prerelease: Array<number | string>;
 };
 
 function parseVersion(value: string): ParsedVersion | null {
-  const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/u.exec(value);
+  // 第四段按数字比较，缺省视为 0。解析失败返回 null，不回落成 0.0.1。
+  const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:\.(0|[1-9]\d*))?(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/u.exec(value);
   if (!match) return null;
   return {
     major: Number(match[1]),
     minor: Number(match[2]),
     patch: Number(match[3]),
-    prerelease: match[4]?.split(".").map((part) => /^\d+$/u.test(part) ? Number(part) : part) ?? []
+    revision: match[4] === undefined ? 0 : Number(match[4]),
+    prerelease: match[5]?.split(".").map((part) => /^\d+$/u.test(part) ? Number(part) : part) ?? []
   };
 }
 
@@ -25,7 +28,7 @@ export function compareSemanticVersions(left: string, right: string): number | n
   const leftVersion = parseVersion(left);
   const rightVersion = parseVersion(right);
   if (!leftVersion || !rightVersion) return null;
-  for (const key of ["major", "minor", "patch"] as const) {
+  for (const key of ["major", "minor", "patch", "revision"] as const) {
     if (leftVersion[key] !== rightVersion[key]) return leftVersion[key] < rightVersion[key] ? -1 : 1;
   }
   if (leftVersion.prerelease.length === 0 || rightVersion.prerelease.length === 0) {
@@ -44,6 +47,14 @@ export function compareSemanticVersions(left: string, right: string): number | n
     return leftPart.localeCompare(rightPart, "en-US") < 0 ? -1 : 1;
   }
   return 0;
+}
+
+export function desktopUpgradeRequirementMessage(desktopVersion: string, minimumDesktopVersion: string | null): string {
+  const comparison = minimumDesktopVersion ? compareSemanticVersions(desktopVersion, minimumDesktopVersion) : null;
+  if (comparison !== null && comparison < 0 && minimumDesktopVersion) {
+    return `当前 Desktop 版本过低，Server 要求至少 ${minimumDesktopVersion}`;
+  }
+  return "当前 Desktop 版本号无法识别，不能按 Server 要求判断";
 }
 
 export function protocolRangesIntersect(left: ProtocolRange, right: ProtocolRange): boolean {

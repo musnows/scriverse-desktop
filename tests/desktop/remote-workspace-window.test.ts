@@ -62,14 +62,21 @@ describe("Desktop 远端工作区窗口", () => {
     expect(windowSource).not.toContain('window.webContents.on("render-process-gone"');
   });
 
-  it("在线远端工作区通过主进程网络状态检测引导重新进入离线模式", () => {
+  it("只在离线远端工作区用 Server health 判断网络恢复", () => {
     const mainSource = readFileSync(join(root, "src/main/main.ts"), "utf8");
+    const probeSource = readFileSync(join(root, "src/main/remote-server-probe.ts"), "utf8");
+    const monitorStart = mainSource.indexOf("networkConnectivityMonitor = new NetworkConnectivityMonitor");
+    const monitorBlock = mainSource.slice(mainSource.lastIndexOf("if (", monitorStart), mainSource.indexOf("networkConnectivityMonitor.start();", monitorStart));
 
-    expect(mainSource).toContain("net.isOnline()");
-    expect(mainSource).toContain("NetworkConnectivityMonitor");
-    expect(mainSource).toContain('connectionMode === "online"');
+    expect(mainSource).not.toContain("net.isOnline()");
+    expect(mainSource).toContain("probe: () => probeRemoteWorkspaceHealth(profile)");
+    expect(mainSource).toContain("remoteServerProbe.probe(profile.origin, desktopAppVersion)");
+    expect(probeSource).toContain('new URL("/api/health"');
+    expect(monitorBlock).toContain('connectionMode === "offline"');
+    expect(monitorBlock).not.toContain('connectionMode === "online"');
+    expect(mainSource).toContain("monitoring: connectionMode === \"offline\"");
     expect(mainSource).toContain('window.webContents.send("workspace:shell:network-status", { online, monitoring: true })');
-    expect(mainSource).toContain("onRemoteServerNetworkStatus");
+    expect(mainSource).not.toContain("onRemoteServerNetworkStatus:");
     expect(mainSource).toContain("remoteServerUnreachableFailureThreshold: desktopSettings.remoteServerUnreachableFailureThreshold");
     expect(windowSource).toContain("options.remoteServerUnreachableFailureThreshold");
     expect(windowSource).toContain("onRemoteServerNetworkStatus ?? null");

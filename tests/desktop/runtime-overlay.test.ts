@@ -50,6 +50,8 @@ describe("Desktop Web runtime overlay", () => {
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-local-ai-offline.js"))).toBe(true);
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-local-ai-catalog.js"))).toBe(true);
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-local-ai-stream.js"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-ai-feed-scroll.js"))).toBe(true);
+    expect(prepareSource).toContain("desktop-ai-feed-scroll.js");
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/latest-async-queue.js"))).toBe(true);
   });
 
@@ -158,6 +160,10 @@ describe("Desktop Web runtime overlay", () => {
     expect(pendingCleanupIndex).toBeGreaterThan(optimisticIdentityIndex);
     expect(responseFactoryIndex).toBeGreaterThan(pendingCleanupIndex);
     expect(overlayPatch).toContain("feature=desktop-provider-stream-v1");
+    expect(overlayPatch).toContain("feature=desktop-offline-chat-stream-v1");
+    expect(overlayPatch).toContain("pinScrollContainerAndFollow");
+    expect(overlayPatch).toContain("isProgrammaticScroll(feed)");
+    expect(overlayPatch).toContain("overflow-anchor: none");
     expect(overlayPatch).not.toContain("createDesktopLocalAiPendingMessage");
     expect(addedLines).not.toContain("本地模型");
     expect(addedLines).not.toContain("本地助手");
@@ -255,13 +261,20 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain('desktop-offline-api.js?v=20260930-desktop-offline-history-v6');
   });
 
-  it("在远端工作区断网时显示页面居中的重新进入引导", () => {
+  it("只在离线远端工作区提示网络恢复，并允许关闭后留在当前工作区", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
+    const offlineInstall = overlayPatch.slice(overlayPatch.indexOf("async function enterDesktopOfflineMode()"), overlayPatch.indexOf("async function initializeAuthentication()"));
+    const onlineInstall = overlayPatch.slice(overlayPatch.indexOf("applyAuthenticatedUser(session);"), overlayPatch.indexOf("scheduleSystemBootCheck();"));
 
-    expect(overlayPatch).toContain('desktop-network-guidance.js?v=20260922-network-offline-guidance-v1');
-    expect(overlayPatch).toContain('installDesktopNetworkGuidance({');
+    expect(overlayPatch).toContain('desktop-network-guidance.js?v=20261005-desktop-offline-network-restore-v1');
+    expect(offlineInstall).toContain('mode: "offline"');
+    expect(offlineInstall).toContain("installDesktopNetworkGuidance({");
+    expect(onlineInstall).not.toContain("installDesktopNetworkGuidance");
     expect(overlayPatch).toContain('id="desktop-network-guidance-toast"');
+    expect(overlayPatch).toContain('id="desktop-network-guidance-dismiss"');
+    expect(overlayPatch).toContain(">关闭</button>");
     expect(overlayPatch).toContain('id="desktop-network-guidance-switch"');
+    expect(overlayPatch).toContain(">返回工作区选择页</button>");
     expect(overlayPatch).toContain("desktop-network-guidance-toast { position: fixed; inset: 0;");
     expect(overlayPatch).toContain("place-items: center");
   });

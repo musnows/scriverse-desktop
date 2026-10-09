@@ -1542,7 +1542,15 @@ export async function collectDesktopOfflineCorpus(workId, request, { readAttachm
         const separator = source.path(workId).includes("?") ? "&" : "?";
         const result = await request(`${source.path(workId)}${separator}page=${page}&limit=100`);
         const parsed = pageRecords(result);
-        items.push(...parsed.items.filter((item) => item && typeof item === "object" && !Array.isArray(item) && item.id));
+        items.push(...parsed.items.flatMap((item) => {
+          if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+          if (source.entityType === "chapter-outline") {
+            if (!item.createdAt) return [];
+            const id = String(item.id ?? item.chapterId ?? "");
+            return id ? [{ ...item, id }] : [];
+          }
+          return item.id ? [item] : [];
+        }));
         if (!parsed.hasMore || !parsed.nextPage || parsed.nextPage <= page) break;
         page = parsed.nextPage;
       }

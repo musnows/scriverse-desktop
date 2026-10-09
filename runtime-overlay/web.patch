@@ -60,8 +60,8 @@ index 456358e..813f2b8 100644
  import { createToastStack } from "/toast-stack.js?v=20260909-toast-stack-v2";
 +import { createDesktopWorkspaceController, installDesktopExternalUrlPrompt } from "/desktop-workspace.js?v=20260913-desktop-global-theme-v1";
 +import { installDesktopNetworkGuidance } from "/desktop-network-guidance.js?v=20261005-desktop-offline-network-restore-v1";
-+import { createDesktopOfflineApi } from "/desktop-offline-api.js?v=20260930-desktop-offline-history-v6";
-+import { buildDesktopOfflineAgentCorpus, desktopOfflineAssistantTurn, desktopOfflineChatToolDefinitions, desktopOfflineLocalAiMessages, desktopOfflineLocalAiSystemPrompt, desktopOfflineUserTurn, runDesktopOfflineAgentLoop } from "/desktop-local-ai-offline.js?v=20261007-desktop-offline-chat-stream-v1";
++import { createDesktopOfflineApi } from "/desktop-offline-api.js?v=20261009-desktop-offline-modules-v1";
++import { buildDesktopOfflineAgentCorpus, desktopOfflineAssistantTurn, desktopOfflineChatToolDefinitions, desktopOfflineLocalAiMessages, desktopOfflineLocalAiSystemPrompt, desktopOfflineUserTurn, runDesktopOfflineAgentLoop } from "/desktop-local-ai-offline.js?v=20261009-desktop-offline-modules-v1";
 +import { isDesktopWorkspaceSelectableModel, mergeDesktopLocalAiModels } from "/desktop-local-ai-catalog.js?v=20261003-desktop-local-online-selectable-v1";
 +import { desktopProviderCompletedToolCalls } from "/desktop-local-ai-stream.js?v=20260825-desktop-provider-live-tools-v1";
 +import { isProgrammaticScroll, pinScrollContainerAndFollow } from "/desktop-ai-feed-scroll.js?v=20261007-desktop-offline-chat-scroll-v1";

@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { DesktopOfflineApi } from "../../runtime-overlay/public/desktop-offline-api.js";
+import { syncMutationSnapshot } from "../../runtime-overlay/public/desktop-sync-client.js";
 
 type StoredRecord = {
   entityType: string;
@@ -127,6 +129,77 @@ describe("offline work tabs", () => {
         message: "离线包不存在"
       });
     }
+  });
+
+  it("does not apply permission filtering in the offline work payload", async () => {
+    const api = new DesktopOfflineApi({
+      store: {
+        async getWork() {
+          return {
+            workId: "work-1",
+            title: "界门",
+            summary: { id: "work-1", title: "界门" },
+            permissionsSnapshot: {
+              accessRole: "viewer",
+              modulePermissions: { characters: "none", drafts: "none", settings: "read", prose: "none" }
+            }
+          };
+        },
+        async listEntities() {
+          return [];
+        }
+      }
+    });
+    const work = await api.request("/api/works/work-1?directory=volumes");
+    expect(work.accessRole).toBe("owner");
+    expect(work.modulePermissions).toMatchObject({
+      characters: "write",
+      drafts: "write",
+      settings: "write",
+      prose: "write",
+      races: "write",
+      outlines: "write"
+    });
+    const overlay = readFileSync(new URL("../../runtime-overlay/web.patch", import.meta.url), "utf8");
+    expect(overlay).not.toContain("当前模块未包含在离线副本中");
+    expect(overlay).not.toContain("离线时只能修改已下载的正文和设定");
+  });
+
+  it("saves an offline edit for a module other than chapters and settings", async () => {
+    const saved = [];
+    const character = {
+      entityType: "character",
+      entityId: "char-1",
+      snapshot: { id: "char-1", name: "林舟", aliases: [], lockedFields: [], versionNo: 1 },
+      serverVersionNo: 1,
+      localRevisionNo: 0,
+      conflict: false,
+      locked: false,
+      deleted: false
+    };
+    const api = new DesktopOfflineApi({
+      store: {
+        async listWorks() {
+          return [{ workId: "work-1" }];
+        },
+        async getEntity() {
+          return { ...character, snapshot: structuredClone(character.snapshot) };
+        },
+        async saveLocalEntity(_workId, entityType, entityId, snapshot) {
+          saved.push({ entityType, entityId, snapshot });
+          return { localRevisionNo: 1, savedAt: "2026-10-09T00:00:00.000Z" };
+        }
+      },
+      client: { async emitStatus() {} }
+    });
+    const updated = await api.request("/api/characters/char-1", { method: "PATCH", body: { name: "林舟改" } });
+    expect(updated.name).toBe("林舟改");
+    expect(saved[0]).toMatchObject({ entityType: "character", entityId: "char-1" });
+    expect(syncMutationSnapshot("character", saved[0].snapshot)).toMatchObject({ name: "林舟改" });
+    expect(syncMutationSnapshot("draft", { title: "潮门", content: "正文", ignored: true })).toEqual({
+      title: "潮门",
+      content: "正文"
+    });
   });
 
   it("returns an empty list when the synced package includes a module with no records", async () => {

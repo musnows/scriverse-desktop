@@ -232,20 +232,43 @@ export function buildOfflineOutlineBoard({
   };
 }
 
-function workAccess(work) {
-  const saved = work.permissionsSnapshot && typeof work.permissionsSnapshot === "object" && !Array.isArray(work.permissionsSnapshot)
-    ? work.permissionsSnapshot
-    : {};
-  const modulePermissions = saved.modulePermissions && typeof saved.modulePermissions === "object" && !Array.isArray(saved.modulePermissions)
-    ? saved.modulePermissions
-    : saved;
-  const permissionValues = Object.values(modulePermissions);
-  const fallbackRole = permissionValues.length > 0 && permissionValues.every((access) => access === "write")
-    ? "editor"
-    : permissionValues.some((access) => access === "write") ? "custom" : "viewer";
+const OFFLINE_EDITABLE_ENTITY_TYPES = new Set([
+  "chapter",
+  "setting",
+  "draft",
+  "character",
+  "race",
+  "organization",
+  "timeline-track",
+  "timeline-event",
+  "relationship",
+  "chapter-outline",
+  "foreshadow"
+]);
+
+const OFFLINE_MODULE_IDS = [
+  "prose",
+  "comments",
+  "todos",
+  "drafts",
+  "settings",
+  "characters",
+  "races",
+  "organizations",
+  "timeline",
+  "relationships",
+  "outlines",
+  "reviews",
+  "ai-chat",
+  "ai-analysis",
+  "ai-settings"
+];
+
+function workAccess() {
+  // 离线界面不按权限隐藏或锁模块。上传时由 Server 按写权限接受或拒绝。
   return {
-    accessRole: typeof saved.accessRole === "string" ? saved.accessRole : fallbackRole,
-    modulePermissions: structuredClone(modulePermissions)
+    accessRole: "owner",
+    modulePermissions: Object.fromEntries(OFFLINE_MODULE_IDS.map((module) => [module, "write"]))
   };
 }
 
@@ -349,7 +372,7 @@ export class DesktopOfflineApi {
       id: String(summary.id ?? cached.workId),
       title: String(summary.title ?? cached.title ?? "未命名作品"),
       coverUrl: typeof summary.coverUrl === "string" ? summary.coverUrl : null,
-      ...workAccess(cached),
+      ...workAccess(),
       offlineAccessEnabled: true,
       wordCount: chapterEntities.reduce((total, entity) => total + textCount(entity.snapshot?.content), 0),
       chapterCount: chapterEntities.length,
@@ -395,12 +418,28 @@ export class DesktopOfflineApi {
     if (current.entity.locked || current.entity.conflict) {
       throw new DesktopOfflineApiError("SYNC_ENTITY_READ_ONLY", "该记录存在冲突或已锁定为只读，请先在同步中心处理");
     }
-    const allowed = entityType === "chapter"
-      ? ["title", "content", "chapterType"]
-      : ["title", "category", "content", "tags", "status", "locked", "evidence", "scope", "authorNote"];
+    if (!OFFLINE_EDITABLE_ENTITY_TYPES.has(entityType)) {
+      throw new DesktopOfflineApiError(
+        "DESKTOP_OFFLINE_OPERATION_UNSUPPORTED",
+        "当前离线副本不能修改这类记录"
+      );
+    }
+    const reserved = new Set([
+      "expectedVersionNo",
+      "changeNote",
+      "id",
+      "workId",
+      "versionNo",
+      "desktopLocalRevisionNo",
+      "desktopSyncConflict",
+      "desktopReadOnly",
+      "wordCount",
+      "contentPreview"
+    ]);
     const snapshot = { ...current.snapshot };
-    for (const key of allowed) {
-      if (body && Object.hasOwn(body, key)) snapshot[key] = structuredClone(body[key]);
+    for (const [key, value] of Object.entries(body ?? {})) {
+      if (reserved.has(key)) continue;
+      snapshot[key] = structuredClone(value);
     }
     const saved = await this.store.saveLocalEntity(current.workId, entityType, entityId, snapshot);
     await this.controller.client.emitStatus("saved", current.workId);
@@ -538,7 +577,7 @@ export class DesktopOfflineApi {
   unsupported() {
     throw new DesktopOfflineApiError(
       "DESKTOP_OFFLINE_OPERATION_UNSUPPORTED",
-      "当前离线副本仅支持修改已下载的正文和设定；其他操作需恢复连接后完成"
+      "当前离线副本不能完成这个操作；已有内容可以修改，新建、删除和部分管理操作需要恢复连接"
     );
   }
 
@@ -609,6 +648,25 @@ export class DesktopOfflineApi {
     if (method === "GET" && outlineBoard) return this.outlineBoard(decodeURIComponent(outlineBoard[1]), url);
     const chapterOutline = pathname.match(/^\/api\/chapters\/([^/]+)\/outline$/u);
     if (chapterOutline && method === "GET") return this.chapterOutline(decodeURIComponent(chapterOutline[1]));
+    if (chapterOutline && (method === "PUT" || method === "PATCH")) {
+      return this.saveEntity("chapter-outline", decodeURIComponent(chapterOutline[1]), options.body);
+    }
+    const editableRoutes = [
+      [/^\/api\/drafts\/([^/]+)$/u, "draft"],
+      [/^\/api\/characters\/([^/]+)$/u, "character"],
+      [/^\/api\/races\/([^/]+)$/u, "race"],
+      [/^\/api\/organizations\/([^/]+)$/u, "organization"],
+      [/^\/api\/timeline-tracks\/([^/]+)$/u, "timeline-track"],
+      [/^\/api\/timeline\/([^/]+)$/u, "timeline-event"],
+      [/^\/api\/relationships\/([^/]+)$/u, "relationship"],
+      [/^\/api\/foreshadows\/([^/]+)$/u, "foreshadow"]
+    ];
+    if (method === "PATCH" || method === "PUT") {
+      for (const [pattern, entityType] of editableRoutes) {
+        const match = pathname.match(pattern);
+        if (match) return this.saveEntity(entityType, decodeURIComponent(match[1]), options.body);
+      }
+    }
     const workReviews = pathname.match(/^\/api\/works\/([^/]+)\/reviews$/u);
     if (method === "GET" && workReviews) return packagedList(decodeURIComponent(workReviews[1]), "review");
     const workAnnotations = pathname.match(/^\/api\/works\/([^/]+)\/chapter-annotations$/u);

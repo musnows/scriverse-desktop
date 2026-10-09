@@ -66,7 +66,23 @@ function rangesOverlap(range, version) {
   return range && Number(range.min) <= version && Number(range.max) >= version;
 }
 
+const SYNC_SNAPSHOT_FIELDS = {
+  chapter: ["title", "content", "chapterType"],
+  setting: ["title", "category", "content", "tags", "status", "locked", "evidence", "scope", "authorNote"],
+  draft: ["draftType", "volumeId", "settingModule", "title", "content"],
+  character: ["name", "gender", "isDead", "code", "aliases", "raceId", "organizationIds", "attributes", "profile", "currentState", "lockedFields", "firstChapterId"],
+  race: ["name", "isExtinct", "parentRaceId", "description", "settings", "settingsMarkdown", "settingsSections", "memberIds"],
+  organization: ["name", "isDissolved", "description", "settings", "settingsMarkdown", "settingsSections", "memberIds"],
+  "timeline-track": ["name", "description", "sortOrder"],
+  "timeline-event": ["name", "trackId", "description", "eventType", "timeLabel", "timeSort", "chapterIds", "participantIds", "location", "causes", "impactScope", "evidence", "status"],
+  relationship: ["fromCharacterId", "toCharacterId", "category", "subtype", "keywords", "directed", "currentStatus", "timeRange", "confidence", "evidence", "confirmationStatus", "locked"],
+  "chapter-outline": ["goal", "conflict", "turningPoint", "notes", "status"],
+  foreshadow: ["title", "description", "status", "importance", "plannedPayoffChapterId", "resolutionNote", "occurrences"]
+};
+
 export function syncMutationSnapshot(entityType, snapshot) {
+  const fields = SYNC_SNAPSHOT_FIELDS[entityType];
+  if (!fields) throw new DesktopSyncClientError("SYNC_ENTITY_TYPE_UNSUPPORTED", "该类型暂不支持离线同步");
   if (entityType === "chapter") {
     return {
       title: String(snapshot?.title ?? ""),
@@ -87,7 +103,11 @@ export function syncMutationSnapshot(entityType, snapshot) {
       authorNote: String(snapshot?.authorNote ?? "")
     };
   }
-  throw new DesktopSyncClientError("SYNC_ENTITY_TYPE_UNSUPPORTED", "该类型暂不支持离线同步");
+  const localSnapshot = {};
+  for (const field of fields) {
+    if (snapshot && Object.hasOwn(snapshot, field)) localSnapshot[field] = structuredClone(snapshot[field]);
+  }
+  return localSnapshot;
 }
 
 export class DesktopSyncClient {

@@ -1,11 +1,11 @@
 import { FuseV1Options, FuseVersion } from "@electron/fuses";
 import { FusesPlugin } from "@electron-forge/plugin-fuses";
-import { MakerDMG } from "@electron-forge/maker-dmg";
 import { MakerZIP } from "@electron-forge/maker-zip";
 import type { ForgeConfig } from "@electron-forge/shared-types";
 import { existsSync, readFileSync, renameSync } from "node:fs";
 import { join } from "node:path";
 import { prunePackagedElectronLocales } from "./scripts/prune-packaged-locales.js";
+import { MacDmgMaker } from "./scripts/macos-dmg-maker.js";
 import { WindowsNsisMaker } from "./scripts/windows-nsis-maker.js";
 import { DESKTOP_DISPLAY_NAME, desktopBuildIconName } from "./src/shared/branding.js";
 import { isFourPartDesktopVersion } from "./src/shared/update-policy.js";
@@ -28,12 +28,6 @@ const macNotarization = process.env.APPLE_API_KEY?.trim()
   : null;
 const windowsCertificateFile = process.env.WINDOWS_CERTIFICATE_FILE?.trim() || null;
 const windowsCertificatePassword = process.env.WINDOWS_CERTIFICATE_PASSWORD ?? null;
-
-class LocalizedMacDmgMaker extends MakerDMG {
-  override make(options: Parameters<MakerDMG["make"]>[0]): Promise<string[]> {
-    return super.make({ ...options, appName: DESKTOP_DISPLAY_NAME });
-  }
-}
 
 class LocalizedMacZipMaker extends MakerZIP {
   override make(options: Parameters<MakerZIP["make"]>[0]): Promise<string[]> {
@@ -187,7 +181,7 @@ const config: ForgeConfig = {
     })
   },
   makers: [
-    new LocalizedMacDmgMaker({ name: "scriverse-desktop" }),
+    new MacDmgMaker({}),
     new LocalizedMacZipMaker({}, ["darwin", "linux"]),
     ...createWindowsMakers(currentPackageVersion()),
     {

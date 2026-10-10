@@ -39,7 +39,7 @@ Desktop 使用四段版本号。前三段是对齐的 Scriverse Server 版本，
 
 ### 环境要求
 
-- Node.js `>= 22.5.0`
+- Node.js `>= 22.13.0`
 - npm
 - 与当前 Desktop 版本兼容的 [Scriverse](https://github.com/musnows/Scriverse) 构建产物
 

@@ -387,6 +387,12 @@ export class RemoteMediaCache {
       headers: { Accept: "application/json" }
     });
     if (!response.ok) {
+      if (response.status === 403) {
+        const payload: unknown = await response.json().catch(() => null);
+        if (isRecord(payload) && isRecord(payload.error) && payload.error.code === "WORK_MODULE_READ_DENIED") {
+          throw new RemoteMediaCacheError("WORK_MODULE_READ_DENIED", "没有读取该模块图片清单的权限");
+        }
+      }
       throw new RemoteMediaCacheError("REMOTE_MEDIA_REQUEST_FAILED", `图片清单请求失败（HTTP ${response.status}）`);
     }
     let payload: unknown;
@@ -429,6 +435,19 @@ export class RemoteMediaCache {
     return { ...candidate, byteLength, sha256: isSha256(etag) ? etag.toLocaleLowerCase("en-US") : null };
   }
 
+  private async readableModuleImages(
+    electronSession: Session,
+    profile: RemoteWorkspaceProfile,
+    path: string
+  ): Promise<Record<string, unknown>[]> {
+    try {
+      return await this.paginatedData(electronSession, profile, path);
+    } catch (error) {
+      if (error instanceof RemoteMediaCacheError && error.code === "WORK_MODULE_READ_DENIED") return [];
+      throw error;
+    }
+  }
+
   private async workImageCandidates(
     electronSession: Session,
     profile: RemoteWorkspaceProfile,
@@ -437,7 +456,7 @@ export class RemoteMediaCache {
     const work = await this.remoteData(electronSession, profile, `/api/works/${encodeURIComponent(workId)}`);
     const title = typeof work.title === "string" && work.title.trim() ? work.title.trim() : "未命名作品";
     const candidates = new Map<string, WorkMediaCandidate>();
-    for (const attachment of await this.paginatedData(electronSession, profile, `/api/works/${encodeURIComponent(workId)}/attachments`)) {
+    for (const attachment of await this.readableModuleImages(electronSession, profile, `/api/works/${encodeURIComponent(workId)}/attachments`)) {
       const route = typeof attachment.contentUrl === "string" ? parseRemoteMediaRoute(attachment.contentUrl) : null;
       if (!route || route.kind !== "attachment") continue;
       candidates.set(route.key, {
@@ -446,7 +465,7 @@ export class RemoteMediaCache {
         sha256: isSha256(attachment.storedSha256) ? attachment.storedSha256.toLocaleLowerCase("en-US") : null
       });
     }
-    for (const character of await this.paginatedData(electronSession, profile, `/api/works/${encodeURIComponent(workId)}/characters`)) {
+    for (const character of await this.readableModuleImages(electronSession, profile, `/api/works/${encodeURIComponent(workId)}/characters`)) {
       const route = typeof character.avatarUrl === "string" ? parseRemoteMediaRoute(character.avatarUrl) : null;
       if (!route || route.kind !== "character-avatar") continue;
       candidates.set(route.key, { path: route.path, byteLength: null, sha256: null });

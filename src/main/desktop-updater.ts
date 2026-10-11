@@ -1,9 +1,10 @@
-import { app, autoUpdater as squirrelAutoUpdater, dialog, powerMonitor, shell, type BrowserWindow } from "electron";
+import { app, autoUpdater as squirrelAutoUpdater, dialog, net, powerMonitor, shell, type BrowserWindow } from "electron";
 import electronUpdater from "electron-updater";
 import { DESKTOP_DISPLAY_NAME } from "../shared/branding.js";
 import type { WorkspaceLeaveState } from "../shared/workspace-contract.js";
-import { desktopUpdateFeedUrl, supportsNsisAutoUpdater, updateInstallDetail, windowsNsisUpdateChannel } from "../shared/update-policy.js";
+import { desktopUpdateFeedUrl, isFourPartDesktopVersion, supportsNsisAutoUpdater, updateInstallDetail, windowsNsisUpdateChannel } from "../shared/update-policy.js";
 import { isSquirrelWindowsInstallation } from "./windows-installation.js";
+import { fetchDesktopUpdateRelease } from "./desktop-release-client.js";
 
 const RELEASES_URL = "https://github.com/musnows/scriverse-desktop/releases/latest";
 const WINDOWS_UPDATE_URL = "https://github.com/musnows/scriverse-desktop/releases/latest/download";
@@ -18,6 +19,10 @@ export class DesktopUpdater {
   private suspended = false;
   private initialized = false;
   private useNsisUpdater = false;
+  private useReleaseDownload = false;
+  private disposed = false;
+  private offeredReleaseVersion: string | null = null;
+  private releaseRequest: AbortController | null = null;
   private initialTimer: ReturnType<typeof setTimeout> | null = null;
   private intervalTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -35,8 +40,9 @@ export class DesktopUpdater {
     if (!app.isPackaged || !feedUrl) return;
     const nsisInstall = process.platform === "win32" && !isSquirrelWindowsInstallation();
     this.useNsisUpdater = nsisInstall && supportsNsisAutoUpdater(app.getVersion());
-    if (nsisInstall && !this.useNsisUpdater) {
-      process.stderr.write(`Desktop NSIS updater skipped because app version is not semver: ${app.getVersion()}\n`);
+    if (process.platform === "darwin" || isFourPartDesktopVersion(this.options.version) || (nsisInstall && !this.useNsisUpdater)) {
+      this.useReleaseDownload = true;
+      this.startAutomaticChecks();
       return;
     }
     if (this.useNsisUpdater) {
@@ -62,6 +68,10 @@ export class DesktopUpdater {
         this.handleUpdateDownloaded(releaseName);
       });
     }
+    this.startAutomaticChecks();
+  }
+
+  private startAutomaticChecks(): void {
     powerMonitor.on("suspend", this.handleSuspend);
     powerMonitor.on("resume", this.handleResume);
     this.initialTimer = setTimeout(() => this.check(true), 15_000);
@@ -119,11 +129,15 @@ export class DesktopUpdater {
       });
       return;
     }
-    if (this.suspended || this.checking) return;
+    if (this.disposed || this.suspended || this.checking) return;
     this.manualCheck = !silent;
     this.checking = true;
     try {
-      if (this.useNsisUpdater) {
+      if (this.useReleaseDownload) {
+        void this.checkReleaseDownload().catch((error: unknown) => {
+          if (!this.disposed) this.handleUpdateError(error instanceof Error ? error : new Error(String(error)));
+        });
+      } else if (this.useNsisUpdater) {
         void nsisAutoUpdater().checkForUpdates().catch(() => undefined);
       } else {
         squirrelAutoUpdater.checkForUpdates();
@@ -135,7 +149,54 @@ export class DesktopUpdater {
     }
   }
 
+  private async checkReleaseDownload(): Promise<void> {
+    const controller = new AbortController();
+    this.releaseRequest = controller;
+    const release = await fetchDesktopUpdateRelease({
+      currentVersion: this.options.version,
+      platform: process.platform,
+      arch: process.arch,
+      fetch: net.fetch,
+      signal: controller.signal
+    }).finally(() => {
+      if (this.releaseRequest === controller) this.releaseRequest = null;
+    });
+    if (this.disposed) return;
+    if (!release) {
+      this.handleUpdateNotAvailable();
+      return;
+    }
+    if (!this.manualCheck && this.offeredReleaseVersion === release.version) {
+      this.checking = false;
+      return;
+    }
+    this.offeredReleaseVersion = release.version;
+    this.manualCheck = false;
+    const result = await this.showMessageBox({
+      type: "info",
+      title: `${DESKTOP_DISPLAY_NAME}更新`,
+      message: `${DESKTOP_DISPLAY_NAME} v${release.version} 可用`,
+      detail: "下载并运行对应架构的安装包即可升级。安装前请保存当前工作区中的修改。",
+      buttons: ["稍后", "下载安装包"],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true
+    });
+    this.checking = false;
+    if (!this.disposed && result.response === 1) {
+      try {
+        await shell.openExternal(release.downloadUrl);
+      } catch (error) {
+        this.manualCheck = true;
+        throw error;
+      }
+    }
+  }
+
   dispose(): void {
+    this.disposed = true;
+    this.releaseRequest?.abort();
+    this.releaseRequest = null;
     if (this.initialTimer) clearTimeout(this.initialTimer);
     if (this.intervalTimer) clearInterval(this.intervalTimer);
     this.initialTimer = null;

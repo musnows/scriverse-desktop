@@ -7,6 +7,7 @@ export type DesktopMenuActions = {
   openSyncCenter: () => void;
   requestQuit: () => void;
   find: () => void;
+  openGlobalSearch: () => void;
   openLogs: () => void;
   showVersion: () => void;
   checkForUpdates: () => void;
@@ -57,7 +58,8 @@ export function createDesktopMenuTemplate(
         { role: "paste", label: "粘贴" },
         { role: "selectAll", label: "全选" },
         { type: "separator" },
-        { label: "查找", accelerator: "CmdOrCtrl+F", click: actions.find }
+        { label: "查找", accelerator: "CmdOrCtrl+F", click: actions.find },
+        { label: "全局搜索", accelerator: "CmdOrCtrl+Shift+F", click: actions.openGlobalSearch }
       ]
     },
     {

@@ -260,7 +260,9 @@ describe("Desktop Web runtime overlay", () => {
     const overlayPatch = readFileSync(join(process.cwd(), "runtime-overlay/web.patch"), "utf8");
 
     expect(overlayPatch).toContain('desktop-workspace.js?v=20261011-desktop-offline-warning-v1');
-    expect(overlayPatch).toContain('desktop-offline-api.js?v=20261009-desktop-offline-modules-v1');
+    expect(overlayPatch).toContain('desktop-offline-api.js?v=20261011-desktop-global-search-v1');
+    expect(overlayPatch).toContain("feature=desktop-offline-global-search-v1");
+    expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-offline-search.js"))).toBe(true);
   });
 
   it("只在离线远端工作区提示网络恢复，并允许关闭后留在当前工作区", () => {

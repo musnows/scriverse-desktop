@@ -4,6 +4,7 @@ import {
   DesktopOfflineConversations
 } from "./desktop-offline-conversations.js?v=20260930-desktop-offline-history-v6";
 import { DesktopOfflineConversationAi } from "./desktop-offline-conversation-ai.js?v=20260930-desktop-offline-context-v3";
+import { buildDesktopOfflineSearchResults, DESKTOP_OFFLINE_SEARCH_TYPES, prioritizeDesktopOfflineSearchResults } from "./desktop-offline-search.js?v=20261011-desktop-global-search-v1";
 
 export class DesktopOfflineApiError extends Error {
   constructor(code, message) {
@@ -453,32 +454,31 @@ export class DesktopOfflineApi {
 
   async search(workId, url) {
     const type = String(url.searchParams.get("type") ?? "");
-    const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit")) || 50));
-    const query = String(url.searchParams.get("q") ?? "");
+    const limit = Number(url.searchParams.get("limit") ?? 50);
+    const query = String(url.searchParams.get("q") ?? "").trim();
+    if (!query || query.length > 100) {
+      throw new DesktopOfflineApiError("SEARCH_QUERY_INVALID", "请输入 1 到 100 个字符的检索词");
+    }
+    if (type && type !== "agent-history" && !DESKTOP_OFFLINE_SEARCH_TYPES.includes(type)) {
+      throw new DesktopOfflineApiError("SEARCH_TYPE_INVALID", "不支持该检索类型");
+    }
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+      throw new DesktopOfflineApiError("SEARCH_LIMIT_INVALID", "检索结果数量必须为 1 到 100 的整数");
+    }
+    const types = type === "agent-history" ? [] : type ? [type] : [...DESKTOP_OFFLINE_SEARCH_TYPES];
+    const dependencies = type === "relationship" ? ["character"] : type === "chapter-outline" ? ["chapter"] : [];
+    const manifest = (await this.snapshots(workId, "offline-package")).find((item) => item.id === "manifest");
+    const recordsByType = Object.fromEntries(await Promise.all([...new Set([...types, ...dependencies])].map(async (kind) => [
+      kind,
+      manifest?.modules?.[kind] === "denied" ? [] : await this.snapshots(workId, kind)
+    ])));
     const hits = [];
     if (!type || type === "agent-history") {
       hits.push(...await this.conversations.searchHistory(workId, query, limit));
     }
-    if (type === "chapter" || type === "setting" || !type) {
-      const needle = query.normalize("NFKC").trim().toLocaleLowerCase("zh-CN");
-      const kinds = type === "chapter" || type === "setting" ? [type] : ["chapter", "setting"];
-      for (const kind of kinds) {
-        for (const record of await this.snapshots(workId, kind)) {
-          const title = String(record.title ?? "");
-          const content = String(record.content ?? "");
-          if (!needle || !`${title}\n${content}`.normalize("NFKC").toLocaleLowerCase("zh-CN").includes(needle)) continue;
-          if (!record.id) continue;
-          hits.push({
-            type: kind,
-            id: String(record.id),
-            title: title || "未命名",
-            snippet: (content || title).slice(0, 180),
-            matchKind: "exact"
-          });
-        }
-      }
-    }
-    return hits.slice(0, limit);
+    const results = buildDesktopOfflineSearchResults(recordsByType, query).filter((item) => types.includes(item.type));
+    hits.push(...results);
+    return prioritizeDesktopOfflineSearchResults(hits).slice(0, limit);
   }
 
   async races(workId, url) {
@@ -661,6 +661,12 @@ export class DesktopOfflineApi {
       [/^\/api\/relationships\/([^/]+)$/u, "relationship"],
       [/^\/api\/foreshadows\/([^/]+)$/u, "foreshadow"]
     ];
+    if (method === "GET") {
+      for (const [pattern, entityType] of [...editableRoutes, [/^\/api\/reviews\/([^/]+)$/u, "review"]]) {
+        const match = pathname.match(pattern);
+        if (match) return (await this.entity(entityType, decodeURIComponent(match[1]))).snapshot;
+      }
+    }
     if (method === "PATCH" || method === "PUT") {
       for (const [pattern, entityType] of editableRoutes) {
         const match = pathname.match(pattern);

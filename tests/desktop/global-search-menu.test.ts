@@ -8,6 +8,15 @@ vi.mock("electron", () => ({ Menu: {} }));
 
 const source = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
 
+function patchedHunk(path: string, marker: string): string {
+  const block = source("runtime-overlay/web.patch").split(/(?=^diff --git )/mu)
+    .find((item) => item.startsWith(`diff --git a/${path} b/${path}\n`));
+  const hunk = block?.split(/(?=^@@ )/mu).find((item) => item.startsWith("@@ ") && item.includes(marker));
+  if (!hunk) throw new Error(`Desktop search overlay hunk is missing: ${marker}`);
+  return hunk.split("\n").filter((line) => line.startsWith(" ") || line.startsWith("+"))
+    .map((line) => line.slice(1)).join("\n");
+}
+
 function actions(): DesktopMenuActions {
   return {
     switchWorkspace: vi.fn(),
@@ -80,6 +89,43 @@ function rendererMenuHandler({ work = true, chapter = false, failure = false } =
 }
 
 describe("Desktop search menu", () => {
+  it("maps the page shortcut to Ctrl+E and keeps Command/Ctrl+F scoped to chapter search", () => {
+    const code = patchedHunk("public/keyboard-shortcuts.js", "isChapterSearchShortcut").replaceAll("export function", "function");
+    type Event = { key: string; ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean; altKey?: boolean };
+    const shortcuts = new Function(`${code}\nreturn { isGlobalSearchShortcut, isChapterSearchShortcut };`)() as {
+      isGlobalSearchShortcut: (event: Event) => boolean;
+      isChapterSearchShortcut: (event: Event) => boolean;
+    };
+    expect(shortcuts.isGlobalSearchShortcut({ key: "e", ctrlKey: true })).toBe(true);
+    expect(shortcuts.isGlobalSearchShortcut({ key: "E", ctrlKey: true })).toBe(true);
+    for (const event of [
+      { key: "e" }, { key: "e", metaKey: true }, { key: "e", ctrlKey: true, shiftKey: true },
+      { key: "e", ctrlKey: true, altKey: true }, { key: "f", ctrlKey: true }
+    ]) expect(shortcuts.isGlobalSearchShortcut(event)).toBe(false);
+    expect(shortcuts.isChapterSearchShortcut({ key: "f", ctrlKey: true })).toBe(true);
+    expect(shortcuts.isChapterSearchShortcut({ key: "f", metaKey: true })).toBe(true);
+    expect(shortcuts.isChapterSearchShortcut({ key: "e", ctrlKey: true })).toBe(false);
+  });
+
+  it.each([false, true])("keeps the top-right global search button visible with chapter context %s", (chapter) => {
+    const code = patchedHunk("public/app.js", "function syncTopSearchButton()");
+    const hidden = new Set(["hidden"]);
+    const button = { disabled: true, classList: { remove: (value: string) => hidden.delete(value) } };
+    const sync = (work: unknown, readable: boolean) => new Function(
+      "$", "state", "isChapterSearchContext", "canReadAggregateContent", "closeChapterSearchPanel", `${code}\nsyncTopSearchButton();`
+    )(() => button, { work }, () => chapter, () => readable, vi.fn());
+    sync({ id: "work-1" }, true);
+    expect(hidden.has("hidden")).toBe(false);
+    expect(button.disabled).toBe(false);
+    sync(null, true);
+    expect(button.disabled).toBe(true);
+    sync({ id: "work-1" }, false);
+    expect(button.disabled).toBe(true);
+    const index = source("runtime-overlay/web.patch");
+    expect(index).toContain('aria-label="全局搜索" title="全局搜索（Ctrl+E）" aria-haspopup="dialog" aria-controls="search-dialog" aria-keyshortcuts="Control+E"');
+    expect(index).toContain("feature=global-search-entry-ctrl-e-v1");
+  });
+
   it.each(["darwin", "win32", "linux"] as const)("offers separate find and global search actions on %s", (platform) => {
     const callbacks = actions();
     const edit = createDesktopMenuTemplate(callbacks, platform).find((item) => item.label === "编辑");
@@ -87,7 +133,7 @@ describe("Desktop search menu", () => {
     const find = edit.submenu.find((item) => item.label === "查找");
     const global = edit.submenu.find((item) => item.label === "全局搜索");
     expect(find?.accelerator).toBe("CmdOrCtrl+F");
-    expect(global?.accelerator).toBe("CmdOrCtrl+Shift+F");
+    expect(global?.accelerator).toBe("Ctrl+E");
     expect(find?.click).toBe(callbacks.find);
     expect(global?.click).toBe(callbacks.openGlobalSearch);
   });
@@ -129,7 +175,8 @@ describe("Desktop search menu", () => {
     expect(chapter.openSearchDialog).not.toHaveBeenCalled();
     const work = rendererMenuHandler();
     work.command("find");
-    expect(work.openSearchDialog).toHaveBeenCalledOnce();
+    expect(work.openSearchDialog).not.toHaveBeenCalled();
+    expect(work.openChapterSearchPanel).not.toHaveBeenCalled();
   });
 
   it("ignores find outside a work and reports asynchronous search errors", async () => {

@@ -263,7 +263,7 @@ describe("Desktop Web runtime overlay", () => {
     expect(overlayPatch).toContain('desktop-offline-api.js?v=20261011-desktop-global-search-v1');
     expect(overlayPatch).toContain("feature=desktop-offline-global-search-v1");
     expect(overlayPatch).toContain("feature=global-search-entry-ctrl-e-v1");
-    expect(overlayPatch).toContain("keyboard-shortcuts.js?v=20261011-global-search-ctrl-e-v1");
+    expect(overlayPatch).not.toContain("diff --git a/public/keyboard-shortcuts.js b/public/keyboard-shortcuts.js");
     expect(existsSync(join(process.cwd(), "runtime-overlay/public/desktop-offline-search.js"))).toBe(true);
   });
 

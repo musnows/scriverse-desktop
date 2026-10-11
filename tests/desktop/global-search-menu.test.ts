@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ModuleKind, ScriptTarget, transpileModule } from "typescript";
+import ts, { ModuleKind, ScriptTarget, transpileModule } from "typescript";
 import { describe, expect, it, vi } from "vitest";
 import { createDesktopMenuTemplate, type DesktopMenuActions } from "../../src/main/native-menu.js";
 
@@ -8,13 +8,12 @@ vi.mock("electron", () => ({ Menu: {} }));
 
 const source = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
 
-function patchedHunk(path: string, marker: string): string {
-  const block = source("runtime-overlay/web.patch").split(/(?=^diff --git )/mu)
-    .find((item) => item.startsWith(`diff --git a/${path} b/${path}\n`));
-  const hunk = block?.split(/(?=^@@ )/mu).find((item) => item.startsWith("@@ ") && item.includes(marker));
-  if (!hunk) throw new Error(`Desktop search overlay hunk is missing: ${marker}`);
-  return hunk.split("\n").filter((line) => line.startsWith(" ") || line.startsWith("+"))
-    .map((line) => line.slice(1)).join("\n");
+function runtimeFunction(path: string, name: string): string {
+  const code = source(`dist/${path}`);
+  const parsed = ts.createSourceFile(path, code, ScriptTarget.Latest, true, ts.ScriptKind.JS);
+  const declaration = parsed.statements.find((statement) => ts.isFunctionDeclaration(statement) && statement.name?.text === name);
+  if (!declaration) throw new Error(`Desktop runtime function is missing: ${name}`);
+  return declaration.getText(parsed).replace(/^export\s+/u, "");
 }
 
 function actions(): DesktopMenuActions {
@@ -90,7 +89,8 @@ function rendererMenuHandler({ work = true, chapter = false, failure = false } =
 
 describe("Desktop search menu", () => {
   it("maps the page shortcut to Ctrl+E and keeps Command/Ctrl+F scoped to chapter search", () => {
-    const code = patchedHunk("public/keyboard-shortcuts.js", "isChapterSearchShortcut").replaceAll("export function", "function");
+    const code = ["isGlobalSearchShortcut", "isChapterSearchShortcut"]
+      .map((name) => runtimeFunction("public/keyboard-shortcuts.js", name)).join("\n");
     type Event = { key: string; ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean; altKey?: boolean };
     const shortcuts = new Function(`${code}\nreturn { isGlobalSearchShortcut, isChapterSearchShortcut };`)() as {
       isGlobalSearchShortcut: (event: Event) => boolean;
@@ -108,7 +108,7 @@ describe("Desktop search menu", () => {
   });
 
   it.each([false, true])("keeps the top-right global search button visible with chapter context %s", (chapter) => {
-    const code = patchedHunk("public/app.js", "function syncTopSearchButton()");
+    const code = runtimeFunction("public/app.js", "syncTopSearchButton");
     const hidden = new Set(["hidden"]);
     const button = { disabled: true, classList: { remove: (value: string) => hidden.delete(value) } };
     const sync = (work: unknown, readable: boolean) => new Function(
@@ -121,9 +121,36 @@ describe("Desktop search menu", () => {
     expect(button.disabled).toBe(true);
     sync({ id: "work-1" }, false);
     expect(button.disabled).toBe(true);
-    const index = source("runtime-overlay/web.patch");
+    const index = source("dist/public/index.html");
     expect(index).toContain('aria-label="全局搜索" title="全局搜索（Ctrl+E）" aria-haspopup="dialog" aria-controls="search-dialog" aria-keyshortcuts="Control+E"');
     expect(index).toContain("feature=global-search-entry-ctrl-e-v1");
+  });
+
+  it("keeps startup DOM references available after runtime preparation", () => {
+    const code = source("dist/public/app.js");
+    const parsed = ts.createSourceFile("app.js", code, ScriptTarget.Latest, true, ts.ScriptKind.JS);
+    const ids = new Set([...source("dist/public/index.html").matchAll(/\bid="([^"]+)"/gu)].map((match) => match[1]));
+    const references = new Set<string>();
+    const visit = (node: ts.Node): void => {
+      if (ts.isFunctionLike(node) || ts.isClassLike(node)) return;
+      if (ts.isCallExpression(node) && node.arguments.length > 0 && ts.isStringLiteral(node.arguments[0])) {
+        const value = node.arguments[0].text;
+        if (ts.isIdentifier(node.expression) && node.expression.text === "$" && /^#[a-z0-9-]+$/iu.test(value)) {
+          references.add(value.slice(1));
+        }
+        if (ts.isPropertyAccessExpression(node.expression)) {
+          if (node.expression.name.text === "getElementById") references.add(value);
+          if (node.expression.name.text === "querySelector" && /^#[a-z0-9-]+$/iu.test(value)) references.add(value.slice(1));
+        }
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(parsed);
+    expect(references.size).toBeGreaterThan(0);
+    expect([...references].filter((id) => !ids.has(id))).toEqual([]);
+    for (const id of ["top-search-button", "search-dialog", "desktop-sync-dialog", "desktop-conflict-dialog"]) {
+      expect(ids.has(id)).toBe(true);
+    }
   });
 
   it.each(["darwin", "win32", "linux"] as const)("offers separate find and global search actions on %s", (platform) => {

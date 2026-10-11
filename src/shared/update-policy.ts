@@ -1,6 +1,7 @@
 import type { WorkspaceLeaveState } from "./workspace-contract.js";
 
 const UPDATE_SERVICE_ROOT = "https://update.electronjs.org/musnows/scriverse-desktop";
+export const DESKTOP_RELEASE_API_URL = "https://api.github.com/repos/musnows/scriverse-desktop/releases/latest";
 
 export function windowsNsisUpdateChannel(arch: string): string {
   if (arch === "x64") return "latest";
@@ -25,6 +26,7 @@ export function desktopUpdateFeedUrl(platform: NodeJS.Platform, version: string,
   if (arch !== "x64" && arch !== "arm64" && !(platform === "win32" && arch === "ia32")) {
     throw new Error("Desktop update architecture is invalid");
   }
+  if (platform === "darwin" || isFourPartDesktopVersion(version)) return DESKTOP_RELEASE_API_URL;
   return `${UPDATE_SERVICE_ROOT}/${platform}-${arch}/v${version}`;
 }
 

@@ -12,8 +12,32 @@ import {
 
 const root = process.platform === "win32" ? "C:\\desktop\\runtime" : "/desktop/runtime";
 const publicPath = process.platform === "win32" ? "C:\\app\\dist\\public" : "/app/dist/public";
+const startMessage = {
+  type: "start",
+  dataDirectory: root,
+  databasePath: join(root, "novel.db"),
+  publicPath,
+  vditorPath: join(publicPath, "vendor", "vditor", "dist"),
+  preferredPort: 23_241,
+  desktopId: "11111111-1111-4111-8111-111111111111",
+  profileId: "22222222-2222-4222-8222-222222222222",
+  envAllowlist: { NODE_ENV: "production", APP_ALLOW_PRIVATE_AI_ENDPOINTS: "true" }
+};
 
 describe("Desktop 本地服务消息契约", () => {
+  it.each(["1.1.6", "1.1.7.1", "1.1.10.0", "1.2.0.0", "1.2.0.1", "1.2.0-beta.1", "1.2.0.1-beta.1"])("启动时接受并保留 Desktop 版本 %s", (clientVersion) => {
+    expect(parseLocalServerParentMessage({ ...startMessage, clientVersion })).toMatchObject({ type: "start", clientVersion });
+  });
+
+  it("启动时接受包元数据中的实际 Desktop 版本", () => {
+    const manifest = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { version: string };
+    expect(parseLocalServerParentMessage({ ...startMessage, clientVersion: manifest.version })).toMatchObject({ clientVersion: manifest.version });
+  });
+
+  it.each([undefined, null, 1.2, "", "1.2", "1.2.0.", "1.2.0.a", "1.2.0.-1", "1.2.0.0.1", "v1.2.0.1"])("启动时拒绝无效 Desktop 版本 %s", (clientVersion) => {
+    expect(() => parseLocalServerParentMessage({ ...startMessage, clientVersion })).toThrowError(/Desktop 版本无效/u);
+  });
+
   it("仅在 Desktop 本地嵌入运行时完全禁用 AI endpoint validator", () => {
     const utilitySource = readFileSync(new URL("../../src/utility/local-server.mts", import.meta.url), "utf8");
     expect(utilitySource).toContain("disableAiEndpointValidation: true");

@@ -144,8 +144,8 @@ function assertRequestId(value: unknown): string {
   return value;
 }
 
-function assertSemanticVersion(value: unknown): string {
-  if (typeof value !== "string" || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(value)) {
+function assertDesktopVersion(value: unknown): string {
+  if (typeof value !== "string" || !/^\d+\.\d+\.\d+(?:\.\d+)?(?:-[0-9A-Za-z.-]+)?$/u.test(value)) {
     throw new LocalServerContractError("LOCAL_MESSAGE_INVALID", "Desktop 版本无效");
   }
   return value;
@@ -262,7 +262,7 @@ export function parseLocalServerParentMessage(value: unknown): LocalServerParent
     preferredPort: parseLocalServerPort(value.preferredPort),
     desktopId: assertRequestId(value.desktopId),
     profileId: assertRequestId(value.profileId),
-    clientVersion: assertSemanticVersion(value.clientVersion),
+    clientVersion: assertDesktopVersion(value.clientVersion),
     envAllowlist: parseLocalServerEnvironment(value.envAllowlist)
   };
 }

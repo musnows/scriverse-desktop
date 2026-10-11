@@ -1,7 +1,7 @@
 const { contextBridge, ipcRenderer } = require("electron") as typeof import("electron");
 
 const aiStreamChannel = "local-workspace:local-ai:stream-event";
-const menuCommands = new Set(["request-quit"]);
+const menuCommands = new Set(["request-quit", "find", "open-global-search"]);
 const externalUrlRequestChannel = "local-workspace:shell:external-url-request";
 
 function applyDesktopColorTheme(): void {

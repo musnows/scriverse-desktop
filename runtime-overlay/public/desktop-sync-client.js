@@ -314,7 +314,18 @@ export class DesktopSyncClient {
       const groups = await collectDesktopOfflineCorpus(workId, request, {
         readAttachment: (attachmentId) => this.readAttachmentBytes(attachmentId)
       });
-      await this.store.replaceReadonlyEntities(workId, groups);
+      const manifest = await this.store.getEntity(workId, "offline-package", "manifest");
+      const readyModules = Object.fromEntries(Object.entries(manifest?.snapshot?.modules ?? {}).filter(([entityType, status]) => (
+        Object.hasOwn(SYNC_SNAPSHOT_FIELDS, entityType) && status === "ready"
+      )));
+      // 完整快照中的可编辑实体及语料状态不能被按在线权限裁剪的结果覆盖。
+      const supplementalGroups = groups.filter(({ entityType }) => !Object.hasOwn(readyModules, entityType)).map((group) => (
+        group.entityType === "agent-corpus" ? {
+          ...group,
+          records: group.records.map((record) => ({ ...record, modules: { ...record.modules, ...readyModules } }))
+        } : group
+      ));
+      await this.store.replaceReadonlyEntities(workId, supplementalGroups);
     } catch (error) {
       console.error("Failed to refresh offline AI corpus", error);
     }

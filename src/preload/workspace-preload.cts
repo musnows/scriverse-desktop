@@ -1,6 +1,6 @@
 const { contextBridge, ipcRenderer } = require("electron") as typeof import("electron");
 
-const menuCommands = new Set(["open-sync-center", "request-quit"]);
+const menuCommands = new Set(["open-sync-center", "request-quit", "find", "open-global-search"]);
 const aiStreamChannel = "workspace:local-ai:stream-event";
 const externalUrlRequestChannel = "workspace:shell:external-url-request";
 const networkStatusEventChannel = "workspace:shell:network-status";

@@ -959,9 +959,11 @@ function createWindow(environment: DesktopEnvironment, manager: LocalServerManag
     requestQuit: requestDesktopQuitConfirmation,
     find: () => {
       if (!workspaceWindow || workspaceWindow.isDestroyed()) return;
-      const modifiers = [process.platform === "darwin" ? "meta" : "control"] as const;
-      workspaceWindow.webContents.sendInputEvent({ type: "keyDown", keyCode: "F", modifiers: [...modifiers] });
-      workspaceWindow.webContents.sendInputEvent({ type: "keyUp", keyCode: "F", modifiers: [...modifiers] });
+      workspaceWindow.webContents.send("workspace:shell:menu-command", "find");
+    },
+    openGlobalSearch: () => {
+      if (!workspaceWindow || workspaceWindow.isDestroyed()) return;
+      workspaceWindow.webContents.send("workspace:shell:menu-command", "open-global-search");
     },
     openLogs: () => {
       void openLogsDirectory().catch((error) => {

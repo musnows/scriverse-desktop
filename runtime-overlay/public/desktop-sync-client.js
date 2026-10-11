@@ -1,5 +1,5 @@
 import { DesktopSyncStore } from "./desktop-sync-store.js?v=20260823-desktop-sync-store-v2";
-import { collectDesktopOfflineCorpus } from "./desktop-local-ai-offline.js?v=20260930-desktop-offline-agent-v3";
+import { collectDesktopOfflineCorpus } from "./desktop-local-ai-offline.js?v=20261009-desktop-offline-modules-v1";
 
 const SYNC_PROTOCOL = 1;
 const SYNC_POLL_INTERVAL_MS = 30_000;
@@ -66,7 +66,23 @@ function rangesOverlap(range, version) {
   return range && Number(range.min) <= version && Number(range.max) >= version;
 }
 
+const SYNC_SNAPSHOT_FIELDS = {
+  chapter: ["title", "content", "chapterType"],
+  setting: ["title", "category", "content", "tags", "status", "locked", "evidence", "scope", "authorNote"],
+  draft: ["draftType", "volumeId", "settingModule", "title", "content"],
+  character: ["name", "gender", "isDead", "code", "aliases", "raceId", "organizationIds", "attributes", "profile", "currentState", "lockedFields", "firstChapterId"],
+  race: ["name", "isExtinct", "parentRaceId", "description", "settings", "settingsMarkdown", "settingsSections", "memberIds"],
+  organization: ["name", "isDissolved", "description", "settings", "settingsMarkdown", "settingsSections", "memberIds"],
+  "timeline-track": ["name", "description", "sortOrder"],
+  "timeline-event": ["name", "trackId", "description", "eventType", "timeLabel", "timeSort", "chapterIds", "participantIds", "location", "causes", "impactScope", "evidence", "status"],
+  relationship: ["fromCharacterId", "toCharacterId", "category", "subtype", "keywords", "directed", "currentStatus", "timeRange", "confidence", "evidence", "confirmationStatus", "locked"],
+  "chapter-outline": ["goal", "conflict", "turningPoint", "notes", "status"],
+  foreshadow: ["title", "description", "status", "importance", "plannedPayoffChapterId", "resolutionNote", "occurrences"]
+};
+
 export function syncMutationSnapshot(entityType, snapshot) {
+  const fields = SYNC_SNAPSHOT_FIELDS[entityType];
+  if (!fields) throw new DesktopSyncClientError("SYNC_ENTITY_TYPE_UNSUPPORTED", "该类型暂不支持离线同步");
   if (entityType === "chapter") {
     return {
       title: String(snapshot?.title ?? ""),
@@ -87,7 +103,11 @@ export function syncMutationSnapshot(entityType, snapshot) {
       authorNote: String(snapshot?.authorNote ?? "")
     };
   }
-  throw new DesktopSyncClientError("SYNC_ENTITY_TYPE_UNSUPPORTED", "该类型暂不支持离线同步");
+  const localSnapshot = {};
+  for (const field of fields) {
+    if (snapshot && Object.hasOwn(snapshot, field)) localSnapshot[field] = structuredClone(snapshot[field]);
+  }
+  return localSnapshot;
 }
 
 export class DesktopSyncClient {
@@ -294,7 +314,18 @@ export class DesktopSyncClient {
       const groups = await collectDesktopOfflineCorpus(workId, request, {
         readAttachment: (attachmentId) => this.readAttachmentBytes(attachmentId)
       });
-      await this.store.replaceReadonlyEntities(workId, groups);
+      const manifest = await this.store.getEntity(workId, "offline-package", "manifest");
+      const readyModules = Object.fromEntries(Object.entries(manifest?.snapshot?.modules ?? {}).filter(([entityType, status]) => (
+        Object.hasOwn(SYNC_SNAPSHOT_FIELDS, entityType) && status === "ready"
+      )));
+      // 完整快照中的可编辑实体及语料状态不能被按在线权限裁剪的结果覆盖。
+      const supplementalGroups = groups.filter(({ entityType }) => !Object.hasOwn(readyModules, entityType)).map((group) => (
+        group.entityType === "agent-corpus" ? {
+          ...group,
+          records: group.records.map((record) => ({ ...record, modules: { ...record.modules, ...readyModules } }))
+        } : group
+      ));
+      await this.store.replaceReadonlyEntities(workId, supplementalGroups);
     } catch (error) {
       console.error("Failed to refresh offline AI corpus", error);
     }

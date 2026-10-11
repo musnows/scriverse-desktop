@@ -2,6 +2,11 @@ name: Package Desktop develop
 
 on:
   workflow_dispatch:
+    inputs:
+      verify_only:
+        description: Verify packages without publishing a prerelease
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -189,6 +194,7 @@ jobs:
 
   publish:
     name: Publish develop prerelease
+    if: ${{ inputs.verify_only != true }}
     needs:
       - test
       - package
@@ -228,11 +234,13 @@ jobs:
           PACKAGED_SHA: ${{ needs.test.outputs.sha }}
         run: |
           version="$(node --print "require('./package.json').version")"
+          server_version="$(node --print "require('./package.json').scriverseServerVersion")"
+          previous_latest="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq .tag_name)"
           sha="$(git rev-parse HEAD)"
           test "$sha" = "$PACKAGED_SHA"
           short="$(printf '%s' "$sha" | cut -c1-8)"
           tag="v${version}-beta.${short}"
-          printf '%s\n' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9a-f]{8}$'
+          printf '%s\n' "$tag" | grep -Eq '^v[0-9]+(\.[0-9]+){2,3}-beta\.[0-9a-f]{8}$'
           test "$tag" != "v${version}"
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Prerelease tag already exists: $tag" >&2
@@ -255,7 +263,7 @@ jobs:
           notes="$(cat <<EOF
           ### Scriverse Desktop ${tag}
 
-          这是 Desktop develop 的预发布包，不是正式稳定版。应用版本号仍是 ${version}，兼容 Server v${version}。请不要把它当作 v${version} 稳定版。
+          这是 Desktop develop 的预发布包，不是正式稳定版。应用版本号仍是 ${version}，兼容 Server v${server_version}。请不要把它当作 v${version} 稳定版。
 
           源提交：\`${sha}\`
           EOF
@@ -268,6 +276,6 @@ jobs:
             --title "$tag" \
             --notes "$notes"
           latest="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq .tag_name)"
-          test "$latest" = "v${version}"
+          test "$latest" = "$previous_latest"
           published="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json name,tagName,isPrerelease --jq '.name + " " + .tagName + " " + (.isPrerelease|tostring)')"
           test "$published" = "${tag} ${tag} true"

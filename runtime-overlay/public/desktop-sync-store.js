@@ -1,8 +1,10 @@
 const DATABASE_VERSION = 2;
 const SCHEMA_VERSION = 2;
 const SYNC_PROTOCOL = 1;
-const EDITABLE_ENTITY_TYPES = new Set(["chapter", "setting"]);
-const READONLY_CORPUS_ENTITY_TYPES = new Set([
+const EDITABLE_ENTITY_TYPES = new Set([
+  "chapter",
+  "setting",
+  "draft",
   "character",
   "race",
   "organization",
@@ -10,8 +12,9 @@ const READONLY_CORPUS_ENTITY_TYPES = new Set([
   "timeline-event",
   "relationship",
   "chapter-outline",
-  "foreshadow",
-  "draft",
+  "foreshadow"
+]);
+const READONLY_CORPUS_ENTITY_TYPES = new Set([
   "agent-corpus",
   "work-ai-settings",
   "setting-attachment"
@@ -288,7 +291,7 @@ export class DesktopSyncStore {
     const entityTypes = [];
     for (const group of groups) {
       const entityType = String(group?.entityType ?? "");
-      if (!READONLY_CORPUS_ENTITY_TYPES.has(entityType)) {
+      if (!READONLY_CORPUS_ENTITY_TYPES.has(entityType) && !EDITABLE_ENTITY_TYPES.has(entityType)) {
         throw new DesktopSyncStoreError("SYNC_ENTITY_TYPE_UNSUPPORTED", "该类型不能写入离线工具副本");
       }
       entityTypes.push(entityType);
@@ -307,7 +310,7 @@ export class DesktopSyncStore {
           dirty: false,
           dirtyFlag: 0,
           deleted: false,
-          locked: true,
+          locked: !EDITABLE_ENTITY_TYPES.has(entityType),
           updatedAt: new Date().toISOString()
         });
       }
@@ -316,10 +319,15 @@ export class DesktopSyncStore {
     const transaction = database.transaction(["entities"], "readwrite");
     const entityStore = transaction.objectStore("entities");
     const existing = await requestValue(entityStore.index("by-work").getAll(workId));
+    const dirtyKeys = new Set(existing.filter((entity) => entity.dirty || entity.conflict).map((entity) => `${entity.entityType}\0${entity.entityId}`));
     for (const entity of existing) {
-      if (entityTypes.includes(entity.entityType)) entityStore.delete([workId, entity.entityType, entity.entityId]);
+      if (!entityTypes.includes(entity.entityType) || dirtyKeys.has(`${entity.entityType}\0${entity.entityId}`)) continue;
+      entityStore.delete([workId, entity.entityType, entity.entityId]);
     }
-    for (const entity of storedEntities) entityStore.put(entity);
+    for (const entity of storedEntities) {
+      if (dirtyKeys.has(`${entity.entityType}\0${entity.entityId}`)) continue;
+      entityStore.put(entity);
+    }
     await transactionDone(transaction);
     return { workId, entityCount: storedEntities.length };
   }

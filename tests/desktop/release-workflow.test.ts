@@ -14,6 +14,18 @@ const packageMetadata = JSON.parse(readFileSync(join(root, "package.json"), "utf
 };
 
 describe("Desktop 发布链路", () => {
+  it("接受三段和四段预发布版本并拒绝不完整或额外分段的标签", () => {
+    const pattern = developPackage.match(/grep -Eq '([^']+)'/u)?.[1];
+    expect(pattern).toBeDefined();
+    const tag = new RegExp(pattern ?? "(?!)", "u");
+    expect(tag.test("v1.1.8-beta.1234abcd")).toBe(true);
+    expect(tag.test("v1.1.8.0-beta.1234abcd")).toBe(true);
+    expect(tag.test("v1.1-beta.1234abcd")).toBe(false);
+    expect(tag.test("v1.1.8.0.1-beta.1234abcd")).toBe(false);
+    expect(tag.test("v1.1.8.0-beta.1234abc")).toBe(false);
+    expect(developPackage).toContain("inputs.verify_only != true");
+  });
+
   it("只为 main PR 自动检查并分别隔离 develop 人工打包与 Release 打包", () => {
     expect(checks).toContain("pull_request:");
     expect(checks).toContain("      - main");

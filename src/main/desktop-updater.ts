@@ -1,10 +1,11 @@
-import { app, autoUpdater as squirrelAutoUpdater, dialog, net, powerMonitor, shell, type BrowserWindow } from "electron";
+import { app, autoUpdater as squirrelAutoUpdater, dialog, powerMonitor, shell, type BrowserWindow } from "electron";
 import electronUpdater from "electron-updater";
 import { DESKTOP_DISPLAY_NAME } from "../shared/branding.js";
 import type { WorkspaceLeaveState } from "../shared/workspace-contract.js";
 import { desktopUpdateFeedUrl, isFourPartDesktopVersion, supportsNsisAutoUpdater, updateInstallDetail, windowsNsisUpdateChannel } from "../shared/update-policy.js";
 import { isSquirrelWindowsInstallation } from "./windows-installation.js";
 import { fetchDesktopUpdateRelease } from "./desktop-release-client.js";
+import { fetchDesktopReleaseResponse } from "./desktop-release-request.js";
 
 const RELEASES_URL = "https://github.com/musnows/scriverse-desktop/releases/latest";
 const WINDOWS_UPDATE_URL = "https://github.com/musnows/scriverse-desktop/releases/latest/download";
@@ -156,7 +157,7 @@ export class DesktopUpdater {
       currentVersion: this.options.version,
       platform: process.platform,
       arch: process.arch,
-      fetch: net.fetch,
+      fetch: fetchDesktopReleaseResponse,
       signal: controller.signal
     }).finally(() => {
       if (this.releaseRequest === controller) this.releaseRequest = null;

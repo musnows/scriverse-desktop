@@ -22,6 +22,7 @@ vi.mock("electron", () => ({
 }));
 vi.mock("electron-updater", () => ({ default: { get autoUpdater() { mocks.nsisAccess(); throw new Error("Four-part versions must not initialize the NSIS SemVer updater"); } } }));
 vi.mock("../../src/main/windows-installation.js", () => ({ isSquirrelWindowsInstallation: () => false }));
+vi.mock("../../src/main/desktop-release-request.js", () => ({ fetchDesktopReleaseResponse: (...args: unknown[]) => mocks.fetch(...args) }));
 import { DesktopUpdater } from "../../src/main/desktop-updater.js";
 
 const originalProcess = process;
@@ -56,6 +57,18 @@ afterEach(() => {
 });
 
 describe("Desktop 四段版本的更新检查", () => {
+  it("API 限流时从正式发布页发现新版并提供对应安装包", async () => {
+    mocks.fetch.mockResolvedValueOnce(new Response(null, { status: 403, headers: { "x-ratelimit-remaining": "0" } }))
+      .mockResolvedValueOnce(new Response(null, { status: 302, headers: { location: `${root}/tag/v1.2.0.2` } }))
+      .mockResolvedValueOnce(new Response(null, { headers: { "content-length": "100" } }));
+    mocks.dialog.mockResolvedValue({ response: 1 });
+    updater.initialize();
+    updater.check();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mocks.dialog).toHaveBeenCalledWith(expect.objectContaining({ message: "叙界 v1.2.0.2 可用" }));
+    expect(mocks.openExternal).toHaveBeenCalledWith(release().assets[0].browser_download_url);
+  });
+
   it.each(["arm64", "x64"])("macOS %s 发现新版后提供 DMG，不使用原生自动安装器", async (arch) => {
     vi.stubGlobal("process", { ...originalProcess, platform: "darwin", arch });
     const value = release("1.2.0.2", "darwin", arch);

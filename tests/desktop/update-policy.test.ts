@@ -18,7 +18,9 @@ describe("Desktop 更新策略", () => {
     ["win32", "ia32"]
   ] as const)("为 %s/%s 选择对应架构的更新包", (platform, arch) => {
     expect(desktopUpdateFeedUrl(platform, "1.0.5", arch))
-      .toBe(`https://update.electronjs.org/musnows/scriverse-desktop/${platform}-${arch}/v1.0.5`);
+      .toBe(platform === "darwin"
+        ? "https://api.github.com/repos/musnows/scriverse-desktop/releases/latest"
+        : `https://update.electronjs.org/musnows/scriverse-desktop/${platform}-${arch}/v1.0.5`);
   });
 
   it.each(["", "armv7l", "../x64", "x64?arch=arm64"])("拒绝无效更新架构 %s", (arch) => {
@@ -36,9 +38,11 @@ describe("Desktop 更新策略", () => {
     expect(updater).not.toContain("github.com/musnows/Scriverse/releases/latest");
   });
 
-  it("四段 Desktop 版本可以进入更新地址，但不能构造 electron-updater", () => {
+  it("四段 Desktop 版本使用正式发布 API 且不直接构造 NSIS SemVer 更新器", () => {
     expect(desktopUpdateFeedUrl("darwin", "1.1.6.1", "arm64"))
-      .toBe("https://update.electronjs.org/musnows/scriverse-desktop/darwin-arm64/v1.1.6.1");
+      .toBe("https://api.github.com/repos/musnows/scriverse-desktop/releases/latest");
+    expect(desktopUpdateFeedUrl("win32", "1.2.0.1", "x64"))
+      .toBe("https://api.github.com/repos/musnows/scriverse-desktop/releases/latest");
     expect(supportsNsisAutoUpdater("1.1.6")).toBe(true);
     expect(supportsNsisAutoUpdater("1.1.6.1")).toBe(false);
     expect(isFourPartDesktopVersion("1.1.6")).toBe(false);

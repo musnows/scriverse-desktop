@@ -3,7 +3,10 @@ import { createServer } from "node:net";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
+  describeLocalServerStartupFailure,
+  formatLocalServerFatalLog,
   parseLocalServerParentMessage,
+  shouldReportAsPortUnavailable,
   type LocalServerAuthenticatedMessage,
   type LocalServerAuthenticationFailedMessage,
   type LocalServerFatalMessage,
@@ -11,7 +14,11 @@ import {
   type LocalServerStoppedMessage,
   type LocalProvisionedUser
 } from "../shared/local-server-contract.js";
-import { LocalServerPortUnavailableError, selectLocalServerPort } from "../shared/desktop-settings-contract.js";
+import {
+  isLocalPortUnbindableError,
+  LocalServerPortUnavailableError,
+  selectLocalServerPort
+} from "../shared/desktop-settings-contract.js";
 
 type RuntimeAuth = {
   hasUsers: () => boolean;
@@ -76,29 +83,9 @@ function post(message:
 }
 
 function fatal(phase: LocalServerFatalMessage["phase"], error: unknown): void {
-  const message = error instanceof Error ? error.message : String(error);
-  const code = error instanceof LocalServerPortUnavailableError
-    ? error.code
-    : message.includes("Startup retry limit reached")
-      ? "LOCAL_STARTUP_RETRY_LIMIT"
-      : message.includes("存储清单") || message.includes("数据目录")
-        ? "LOCAL_STORAGE_INVALID"
-        : phase === "validate"
-          ? "LOCAL_START_MESSAGE_INVALID"
-          : phase === "shutdown"
-            ? "LOCAL_SERVER_SHUTDOWN_FAILED"
-            : "LOCAL_SERVER_START_FAILED";
-  const safeMessage = code === "LOCAL_PORT_UNAVAILABLE"
-    ? message
-    : code === "LOCAL_STARTUP_RETRY_LIMIT"
-      ? "本地服务连续启动失败次数已达到上限，请检查日志后重试"
-      : code === "LOCAL_STORAGE_INVALID"
-        ? "本地工作区目录校验失败，已停止启动"
-        : code === "LOCAL_START_MESSAGE_INVALID"
-          ? "Desktop 发送的本地服务启动参数无效"
-          : code === "LOCAL_SERVER_SHUTDOWN_FAILED"
-            ? "本地服务未能正常关闭"
-            : "本地服务启动失败，请查看 Desktop 日志";
+  const rawMessage = error instanceof Error ? error.message : String(error);
+  const { code, safeMessage } = describeLocalServerStartupFailure(error, phase);
+  process.stderr.write(formatLocalServerFatalLog(phase, code, rawMessage));
   post({ type: "fatal", phase, code, safeMessage });
 }
 
@@ -114,7 +101,7 @@ function canBindLoopbackPort(port: number): Promise<boolean> {
     };
     probe.unref();
     probe.once("error", (error: NodeJS.ErrnoException) => {
-      if (error.code === "EADDRINUSE") finish(false);
+      if (isLocalPortUnbindableError(error)) finish(false);
       else finish(false, error);
     });
     probe.listen({ host: "127.0.0.1", port, exclusive: true }, () => {
@@ -183,7 +170,7 @@ async function start(messageValue: unknown): Promise<void> {
   } catch (error) {
     await running?.close().catch(() => undefined);
     running = null;
-    const startupError = typeof error === "object" && error !== null && "code" in error && error.code === "EADDRINUSE"
+    const startupError = shouldReportAsPortUnavailable(error)
       ? new LocalServerPortUnavailableError(message.preferredPort)
       : error;
     fatal("start", startupError);

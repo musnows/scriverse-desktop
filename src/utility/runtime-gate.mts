@@ -3,7 +3,7 @@ import { createServer } from "node:net";
 import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { MIN_LOCAL_SERVER_PORT, selectLocalServerPort } from "../shared/desktop-settings-contract.js";
+import { isLocalPortUnbindableError, MIN_LOCAL_SERVER_PORT, selectLocalServerPort } from "../shared/desktop-settings-contract.js";
 
 type RunningServer = {
   url: string;
@@ -42,7 +42,7 @@ function canBindLoopbackPort(port: number): Promise<boolean> {
     };
     probe.unref();
     probe.once("error", (error: NodeJS.ErrnoException) => {
-      if (error.code === "EADDRINUSE") finish(false);
+      if (isLocalPortUnbindableError(error)) finish(false);
       else finish(false, error);
     });
     probe.listen({ host: "127.0.0.1", port, exclusive: true }, () => {

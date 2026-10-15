@@ -4,7 +4,7 @@
 
 ## 1. 项目边界
 
-Scriverse Desktop 是 Scriverse 的 Electron 桌面客户端，当前版本为 `1.2.1.0`。仓库只维护桌面壳、本地工作区编排、远端 Server 连接、软件内登录、本地 AI、离线同步和打包安装能力。
+Scriverse Desktop 是 Scriverse 的 Electron 桌面客户端，当前版本为 `1.2.1.1`。仓库只维护桌面壳、本地工作区编排、远端 Server 连接、软件内登录、本地 AI、离线同步和打包安装能力。
 
 - Scriverse Server 与 Web 源码由 `musnows/Scriverse` 维护，禁止复制前后端、showcase 或 demo 源码到本仓库。
 - Desktop 通过 `scripts/prepare-runtime.mjs` 引入已构建 Server runtime，并通过 `runtime-overlay/` 维护必要的 Desktop Web 差异。
@@ -125,6 +125,7 @@ npm run verify:package
 - Desktop 使用四段版本号。前三段是本次构建对齐的 Scriverse Server 版本，第四段只表示 Desktop 自身的修复修订。Server 保持三段版本号，不得使用四段版本。已发布的 Desktop `1.1.7.1` 对齐已发布的 Server `1.1.7`；该版本已经发布，不得改标、重新发布或回溯为 `1.1.7.0`。
 - 今后对齐某个 Server 版本的第一版 Desktop，第四段从 `0` 起。例如 Server `1.1.8` 对应 Desktop `1.1.8.0`。同一 Server 版本上的后续 Desktop 修复只增加第四段，例如 `1.1.8.1`、`1.1.8.2`。
 - `package.json` 的 `version` 必须是四段 Desktop 版本。`scriverseServerVersion` 必须是其中前三段，并且对应已经正式发布的 Scriverse Server Git tag 与 GitHub Release。禁止发布三段 Desktop 版本，也禁止使用不同的 Server 版本、`develop` 或未发布 commit 作为运行时来源。
+- 用户说 Desktop 的“fix 版本”，或说最后一个版本号加 1 且对象是 Desktop 时，只把四段版本号的最后一段加 1，例如 `1.2.1.0` → `1.2.1.1`。前三段和 `scriverseServerVersion` 保持这次 Desktop 已经对齐的 Server 版本，不发布新的 Server 版本。这与对齐新发布的 Server 版本不同：那种情况下第四段从 `0` 起，例如 Server `1.2.2` 对应 Desktop `1.2.2.0`。Server 本身始终使用三段版本号，不得改成四段。
 
 ### `main` PR 的 Server Release 能力对齐门禁
 

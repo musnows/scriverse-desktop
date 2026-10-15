@@ -1,5 +1,10 @@
 import { isAbsolute, join, normalize } from "node:path";
-import { parseLocalServerPort } from "./desktop-settings-contract.js";
+import {
+  isLocalPortUnbindableError,
+  localServerPortUnavailableMessage,
+  LocalServerPortUnavailableError,
+  parseLocalServerPort
+} from "./desktop-settings-contract.js";
 
 export const LOCAL_SERVER_START_TIMEOUT_MS = 30_000;
 export const LOCAL_SERVER_SHUTDOWN_TIMEOUT_MS = 10_000;
@@ -156,6 +161,89 @@ function assertAbsolutePath(value: unknown, label: string): string {
     throw new LocalServerContractError("LOCAL_PATH_INVALID", `${label} 必须是绝对路径`);
   }
   return normalize(value);
+}
+
+const LOCAL_SERVER_INVALID_ARGUMENT_MESSAGE = "本地服务启动参数无效。请重新打开叙界；若刚升级过，请重新安装当前 Desktop 版本后再进入本地工作区。";
+const LOCAL_SERVER_STORAGE_MESSAGE = "本地工作区目录校验失败，已停止启动。请确认本地工作区目录完整且没有被其他程序占用后再试。";
+const LOCAL_SERVER_DATABASE_MESSAGE = "本地数据库无法打开。若日志显示 novel.db-wal 或 novel.db-shm 权限错误，请关闭占用这些文件的程序后重试。";
+const LOCAL_SERVER_RETRY_LIMIT_MESSAGE = "本地服务连续启动失败次数已达到上限。请先根据 Desktop 日志处理上一次启动错误，再重新进入本地工作区。";
+const LOCAL_SERVER_UNKNOWN_MESSAGE = "本地服务启动失败，请查看 Desktop 日志";
+const LOCAL_SERVER_SHUTDOWN_MESSAGE = "本地服务未能正常关闭";
+
+function readErrorField(error: unknown, field: string): string | null {
+  if (typeof error !== "object" || error === null || !(field in error)) return null;
+  const value = (error as Record<string, unknown>)[field];
+  return typeof value === "string" ? value : null;
+}
+
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isStorageManifestFailure(error: unknown, message: string): boolean {
+  if (error instanceof Error && (error.name === "StorageManifestError" || error.name === "DesktopStorageError")) return true;
+  const code = readErrorField(error, "code");
+  if (code?.startsWith("STORAGE_")) return true;
+  return message.includes("存储清单")
+    || message.includes("数据目录")
+    || message.includes("已拒绝认领")
+    || message.includes("已拒绝打开")
+    || message.includes("存储目录版本");
+}
+
+function isDatabaseOpenFailure(error: unknown, message: string): boolean {
+  const syscall = readErrorField(error, "syscall");
+  if (syscall === "listen" || syscall === "bind") return false;
+  const path = readErrorField(error, "path") ?? "";
+  if (/novel\.db(?:-wal|-shm)?/u.test(path) || /novel\.db(?:-wal|-shm)?/u.test(message)) return true;
+  if (readErrorField(error, "code") === "ERR_SQLITE_ERROR") return true;
+  return /unable to open database file|disk I\/O error|database is locked/iu.test(message);
+}
+
+function listenFailurePort(error: unknown): number | undefined {
+  if (typeof error !== "object" || error === null || !("port" in error)) return undefined;
+  const port = (error as { port?: unknown }).port;
+  return typeof port === "number" && Number.isInteger(port) ? port : undefined;
+}
+
+/** 监听失败才改写成端口提示。数据库 chmod 的 EPERM 必须留给数据库文案。 */
+export function shouldReportAsPortUnavailable(error: unknown): boolean {
+  if (error instanceof LocalServerPortUnavailableError) return false;
+  if (!isLocalPortUnbindableError(error)) return false;
+  return !isDatabaseOpenFailure(error, errorText(error));
+}
+
+export function formatLocalServerFatalLog(phase: string, code: string, rawMessage: string): string {
+  return `Desktop local server fatal phase=${phase} code=${code}: ${rawMessage}\n`;
+}
+
+export function describeLocalServerStartupFailure(
+  error: unknown,
+  phase: LocalServerFatalMessage["phase"]
+): { code: string; safeMessage: string } {
+  if (phase === "shutdown") {
+    return { code: "LOCAL_SERVER_SHUTDOWN_FAILED", safeMessage: LOCAL_SERVER_SHUTDOWN_MESSAGE };
+  }
+  const message = errorText(error);
+  if (error instanceof LocalServerPortUnavailableError) {
+    return { code: "LOCAL_PORT_UNAVAILABLE", safeMessage: error.message };
+  }
+  if (message.includes("Startup retry limit reached")) {
+    return { code: "LOCAL_STARTUP_RETRY_LIMIT", safeMessage: LOCAL_SERVER_RETRY_LIMIT_MESSAGE };
+  }
+  if (isStorageManifestFailure(error, message)) {
+    return { code: "LOCAL_STORAGE_INVALID", safeMessage: LOCAL_SERVER_STORAGE_MESSAGE };
+  }
+  if (isDatabaseOpenFailure(error, message)) {
+    return { code: "LOCAL_DATABASE_OPEN_FAILED", safeMessage: LOCAL_SERVER_DATABASE_MESSAGE };
+  }
+  if (shouldReportAsPortUnavailable(error)) {
+    return { code: "LOCAL_PORT_UNAVAILABLE", safeMessage: localServerPortUnavailableMessage(listenFailurePort(error)) };
+  }
+  if (phase === "validate" || message.includes("Desktop 版本无效") || message.includes("invalid start message")) {
+    return { code: "LOCAL_START_MESSAGE_INVALID", safeMessage: LOCAL_SERVER_INVALID_ARGUMENT_MESSAGE };
+  }
+  return { code: "LOCAL_SERVER_START_FAILED", safeMessage: LOCAL_SERVER_UNKNOWN_MESSAGE };
 }
 
 export function parseLocalSetupInput(value: unknown): { username: string; password: string } {

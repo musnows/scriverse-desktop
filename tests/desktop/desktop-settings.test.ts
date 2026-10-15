@@ -11,7 +11,9 @@ import {
   DESKTOP_LOG_STORAGE_LIMIT_MIB_OPTIONS,
   LOCAL_SERVER_PORT_SCAN_COUNT,
   LocalServerPortUnavailableError,
+  isLocalPortUnbindableError,
   localServerPortCandidates,
+  localServerPortUnavailableMessage,
   MAX_REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD,
   MIN_REMOTE_SERVER_UNREACHABLE_FAILURE_THRESHOLD,
   selectLocalServerPort
@@ -144,9 +146,46 @@ describe("Desktop 系统设置与本地端口", () => {
     const canBind = vi.fn(async () => false);
     const error = await selectLocalServerPort(24_321, canBind).catch((value: unknown) => value);
     expect(error).toBeInstanceOf(LocalServerPortUnavailableError);
-    expect(error.message).toContain("24321");
-    expect(error.message).not.toContain("24322");
-    expect(error.message).not.toContain("24340");
+    expect(error).toMatchObject({ code: "LOCAL_PORT_UNAVAILABLE" });
+    expect((error as Error).message).toBe(localServerPortUnavailableMessage(24_321));
+    expect((error as Error).message).toContain("24321");
+    expect((error as Error).message).not.toContain("24322");
+    expect((error as Error).message).not.toContain("24340");
+    expect((error as Error).message).toContain("系统设置");
+    expect((error as Error).message).toContain("排除范围之外");
     expect(canBind).toHaveBeenCalledTimes(LOCAL_SERVER_PORT_SCAN_COUNT);
+  });
+
+  it.each(["EADDRINUSE", "EACCES", "EPERM"])("首选端口抛出 %s 时继续探测下一个端口", async (code) => {
+    expect(isLocalPortUnbindableError(Object.assign(new Error("listen"), { code }))).toBe(true);
+    const canBind = vi.fn(async (port: number) => {
+      if (port === 24_321) throw Object.assign(new Error(`listen ${code}`), { code, syscall: "listen", port });
+      return port === 24_322;
+    });
+    await expect(selectLocalServerPort(24_321, canBind)).resolves.toBe(24_322);
+    expect(canBind).toHaveBeenCalledTimes(2);
+  });
+
+  it("20 个端口都因 EACCES 无法绑定时返回 LOCAL_PORT_UNAVAILABLE", async () => {
+    const canBind = vi.fn(async (port: number) => {
+      throw Object.assign(new Error("listen EACCES: permission denied 127.0.0.1:" + port), {
+        code: "EACCES",
+        syscall: "listen",
+        port
+      });
+    });
+    const error = await selectLocalServerPort(24_321, canBind).catch((value: unknown) => value);
+    expect(error).toBeInstanceOf(LocalServerPortUnavailableError);
+    expect(error).toMatchObject({ code: "LOCAL_PORT_UNAVAILABLE", preferredPort: 24_321 });
+    expect((error as Error).message).toContain("排除范围之外");
+    expect(canBind).toHaveBeenCalledTimes(LOCAL_SERVER_PORT_SCAN_COUNT);
+  });
+
+  it("端口探测遇到其他错误时停止扫描", async () => {
+    const canBind = vi.fn(async () => {
+      throw Object.assign(new Error("listen EADDRNOTAVAIL"), { code: "EADDRNOTAVAIL" });
+    });
+    await expect(selectLocalServerPort(24_321, canBind)).rejects.toMatchObject({ code: "EADDRNOTAVAIL" });
+    expect(canBind).toHaveBeenCalledTimes(1);
   });
 });

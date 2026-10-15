@@ -29,11 +29,26 @@ export class DesktopSettingsContractError extends Error {
   }
 }
 
+/** Windows 排除端口返回 EACCES/EPERM，占用返回 EADDRINUSE。三者都表示这个端口现在不能绑定。 */
+const LOCAL_PORT_UNBINDABLE_CODES = new Set(["EADDRINUSE", "EACCES", "EPERM"]);
+
+export function localServerPortUnavailableMessage(preferredPort?: number): string {
+  const lead = typeof preferredPort === "number"
+    ? `本地服务从端口 ${preferredPort} 起无法绑定`
+    : "本地服务端口无法绑定";
+  return `${lead}。这些端口可能已被占用，或落在 Windows 排除端口范围内。请在 Desktop 系统设置中改用排除范围之外的端口。`;
+}
+
+export function isLocalPortUnbindableError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null || !("code" in error)) return false;
+  return LOCAL_PORT_UNBINDABLE_CODES.has(String(error.code));
+}
+
 export class LocalServerPortUnavailableError extends Error {
   readonly code = "LOCAL_PORT_UNAVAILABLE";
 
   constructor(readonly preferredPort: number) {
-    super(`本地服务首选端口 ${preferredPort} 被占用，请在 Desktop 系统设置中修改端口号`);
+    super(localServerPortUnavailableMessage(preferredPort));
     this.name = "LocalServerPortUnavailableError";
   }
 }
@@ -121,7 +136,12 @@ export async function selectLocalServerPort(
   canBind: (port: number) => Promise<boolean>
 ): Promise<number> {
   for (const port of localServerPortCandidates(preferredPort)) {
-    if (await canBind(port)) return port;
+    try {
+      if (await canBind(port)) return port;
+    } catch (error) {
+      // 探测直接抛出 EACCES 时继续看下一个端口，避免 Windows 排除段中断整次启动。
+      if (!isLocalPortUnbindableError(error)) throw error;
+    }
   }
   throw new LocalServerPortUnavailableError(preferredPort);
 }

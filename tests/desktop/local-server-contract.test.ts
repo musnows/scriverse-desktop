@@ -1,13 +1,17 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { LocalServerPortUnavailableError } from "../../src/shared/desktop-settings-contract.js";
 import {
+  describeLocalServerStartupFailure,
   filterLocalServerEnvironment,
+  formatLocalServerFatalLog,
   parseLocalLoginInput,
   parseLocalSetupInput,
   parseLocalServerEnvironment,
   parseLocalServerParentMessage,
-  parseLocalServerUtilityMessage
+  parseLocalServerUtilityMessage,
+  shouldReportAsPortUnavailable
 } from "../../src/shared/local-server-contract.js";
 
 const root = process.platform === "win32" ? "C:\\desktop\\runtime" : "/desktop/runtime";
@@ -25,7 +29,7 @@ const startMessage = {
 };
 
 describe("Desktop 本地服务消息契约", () => {
-  it.each(["1.1.6", "1.1.7.1", "1.1.10.0", "1.2.0.0", "1.2.0.1", "1.2.0-beta.1", "1.2.0.1-beta.1"])("启动时接受并保留 Desktop 版本 %s", (clientVersion) => {
+  it.each(["1.1.6", "1.1.7.1", "1.1.10.0", "1.2.0.0", "1.2.0.1", "1.2.0.2", "1.2.0-beta.1", "1.2.0.1-beta.1"])("启动时接受并保留 Desktop 版本 %s", (clientVersion) => {
     expect(parseLocalServerParentMessage({ ...startMessage, clientVersion })).toMatchObject({ type: "start", clientVersion });
   });
 
@@ -36,6 +40,111 @@ describe("Desktop 本地服务消息契约", () => {
 
   it.each([undefined, null, 1.2, "", "1.2", "1.2.0.", "1.2.0.a", "1.2.0.-1", "1.2.0.0.1", "v1.2.0.1"])("启动时拒绝无效 Desktop 版本 %s", (clientVersion) => {
     expect(() => parseLocalServerParentMessage({ ...startMessage, clientVersion })).toThrowError(/Desktop 版本无效/u);
+  });
+
+  it("把常见本地启动失败映射成选择页可直接显示的中文说明", () => {
+    const invalid = describeLocalServerStartupFailure(new Error("Desktop 版本无效"), "validate");
+    expect(invalid).toEqual({
+      code: "LOCAL_START_MESSAGE_INVALID",
+      safeMessage: "本地服务启动参数无效。请重新打开叙界；若刚升级过，请重新安装当前 Desktop 版本后再进入本地工作区。"
+    });
+    expect(describeLocalServerStartupFailure(new Error("invalid start message state"), "validate").safeMessage).toBe(invalid.safeMessage);
+
+    const exhausted = new LocalServerPortUnavailableError(23_241);
+    expect(describeLocalServerStartupFailure(exhausted, "start")).toEqual({
+      code: "LOCAL_PORT_UNAVAILABLE",
+      safeMessage: exhausted.message
+    });
+    expect(exhausted.message).toContain("系统设置");
+    expect(exhausted.message).toContain("排除范围之外");
+
+    const listenEacces = Object.assign(new Error("listen EACCES: permission denied 127.0.0.1:23241"), {
+      code: "EACCES",
+      syscall: "listen",
+      port: 23_241
+    });
+    const listenInUse = Object.assign(new Error("listen EADDRINUSE: address already in use 127.0.0.1:23241"), {
+      code: "EADDRINUSE",
+      syscall: "listen",
+      port: 23_241
+    });
+    const listenEperm = Object.assign(new Error("listen EPERM: operation not permitted 127.0.0.1:23241"), {
+      code: "EPERM",
+      syscall: "listen",
+      port: 23_241
+    });
+    for (const error of [listenEacces, listenInUse, listenEperm]) {
+      expect(shouldReportAsPortUnavailable(error)).toBe(true);
+      expect(describeLocalServerStartupFailure(error, "start")).toEqual({
+        code: "LOCAL_PORT_UNAVAILABLE",
+        safeMessage: exhausted.message
+      });
+    }
+
+    const storage = new Error("非空目录缺少可验证的 Scriverse Server 数据库，已拒绝认领");
+    storage.name = "StorageManifestError";
+    Object.assign(storage, { code: "STORAGE_DIRECTORY_UNCLAIMED" });
+    expect(describeLocalServerStartupFailure(storage, "start")).toEqual({
+      code: "LOCAL_STORAGE_INVALID",
+      safeMessage: "本地工作区目录校验失败，已停止启动。请确认本地工作区目录完整且没有被其他程序占用后再试。"
+    });
+    expect(describeLocalServerStartupFailure(new Error("存储清单格式无效"), "start").code).toBe("LOCAL_STORAGE_INVALID");
+
+    const databasePermission = Object.assign(
+      new Error("EPERM: operation not permitted, chmod 'C:\\\\Users\\\\author\\\\novel.db-shm'"),
+      { code: "EPERM", syscall: "chmod", path: "C:\\Users\\author\\AppData\\Local\\Scriverse Desktop\\data\\local-vault\\runtime\\novel.db-shm" }
+    );
+    const databaseOpen = Object.assign(new Error("unable to open database file"), { code: "ERR_SQLITE_ERROR" });
+    const databaseSentence = "本地数据库无法打开。若日志显示 novel.db-wal 或 novel.db-shm 权限错误，请关闭占用这些文件的程序后重试。";
+    expect(shouldReportAsPortUnavailable(databasePermission)).toBe(false);
+    expect(describeLocalServerStartupFailure(databasePermission, "start")).toEqual({
+      code: "LOCAL_DATABASE_OPEN_FAILED",
+      safeMessage: databaseSentence
+    });
+    expect(describeLocalServerStartupFailure(databaseOpen, "start").safeMessage).toBe(databaseSentence);
+    expect(describeLocalServerStartupFailure(new Error("EPERM: operation not permitted, chmod '/data/novel.db-wal'"), "start").code).toBe("LOCAL_DATABASE_OPEN_FAILED");
+
+    const retry = describeLocalServerStartupFailure(
+      new Error("Startup retry limit reached (2); fix the previous initialization error and remove C:\\data\\.startup-retry.json before restarting"),
+      "start"
+    );
+    expect(retry).toEqual({
+      code: "LOCAL_STARTUP_RETRY_LIMIT",
+      safeMessage: "本地服务连续启动失败次数已达到上限。请先根据 Desktop 日志处理上一次启动错误，再重新进入本地工作区。"
+    });
+    expect(retry.safeMessage).not.toContain("删除");
+    expect(retry.safeMessage).not.toContain(".startup-retry.json");
+
+    const unknown = describeLocalServerStartupFailure(new Error("Desktop resource paths do not match the packaged application"), "start");
+    expect(unknown).toEqual({
+      code: "LOCAL_SERVER_START_FAILED",
+      safeMessage: "本地服务启动失败，请查看 Desktop 日志"
+    });
+    expect(describeLocalServerStartupFailure(new Error("close failed"), "shutdown")).toEqual({
+      code: "LOCAL_SERVER_SHUTDOWN_FAILED",
+      safeMessage: "本地服务未能正常关闭"
+    });
+
+    for (const failure of [invalid, { code: exhausted.code, safeMessage: exhausted.message }, retry, unknown]) {
+      expect(failure.safeMessage.length).toBeLessThanOrEqual(300);
+      const log = formatLocalServerFatalLog("start", failure.code, "listen EACCES: permission denied 127.0.0.1:23241");
+      expect(log.startsWith(`Desktop local server fatal phase=start code=${failure.code}: `)).toBe(true);
+      expect(log).toContain("listen EACCES: permission denied 127.0.0.1:23241");
+      expect(log).not.toContain(failure.safeMessage);
+    }
+  });
+
+  it("本地服务把技术原因先写入日志，再把中文说明交给选择页", () => {
+    const utilitySource = readFileSync(new URL("../../src/utility/local-server.mts", import.meta.url), "utf8");
+    const gateSource = readFileSync(new URL("../../src/utility/runtime-gate.mts", import.meta.url), "utf8");
+    const fatalSource = utilitySource.slice(utilitySource.indexOf("function fatal"), utilitySource.indexOf("function canBindLoopbackPort"));
+    expect(fatalSource.indexOf("process.stderr.write")).toBeGreaterThan(-1);
+    expect(fatalSource.indexOf("post(")).toBeGreaterThan(fatalSource.indexOf("process.stderr.write"));
+    expect(utilitySource).toContain("shouldReportAsPortUnavailable");
+    expect(utilitySource).toContain("isLocalPortUnbindableError");
+    expect(gateSource).toContain("isLocalPortUnbindableError");
+    expect(utilitySource).not.toContain('error.code === "EADDRINUSE"');
+    expect(gateSource).not.toContain('error.code === "EADDRINUSE"');
   });
 
   it("仅在 Desktop 本地嵌入运行时完全禁用 AI endpoint validator", () => {
